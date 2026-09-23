@@ -144,11 +144,17 @@ class BackSegment(BaseModel):
     text: str
 
 
+class Suggestion(BaseModel):
+    segment_id: str
+    suggestion: str
+
+
 class Critique(BaseModel):
-    """The Critic's back-translation and flags."""
+    """The Critic's back-translation, flags, and non-blocking suggestions."""
 
     back_segments: list[BackSegment]
     flags: list[Flag] = Field(default_factory=list)
+    suggestions: list[Suggestion] = Field(default_factory=list)
 
     def back_translation(self) -> str:
         return "\n\n".join(s.text for s in self.back_segments)
@@ -184,6 +190,7 @@ class Result(BaseModel):
     back_translation: str
     status: Status
     flags: list[Flag]
+    suggestions: list[Suggestion] = Field(default_factory=list)
     ledger: list[LedgerEntry]
     revisions: int = 0
     stage_errors: list[str] = Field(default_factory=list)
@@ -195,6 +202,7 @@ class ComposeRequest(BaseModel):
     locale: str | None = None  # override the Reader's guess
     contact_id: str | None = None
     user_language: str | None = None  # defaults to settings
+    model: str | None = None  # per-request override of the configured model name
 
 
 class ComposeResponse(BaseModel):

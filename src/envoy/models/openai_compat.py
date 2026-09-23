@@ -62,12 +62,35 @@ class OpenAICompatModel:
         except (KeyError, IndexError, TypeError) as e:
             raise ModelError(f"unexpected response shape: {body!r}"[:300]) from e
 
+    def with_model(self, model: str) -> OpenAICompatModel:
+        """Same endpoint and key, a different model name."""
+        other = OpenAICompatModel.__new__(OpenAICompatModel)
+        other.endpoint, other.api_key, other._client = self.endpoint, self.api_key, self._client
+        other.model, other.name = model, f"openai:{model}"
+        return other
+
+    def list_models(self) -> list[str]:
+        r = self._client.get(f"{self.endpoint}/models", headers=self._headers())
+        r.raise_for_status()
+        data = r.json().get("data", [])
+        return sorted(m.get("id") for m in data if m.get("id"))
+
     def check(self) -> dict[str, Any]:
-        """Is the endpoint reachable and does it list our model?"""
+        """Is the endpoint reachable and can it serve our model?
+
+        Tries the model list first. Endpoints that do not expose one fall back
+        to a one-token chat call with the configured model.
+        """
         try:
-            r = self._client.get(f"{self.endpoint}/models", headers=self._headers())
-            r.raise_for_status()
-            names = [m.get("id") for m in r.json().get("data", [])]
+            names = self.list_models()
             return {"ok": True, "models": names, "has_model": self.model in names}
-        except httpx.HTTPError as e:
-            return {"ok": False, "error": str(e), "models": [], "has_model": False}
+        except httpx.HTTPError as list_err:
+            try:
+                self._post({"model": self.model, "max_tokens": 1,
+                            "messages": [{"role": "user", "content": "ping"}]})
+                return {"ok": True, "models": [], "has_model": True,
+                        "note": "this endpoint does not list models; the configured "
+                                "model answered"}
+            except httpx.HTTPError as e:
+                return {"ok": False, "error": f"{e} (model list: {list_err})",
+                        "models": [], "has_model": False}

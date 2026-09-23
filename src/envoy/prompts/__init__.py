@@ -10,7 +10,7 @@ _PH = re.compile(r"\{\{(\w+)\}\}")
 
 
 def load(name: str) -> str:
-    return (_DIR / f"{name}.md").read_text()
+    return (_DIR / f"{name}.md").read_text(encoding="utf-8")
 
 
 def render(name: str, **vars: object) -> str:

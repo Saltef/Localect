@@ -48,13 +48,14 @@ export type Result = {
   back_translation: string;
   status: "ready" | "check" | "escalate";
   flags: Flag[];
+  suggestions: { segment_id: string; suggestion: string }[];
   ledger: LedgerEntry[];
   revisions: number;
   stage_errors: string[];
   model: string;
 };
 export type Settings = {
-  provider: "stub" | "openai";
+  provider: "stub" | "openai" | "cohere";
   endpoint: string;
   model: string;
   api_key: string;
@@ -109,12 +110,14 @@ export const api = {
       "GET",
       "/api/settings/check"
     ),
-  compose: (message: string, locale?: string, contact_id?: string) =>
+  compose: (message: string, locale?: string, contact_id?: string, model?: string) =>
     req<{ result: Result }>("POST", "/api/compose", {
       message,
       locale: locale || null,
       contact_id: contact_id || null,
+      model: model || null,
     }),
+  models: () => req<{ models: string[]; current: string; note?: string }>("GET", "/api/models"),
   glossary: () => req<GlossaryItem[]>("GET", "/api/glossary"),
   addGlossary: (g: Omit<GlossaryItem, "id" | "do_not_translate"> & { do_not_translate: boolean }) =>
     req<{ id: string }>("POST", "/api/glossary", g),

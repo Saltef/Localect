@@ -14,7 +14,7 @@ _DIR = Path(__file__).parent
 def load_starter_profiles() -> list[LocaleProfile]:
     out = []
     for f in sorted(_DIR.glob("*.yaml")):
-        out.append(LocaleProfile.model_validate(yaml.safe_load(f.read_text())))
+        out.append(LocaleProfile.model_validate(yaml.safe_load(f.read_text(encoding="utf-8"))))
     return out
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 import threading
 import time
 import urllib.request
@@ -61,8 +62,9 @@ def _check(args: argparse.Namespace) -> None:
         else:
             print(f"status   : cannot reach endpoint ({r['error']})")
     else:
-        print("status   : stub provider (deterministic, offline). Point Envoy at a local "
-              "model with: envoy config --provider openai --model <name>")
+        print("status   : stub provider (deterministic, offline). Use a real model with: "
+              "envoy config --provider cohere --model <name> --api-key <key>  "
+              "or  envoy config --provider openai --model <name>")
 
 
 def _config(args: argparse.Namespace) -> None:
@@ -79,7 +81,7 @@ def _demo(args: argparse.Namespace) -> None:
     from .demo import SAMPLE_MESSAGES, seed_demo
     from .locales import seed_locales
     from .models import build_model
-    from .pipeline import compose
+    from .pipeline import PipelineError, compose
     from .schemas import ComposeRequest
     from .tools import DirectTools
 
@@ -89,8 +91,14 @@ def _demo(args: argparse.Namespace) -> None:
     print("demo data:", seed_demo(con))
     msg = SAMPLE_MESSAGES[args.index]["text"]
     print(f"\nMessage:\n  {msg}\n")
-    r = asyncio.run(compose(ComposeRequest(message=msg), settings=s, model=build_model(s),
-                            tools=DirectTools(con), con=con))
+    try:
+        r = asyncio.run(compose(ComposeRequest(message=msg), settings=s, model=build_model(s),
+                                tools=DirectTools(con), con=con))
+    except PipelineError as e:
+        print(f"Envoy could not run this message: {e}")
+        if "401" in str(e) or "API key" in str(e):
+            print("Fix: envoy config --api-key \"<your key>\"  (from your provider's dashboard)")
+        raise SystemExit(1) from None
     print(f"Locale: {r.locale.locale} ({r.locale.variety})   Status: {r.status.value}")
     print(f"\nWhat they said:\n  {r.reading.gloss}")
     print(f"\nReply:\n{r.final_text}")
@@ -99,9 +107,17 @@ def _demo(args: argparse.Namespace) -> None:
         print("\nFlags:")
         for f in r.flags:
             print(f"  [{f.severity}] {f.segment_id} {f.kind.value}: {f.reason}")
+    if r.suggestions:
+        print("\nSuggestions (do not affect status):")
+        for sg in r.suggestions:
+            print(f"  {sg.segment_id}: {sg.suggestion}")
 
 
 def main() -> None:
+    # Windows consoles default to a legacy code page; Envoy prints Arabic, Japanese, accents.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(prog="envoy", description="Reply to anyone in their language.")
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="cmd")
@@ -116,7 +132,7 @@ def main() -> None:
     c.set_defaults(func=_check)
 
     cfg = sub.add_parser("config", help="set provider, endpoint, model, your name")
-    cfg.add_argument("--provider", choices=["stub", "openai"])
+    cfg.add_argument("--provider", choices=["stub", "openai", "cohere"])
     cfg.add_argument("--endpoint")
     cfg.add_argument("--model")
     cfg.add_argument("--api-key", dest="api_key", help="for hosted OpenAI-compatible endpoints")

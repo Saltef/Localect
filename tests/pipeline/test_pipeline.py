@@ -1,6 +1,7 @@
 """Golden cases through the whole pipeline on the stub, with in-process tools."""
 
 import json
+import re
 
 import pytest
 
@@ -22,10 +23,17 @@ async def test_levantine_arabic_is_grounded_and_local(demo_con, settings):
                    "مرحبا، كيفك؟ بدي أعرف متى بيوصل طلبي رقم #4521؟ وشو سياسة الإرجاع؟")
     assert r.locale.locale == "ar-LB" and r.status == Status.ready
     assert r.final_text.startswith("مرحبا،") and "تحياتي،\nSafea" in r.final_text
-    assert "٢" in r.final_text  # eastern numerals applied by the rewriter
+    assert "within 2 business" in r.final_text  # Lebanon uses Western digits
     cited = [e for e in r.ledger if e.source_ids]
     assert len(cited) == 2 and all(s.startswith("kb:") for e in cited for s in e.source_ids)
     assert r.revisions == 0 and r.stage_errors == []
+
+
+async def test_egyptian_arabic_gets_eastern_numerals(demo_con, settings):
+    r = await _run(demo_con, settings, "ازيك، امتى هيوصل طلبي رقم #7788؟")
+    assert r.locale.locale == "ar-EG"
+    assert re.search(r"[٠-٩]", r.final_text) and not re.search(r"[0-9]", r.final_text)
+    assert any(c.kind == "format" for c in r.rewrite.changes)
 
 
 async def test_portuguese_brazil_greeting_and_sources(demo_con, settings):

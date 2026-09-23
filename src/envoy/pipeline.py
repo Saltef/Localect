@@ -18,6 +18,7 @@ from .schemas import (
     RewrittenSegment,
     Status,
 )
+from .text import strip_citations
 from .tools import Tools
 
 LANG_NAMES = {"en": "English", "ar": "Arabic", "es": "Spanish", "pt": "Portuguese",
@@ -82,10 +83,15 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
                                 contact_name=contact_name, user_name=settings.user_name)
     except StageError as e:
         raise PipelineError(f"could not draft a reply ({e.reason})") from e
+    for seg in d.segments:
+        seg.text = strip_citations(seg.text)
 
     async def _rewrite(flags: list[Flag] | None) -> Rewrite:
         try:
-            return await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags)
+            rw_ = await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags)
+            for seg in rw_.segments:
+                seg.text = strip_citations(seg.text)
+            return rw_
         except StageError as e:
             stage_errors.append(str(e))
             return Rewrite(segments=[RewrittenSegment(id=s.id, text=s.text) for s in d.segments])
@@ -119,7 +125,8 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     result = Result(
         message=req.message, user_language=user_language, locale=locale, reading=reading,
         sources=sources, draft=d, rewrite=rw, critique=cq, final_text=rw.text(),
-        back_translation=cq.back_translation(), status=status, flags=flags, ledger=ledger,
+        back_translation=cq.back_translation(), status=status, flags=flags,
+        suggestions=cq.suggestions, ledger=ledger,
         revisions=revisions, stage_errors=stage_errors, model=model.name,
     )
     db.history_add(con, result.model_dump_json(), result.id, result.created_at, req.message,

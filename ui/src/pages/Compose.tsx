@@ -13,6 +13,8 @@ export default function Compose() {
   const [locales, setLocales] = useState<LocaleProfile[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [models, setModels] = useState<string[]>([]);
+  const [model, setModel] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");
@@ -22,6 +24,7 @@ export default function Compose() {
     api.locales().then(setLocales).catch(() => {});
     api.contacts().then(setContacts).catch(() => {});
     api.samples().then(setSamples).catch(() => {});
+    api.models().then((m) => { setModels(m.models); setModel(m.current); }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -36,7 +39,7 @@ export default function Compose() {
     setError("");
     setResult(null);
     try {
-      const r = await api.compose(message, locale, contact);
+      const r = await api.compose(message, locale, contact, models.length ? model : undefined);
       setResult(r.result);
     } catch (e) {
       setError((e as Error).message);
@@ -57,7 +60,7 @@ export default function Compose() {
             placeholder="Any language. Envoy will tell you what it says, draft a reply in their language, make it sound local, and check nothing was lost."
           />
         </Field>
-        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+        <div className={`mt-3 grid gap-3 md:items-end ${models.length ? "md:grid-cols-[1fr_1fr_1fr_1fr_auto]" : "md:grid-cols-[1fr_1fr_1fr_auto]"}`}>
           <Field label="Contact (optional)">
             <select className={inputCls} value={contact} onChange={(e) => setContact(e.target.value)}>
               <option value="">— none —</option>
@@ -76,6 +79,13 @@ export default function Compose() {
               {samples.map((s) => <option key={s.label} value={s.label}>{s.label}</option>)}
             </select>
           </Field>
+          {models.length > 0 && (
+            <Field label="Model">
+              <select className={inputCls} value={model} onChange={(e) => setModel(e.target.value)} data-testid="model">
+                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </Field>
+          )}
           <Button onClick={run} disabled={busy || !message.trim()} className="h-[38px]">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Compose reply

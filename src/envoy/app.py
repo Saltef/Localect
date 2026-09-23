@@ -92,6 +92,8 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         s: Settings = app.state.settings
         for k, v in patch.items():
             if k in {"provider", "endpoint", "model", "api_key", "user_name", "user_language"}:
+                if k == "api_key" and v in ("", "set"):
+                    continue  # the UI sends the masked value back; keep the stored key
                 setattr(s, k, v)
         s.save()
         app.state.model = build_model(s)
@@ -106,6 +108,24 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
                 "has_model": True,
                 "note": "stub provider: deterministic, runs offline, not a language model"}
 
+    @app.get("/api/models")
+    def list_models() -> dict[str, Any]:
+        """Models the configured endpoint can serve, for the pickers."""
+        m = app.state.model
+        if not hasattr(m, "list_models"):
+            return {"models": [], "current": m.name,
+                    "note": "stub provider has no models to pick from"}
+        try:
+            return {"models": m.list_models(), "current": m.model}
+        except Exception as e:  # noqa: BLE001 - endpoint without a model list
+            return {"models": [], "current": m.model, "note": str(e)[:200]}
+
+    def _model_for(req: ComposeRequest):
+        m = app.state.model
+        if req.model and hasattr(m, "with_model") and req.model != m.model:
+            return m.with_model(req.model)
+        return m
+
     # -- compose -------------------------------------------------------------
 
     @app.post("/api/compose", response_model=ComposeResponse)
@@ -113,7 +133,7 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         if not req.message.strip():
             raise HTTPException(400, "message is empty")
         try:
-            result = await compose(req, settings=app.state.settings, model=app.state.model,
+            result = await compose(req, settings=app.state.settings, model=_model_for(req),
                                    tools=app.state.tools, con=app.state.con)
         except PipelineError as e:
             raise HTTPException(502, str(e)) from e

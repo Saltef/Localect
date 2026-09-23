@@ -49,7 +49,7 @@ def test_compose_flow_and_screenshots(server):
         page.get_by_test_id("result").wait_for(timeout=60000)
         assert "Ready to send" in page.get_by_test_id("result").inner_text()
         final = page.get_by_test_id("final").inner_text()
-        assert final.startswith("مرحبا") and "٢" in final
+        assert final.startswith("مرحبا") and "within 2 business" in final
         assert page.get_by_test_id("final").get_attribute("dir") == "rtl"
         page.screenshot(path=str(SHOTS / "compose.png"), full_page=True)
 

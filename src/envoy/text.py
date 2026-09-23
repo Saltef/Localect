@@ -115,3 +115,13 @@ def to_eastern(text: str) -> str:
 
 def to_western(text: str) -> str:
     return text.translate(str.maketrans(_EASTERN, _WESTERN))
+
+
+_CITATION = re.compile(r"\s*\[?\b(?:kb|gl|hx|th):[A-Za-z0-9_:\-]+\]?")
+
+
+def strip_citations(text: str) -> str:
+    """Remove source ids a model may have written into prose ([kb:abc:0], gl:1)."""
+    out = _CITATION.sub("", text)
+    out = re.sub(r"[ \t]+([.,،؛:!?؟])", r"\1", out)  # no space before punctuation
+    return re.sub(r"[ \t]{2,}", " ", out).strip()

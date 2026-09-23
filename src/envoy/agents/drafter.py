@@ -28,6 +28,8 @@ async def draft(model: ChatModel, reading: Reading, locale: LocaleProfile,
         asks="; ".join(reading.asks) or "(none)",
         must_preserve=", ".join(reading.must_preserve) or "(none)",
         contact_name=contact_name or "(unknown)", user_name=user_name or "(not set)",
+        greeting=locale.greeting.replace("{name}", contact_name or "").strip() or "(none)",
+        signoff=locale.signoff or "(none)",
         glossary=_glossary_block(sources), sources=_sources_block(sources),
         schema=schema_text(Draft),
     )
