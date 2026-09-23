@@ -3,61 +3,144 @@
 **Reply to anyone in their language, and sound like a local.**
 Private. Runs on your machine. You always press send.
 
-Envoy helps you handle messages across languages. Paste what someone wrote
-you, and Envoy shows you what they said, drafts your reply in their language,
-rewrites it so it reads as if a native of their region wrote it, and checks
-that nothing was lost in translation before you send.
+Paste a message someone sent you in any language. Envoy tells you what it
+says, drafts a reply in their language grounded in your own facts, has a
+native editor rewrite it so it reads local to their region, and has a critic
+back-translate the result so you can see nothing was lost before you send.
+
+![Envoy composing a Levantine Arabic reply with a side-by-side back-translation](docs/screenshots/compose.png)
 
 ## What you get
 
-- **Understand any message.** A faithful gloss in your own language, so you
-  know exactly what was said before you answer.
-- **A grounded reply.** Drafted from your own facts, policies, glossary, and
-  past replies, never invented.
-- **Sounds local, not translated.** A Rewriter edits the reply for the
-  receiver's region and dialect, formality, idiom, greetings and sign-offs,
-  and date, number, and currency formats.
+- **Understand any message.** A faithful gloss in your own language.
+- **A grounded reply.** Every fact, price, or policy comes from your knowledge
+  base and glossary, and each claim is shown next to its source. Nothing is
+  invented; if the answer is not in your materials, the reply says it will
+  confirm rather than guess.
+- **Sounds local, not translated.** A Rewriter edits for the receiver's region
+  and dialect (Egyptian, Gulf, or Levantine Arabic; Brazilian or European
+  Portuguese; Mexican or Castilian Spanish, and more), formality, idiom,
+  greetings and sign-offs, and date, number, and currency formats. Twelve
+  editable locale profiles ship out of the box.
 - **Nothing lost.** A Critic back-translates the final text and flags meaning
-  drift, off tone, cultural risks, and any claim your sources don't support.
-- **You send.** Envoy stages a message; it never sends on its own.
+  drift, off tone, cultural risks, broken glossary terms, and unsupported
+  claims. A deterministic Arbiter re-checks the things a model must never get
+  wrong: preserved numbers and ids, do-not-translate terms, dropped segments.
+- **You send.** Envoy never sends anything. You copy the reply.
 
 ## Install (three steps)
 
-1. Install [Ollama](https://ollama.com) and pull a multilingual model:
-   `ollama pull <model>`
-2. `pipx install envoy-ai` (or `uv tool install envoy-ai`)
-3. `envoy` — opens `http://localhost:8765`
+1. Install [Ollama](https://ollama.com) and pull a multilingual model, for
+   example a Cohere Aya model:
+   ```bash
+   ollama pull aya-expanse:8b
+   ```
+2. Install Envoy:
+   ```bash
+   pipx install envoy-ai        # or: uv tool install envoy-ai
+   ```
+3. Run it:
+   ```bash
+   envoy
+   ```
+   It opens `http://127.0.0.1:8765`. Go to **Settings**, choose *Local model*,
+   set the model name you pulled, and click **Check connection**. Load the
+   demo data from the same screen to try it immediately.
 
-Prefer containers? `docker run -p 8765:8765 ghcr.io/saltef/envoy` (points at
-your host's Ollama).
+Until you point it at a model, Envoy runs in **stub mode**: a deterministic
+stand-in that exercises the whole pipeline offline. It is labelled as such in
+the sidebar. It is not a language model and its replies are not translations;
+it exists so the product works with no setup, in CI, and in places where
+weights cannot be downloaded.
 
-First launch walks you through a two-minute setup: who you are, your
-glossary and do-not-translate terms, and the regions you usually write to.
+Prefer a container?
+
+```bash
+docker build -t envoy .
+docker run -p 8765:8765 -v envoy-data:/data envoy   # talks to Ollama on the host
+```
 
 ## How it works
 
 ```
-your message in  ──►  Reader   what they said, in your language
-                      Drafter  a grounded reply in their language
-                      Rewriter makes it read like a local wrote it
-                      Critic   back-translates and flags what changed
-                      Arbiter  keeps, revises, or escalates; you send
+message in  ──►  Reader    what they said, in your language, plus what must be preserved
+                 Drafter   a reply in their language, each claim tied to a source (via MCP tools)
+                 Rewriter  a native editor for their region: dialect, register, idiom, formats
+                 Critic    back-translates and flags drift, tone, culture, glossary, claims
+                 Arbiter   deterministic checks; keep, revise once, or escalate; you send
 ```
 
-Each stage is a separate agent with its own job. The Rewriter pushes for
-naturalness; the Critic guarantees fidelity. That tension is the product:
-a native editor and a proofreader who never agree to let an error through.
+Each stage is a separate agent with its own prompt. The Rewriter pushes for
+naturalness; the Critic guarantees fidelity; if the Critic finds a blocking
+problem the Rewriter gets one revision pass with the flag as its instruction,
+then you decide. The Drafter reaches your data through four built-in
+[MCP](https://modelcontextprotocol.io) servers (glossary, knowledge, history,
+thread) that start automatically, which is also how Envoy will grow
+connectors for email, chat, and shops without touching the core.
+
+![Dark mode, with an injection attempt in the incoming message that produced no commitment](docs/screenshots/compose-dark.png)
+
+## Using a real model
+
+Any server that speaks the OpenAI chat-completions API works: Ollama, LM
+Studio, llama.cpp server, vLLM, or a hosted endpoint. Configure from
+**Settings**, or from the shell:
+
+```bash
+envoy config --provider openai --endpoint http://127.0.0.1:11434/v1 --model aya-expanse:8b
+envoy check      # confirms the endpoint answers and lists your model
+envoy demo       # loads demo data and runs one sample message in the terminal
+```
+
+Every agent role uses the same model by default. Power users can point
+individual roles at different models in `~/.envoy/settings.json`
+(`role_models`), for example a tool-capable model for orchestration and a
+multilingual one for the language work.
 
 ## Privacy
 
-Everything runs locally: the models, the data, the glossary, the history.
-Nothing is sent to a cloud service unless you explicitly configure one.
+Everything runs locally: the model, the database, the glossary, the history.
+The only network call Envoy makes is to the model endpoint you configure,
+which by default is on your own machine. There is no account and no
+telemetry.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest -q --ignore=tests/e2e     # unit, agents, MCP over stdio, pipeline, API  (~7s)
+cd ui && npm ci && npm run build # bundles the UI into the Python package
+playwright install chromium
+pytest -q tests/e2e              # boots the real server and drives the UI in Chromium
+ruff check src tests
+```
+
+Layout:
+
+```
+src/envoy/
+  schemas.py      typed contracts for every agent and the Result
+  pipeline.py     Reader → Drafter → Rewriter → Critic → Arbiter, one revision loop
+  agents/         reader, drafter, rewriter, critic (model-driven); arbiter (deterministic)
+  prompts/        one versioned prompt per agent
+  models/         openai_compat (Ollama, LM Studio, vLLM), stub, fake (tests)
+  mcp/servers/    glossary, knowledge, history, thread; mcp/client.py spawns them
+  locales/        twelve starter locale profiles (YAML)
+  text.py         shared tokenizer with a small cross-lingual alias table
+  db.py, app.py, cli.py, demo.py
+ui/               React + Vite + Tailwind, built into src/envoy/static
+tests/            unit · agents · mcp · pipeline · api · e2e
+docs/DESIGN.md    the build plan
+```
 
 ## Roadmap
 
-- v1: inbound replies with Rewriter and Critic, local web app, one-command install
-- v1.5: outbound, one message localized to many regions with the same Critic
-- Later: email and chat connectors over MCP, a native desktop app
+- **v1 (this):** inbound replies with Rewriter and Critic, local web app,
+  one-command install, twelve locales, MCP-backed grounding.
+- **v1.5:** outbound, one message localized to many regions with the same
+  Critic; prompt tuning on real Aya output; more locales.
+- **Later:** email and chat connectors as MCP servers with a Send action, a
+  native desktop wrapper, community-contributed locale profiles.
 
 ## License
 
