@@ -89,6 +89,12 @@ export default function ResultView({ result }: { result: Result }) {
         </Card>
       )}
 
+      {result.stage_errors.length > 0 && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          A stage failed, so this reply is unverified. Read it yourself before sending. Details: {result.stage_errors.join("; ")}
+        </p>
+      )}
+
       {(result.suggestions ?? []).length > 0 && (
         <Card title="Suggestions from the native reader · optional, do not affect status">
           <ul className="space-y-1 text-sm text-zinc-600 dark:text-zinc-300">

@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..models.base import ChatModel
 from ..prompts import render
 from ..schemas import Draft, LocaleProfile, Reading, SourceSnippet
+from ..text import fill_name
 from .stage import run_stage, schema_text
 
 SYSTEM = ("You write grounded replies. You never state a fact, price, policy, or promise "
@@ -28,7 +29,7 @@ async def draft(model: ChatModel, reading: Reading, locale: LocaleProfile,
         asks="; ".join(reading.asks) or "(none)",
         must_preserve=", ".join(reading.must_preserve) or "(none)",
         contact_name=contact_name or "(unknown)", user_name=user_name or "(not set)",
-        greeting=locale.greeting.replace("{name}", contact_name or "").strip() or "(none)",
+        greeting=fill_name(locale.greeting, contact_name, locale.language) or "(none)",
         signoff=locale.signoff or "(none)",
         glossary=_glossary_block(sources), sources=_sources_block(sources),
         schema=schema_text(Draft),

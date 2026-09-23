@@ -6,12 +6,37 @@ path for real models; the user sets an endpoint and a model name.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import httpx
 from pydantic import BaseModel
 
 from .base import Message, ModelError
+
+
+def _retry(fn, attempts: int = 3, base_delay: float = 1.0):
+    """Retry a request on 429 and 5xx, honouring Retry-After when present."""
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            return fn()
+        except httpx.HTTPStatusError as e:
+            code = e.response.status_code
+            if code != 429 and code < 500:
+                raise
+            last = e
+            wait = base_delay * (2 ** i)
+            ra = e.response.headers.get("retry-after")
+            if ra and ra.isdigit():
+                wait = max(wait, float(ra))
+        except (httpx.TimeoutException, httpx.NetworkError) as e:
+            last = e
+            wait = base_delay * (2 ** i)
+        if i < attempts - 1:
+            time.sleep(min(wait, 10.0))
+    assert last is not None
+    raise last
 
 
 class OpenAICompatModel:
@@ -29,11 +54,14 @@ class OpenAICompatModel:
         return h
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        r = self._client.post(
-            f"{self.endpoint}/chat/completions", json=payload, headers=self._headers()
-        )
-        r.raise_for_status()
-        return r.json()
+        def go():
+            r = self._client.post(
+                f"{self.endpoint}/chat/completions", json=payload, headers=self._headers()
+            )
+            r.raise_for_status()
+            return r.json()
+
+        return _retry(go)
 
     def generate(
         self,

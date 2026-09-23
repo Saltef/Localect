@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from ..text import fill_name as _fill_name
 from ..text import keywords, score, to_eastern, to_western
 from ..text import tokens as _tokens
 from .base import Message
@@ -98,17 +99,6 @@ def extract_preserve(text: str) -> list[str]:
     return seen
 
 
-
-
-def _fill_name(template: str, name: str, language: str) -> str:
-    fallback = {"en": "there", "ja": "お客"}.get(language, "")
-    who = name or fallback
-    if not who:
-        template = template.replace(", {name}", "").replace(" {name}", "").replace("{name}", "")
-    out = template.replace("{name}", who)
-    out = re.sub(r"[ \t]+", " ", out)
-    out = out.replace(" ،", "،").replace(" ,", ",").replace(" :", ":").replace(" !", "!")
-    return out.strip()
 
 
 def _avoid_phrases(notes: str) -> list[str]:

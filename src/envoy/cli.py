@@ -107,6 +107,10 @@ def _demo(args: argparse.Namespace) -> None:
         print("\nFlags:")
         for f in r.flags:
             print(f"  [{f.severity}] {f.segment_id} {f.kind.value}: {f.reason}")
+    if r.stage_errors:
+        print("\nStage errors:")
+        for e in r.stage_errors:
+            print(f"  {e}")
     if r.suggestions:
         print("\nSuggestions (do not affect status):")
         for sg in r.suggestions:

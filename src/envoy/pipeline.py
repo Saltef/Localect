@@ -104,8 +104,9 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
             stage_errors.append(str(e))
             return Critique(back_segments=[], flags=[Flag(
                 segment_id=rw.segments[0].id if rw.segments else "s1",
-                kind=FlagKind.stage_failure, reason="critic failed; unverified",
-                severity="block")])
+                kind=FlagKind.stage_failure,
+                reason="the Critic could not verify this reply; read it yourself before sending",
+                severity="warn")])
 
     rw = await _rewrite(None)
     cq = await _critique(rw)
@@ -119,8 +120,8 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
         flags, status, ledger = arbiter.check(d, rw, cq, reading.must_preserve, sources)
         revisions = 1
 
-    if stage_errors and status != Status.escalate:
-        status = Status.escalate
+    if stage_errors and status == Status.ready:
+        status = Status.check
 
     result = Result(
         message=req.message, user_language=user_language, locale=locale, reading=reading,

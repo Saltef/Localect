@@ -108,8 +108,8 @@ async def test_critic_failure_escalates_with_stage_error(demo_con, settings):
             return stub.generate(messages, role=role, schema=schema, context=context)
 
     r = await _run(demo_con, settings, "When does order #1 ship?", Flaky())
-    assert r.status == Status.escalate and r.stage_errors and r.stage_errors[0].startswith("critic")
-    assert any(f.kind == FlagKind.stage_failure for f in r.flags)
+    assert r.status == Status.check and r.stage_errors and r.stage_errors[0].startswith("critic")
+    assert any(f.kind == FlagKind.stage_failure and f.severity == "warn" for f in r.flags)
 
 
 async def test_history_records_result(demo_con, settings):
