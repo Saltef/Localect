@@ -125,3 +125,16 @@ def strip_citations(text: str) -> str:
     out = _CITATION.sub("", text)
     out = re.sub(r"[ \t]+([.,،؛:!?؟])", r"\1", out)  # no space before punctuation
     return re.sub(r"[ \t]{2,}", " ", out).strip()
+
+
+def fill_name(template: str, name: str, language: str) -> str:
+    """Render a greeting/sign-off template; drop the name slot cleanly when unknown."""
+    fallback = {"en": "there", "ja": "お客"}.get(language, "")
+    who = name or fallback
+    if not who:
+        template = template.replace(", {name}", "").replace(" {name}", "").replace("{name}", "")
+    out = template.replace("{name}", who)
+    out = re.sub(r"[ \t]+", " ", out)
+    for a, b in ((" ،", "،"), (" ,", ","), (" :", ":"), (" !", "!")):
+        out = out.replace(a, b)
+    return out.strip()

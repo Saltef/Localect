@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -22,11 +23,17 @@ class StageError(RuntimeError):
         self.reason = reason
 
 
-def parse_json(text: str, schema: type[T]) -> T:
+Normalizer = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+def parse_json(text: str, schema: type[T], normalize: Normalizer | None = None) -> T:
     m = _JSON.search(text)
     if not m:
         raise ValueError("no JSON object in output")
-    return schema.model_validate(json.loads(m.group(0)))
+    raw = json.loads(m.group(0))
+    if normalize is not None and isinstance(raw, dict):
+        raw = normalize(raw)
+    return schema.model_validate(raw)
 
 
 async def run_stage(
@@ -36,6 +43,7 @@ async def run_stage(
     system: str,
     user: str,
     context: dict[str, Any] | None = None,
+    normalize: Normalizer | None = None,
 ) -> T:
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     last_error = ""
@@ -47,7 +55,7 @@ async def run_stage(
         except ModelError as e:
             raise StageError(role, str(e)) from e
         try:
-            return parse_json(text, schema)
+            return parse_json(text, schema, normalize)
         except (ValueError, ValidationError, json.JSONDecodeError) as e:
             last_error = str(e)[:400]
             if attempt == 0:

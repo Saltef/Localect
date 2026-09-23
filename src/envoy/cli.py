@@ -88,6 +88,7 @@ def _demo(args: argparse.Namespace) -> None:
     s = Settings.load()
     con = db.connect(s.db_path)
     seed_locales(con)
+    print(f"Envoy {__version__}  provider={s.provider} model={s.model}")
     print("demo data:", seed_demo(con))
     msg = SAMPLE_MESSAGES[args.index]["text"]
     print(f"\nMessage:\n  {msg}\n")
@@ -107,6 +108,10 @@ def _demo(args: argparse.Namespace) -> None:
         print("\nFlags:")
         for f in r.flags:
             print(f"  [{f.severity}] {f.segment_id} {f.kind.value}: {f.reason}")
+    if r.stage_errors:
+        print("\nStage errors:")
+        for e in r.stage_errors:
+            print(f"  {e}")
     if r.suggestions:
         print("\nSuggestions (do not affect status):")
         for sg in r.suggestions:

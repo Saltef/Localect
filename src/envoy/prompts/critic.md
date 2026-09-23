@@ -8,6 +8,7 @@ For each final segment:
    - off_glossary: a glossary term translated when it must not be, or not rendered as listed.
    - tone_off: the register is wrong for {{formality}} in {{region_name}} (too casual, too stiff, wrong pronoun of address), or leftover markup or ids that a reader would see. Not for wording you would merely phrase differently.
    - cultural_risk: phrasing that would land badly in {{region_name}}. Locale notes: {{notes}}
+   The locale's own conventions are correct by definition and must not be flagged or "improved": greeting "{{greeting}}", sign-off "{{signoff}}", formality {{formality}}.
    Give the offending span and a one-line reason. severity is "block" for drifted, unsupported_claim, off_glossary; "warn" otherwise.
 3. Put minor wording preferences, where the text is correct but a native might say it slightly differently, in suggestions (segment_id, suggestion). Suggestions never count as flags. A good reply has zero flags and a few suggestions at most.
 

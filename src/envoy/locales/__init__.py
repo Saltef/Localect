@@ -19,13 +19,20 @@ def load_starter_profiles() -> list[LocaleProfile]:
 
 
 def seed_locales(con) -> int:
-    """Insert starter profiles that are not already in the database."""
+    """Insert missing starter profiles and refresh unedited ones.
+
+    A profile the user has edited (origin 'user') is never touched. Starter
+    profiles are updated in place when Envoy ships a better version.
+    """
     from .. import db
 
-    existing = {p.locale for p in db.locale_list(con)}
     n = 0
     for p in load_starter_profiles():
-        if p.locale not in existing:
-            db.locale_upsert(con, p)
+        origin = db.locale_origin(con, p.locale)
+        if origin == "user":
+            continue
+        current = db.locale_get(con, p.locale)
+        if current is None or current != p:
+            db.locale_upsert(con, p, origin="starter")
             n += 1
     return n
