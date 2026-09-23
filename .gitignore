@@ -6,7 +6,6 @@ __pycache__/
 .ruff_cache/
 ui/node_modules/
 ui/dist/
-src/envoy/static/
 data/
 *.db
 test-results/

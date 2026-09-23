@@ -35,9 +35,9 @@ back-translate the result so you can see nothing was lost before you send.
    ```bash
    ollama pull aya-expanse:8b
    ```
-2. Install Envoy:
+2. Install Envoy (from the repository until the first PyPI release):
    ```bash
-   pipx install envoy-ai        # or: uv tool install envoy-ai
+   pipx install git+https://github.com/Saltef/Envoy   # or: uv tool install git+https://github.com/Saltef/Envoy
    ```
 3. Run it:
    ```bash
@@ -109,7 +109,8 @@ telemetry.
 ```bash
 pip install -e ".[dev]"
 pytest -q --ignore=tests/e2e     # unit, agents, MCP over stdio, pipeline, API  (~7s)
-cd ui && npm ci && npm run build # bundles the UI into the Python package
+cd ui && npm ci && npm run build # bundles the UI into src/envoy/static (committed, so
+                                 # installing from the repo works without Node)
 playwright install chromium
 pytest -q tests/e2e              # boots the real server and drives the UI in Chromium
 ruff check src tests
