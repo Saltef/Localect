@@ -67,7 +67,7 @@ def _check(args: argparse.Namespace) -> None:
 
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
-    for k in ("provider", "endpoint", "model", "user_name", "user_language"):
+    for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_language"):
         v = getattr(args, k, None)
         if v is not None:
             setattr(s, k, v)
@@ -119,6 +119,7 @@ def main() -> None:
     cfg.add_argument("--provider", choices=["stub", "openai"])
     cfg.add_argument("--endpoint")
     cfg.add_argument("--model")
+    cfg.add_argument("--api-key", dest="api_key", help="for hosted OpenAI-compatible endpoints")
     cfg.add_argument("--user-name", dest="user_name")
     cfg.add_argument("--user-language", dest="user_language")
     cfg.set_defaults(func=_config)
