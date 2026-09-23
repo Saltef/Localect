@@ -54,7 +54,7 @@ export type Result = {
   model: string;
 };
 export type Settings = {
-  provider: "stub" | "openai";
+  provider: "stub" | "openai" | "cohere";
   endpoint: string;
   model: string;
   api_key: string;

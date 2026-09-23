@@ -22,7 +22,7 @@ def data_dir() -> Path:
 
 @dataclass
 class Settings:
-    provider: str = "stub"  # stub | openai
+    provider: str = "stub"  # stub | openai | cohere
     endpoint: str = DEFAULT_ENDPOINT
     model: str = "aya-expanse:8b"
     api_key: str = ""  # only for hosted OpenAI-compatible endpoints
@@ -42,7 +42,7 @@ class Settings:
         f = data_dir() / "settings.json"
         if f.exists():
             try:
-                raw = json.loads(f.read_text())
+                raw = json.loads(f.read_text(encoding="utf-8"))
                 for k, v in raw.items():
                     if hasattr(s, k):
                         setattr(s, k, v)
@@ -60,7 +60,7 @@ class Settings:
 
     def save(self) -> None:
         f = data_dir() / "settings.json"
-        f.write_text(json.dumps(asdict(self), indent=2))
+        f.write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8")
 
     def public(self) -> dict:
         d = asdict(self)

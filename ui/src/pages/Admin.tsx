@@ -181,12 +181,15 @@ export function SettingsPage() {
       <Card title="Model">
         <div className="space-y-3">
           <Field label="Provider">
-            <div className="flex gap-3 text-sm">
-              <label className="flex items-center gap-2"><input type="radio" checked={s.provider === "openai"} onChange={() => setS({ ...s, provider: "openai" })} /> Local model (Ollama, LM Studio, vLLM)</label>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <label className="flex items-center gap-2"><input type="radio" checked={s.provider === "cohere"} onChange={() => setS({ ...s, provider: "cohere" })} /> Cohere API (direct)</label>
+              <label className="flex items-center gap-2"><input type="radio" checked={s.provider === "openai"} onChange={() => setS({ ...s, provider: "openai" })} /> Local or OpenAI-compatible (Ollama, LM Studio, vLLM)</label>
               <label className="flex items-center gap-2"><input type="radio" checked={s.provider === "stub"} onChange={() => setS({ ...s, provider: "stub" })} /> Stub (offline, deterministic)</label>
             </div>
           </Field>
-          <Field label="Endpoint" hint="OpenAI-compatible base URL. Ollama: http://127.0.0.1:11434/v1"><input className={inputCls} value={s.endpoint} onChange={(e) => setS({ ...s, endpoint: e.target.value })} /></Field>
+          {s.provider !== "cohere" && (
+            <Field label="Endpoint" hint="OpenAI-compatible base URL. Ollama: http://127.0.0.1:11434/v1"><input className={inputCls} value={s.endpoint} onChange={(e) => setS({ ...s, endpoint: e.target.value })} /></Field>
+          )}
           <Field label="Model name" hint={models.length ? "Pick from what the endpoint offers, or type a name" : "Type a model name, then Check connection to list what the endpoint offers"}>
             {models.length ? (
               <select className={inputCls} value={models.includes(s.model) ? s.model : ""} onChange={(e) => setS({ ...s, model: e.target.value })} data-testid="model-select">
@@ -197,7 +200,7 @@ export function SettingsPage() {
               <input className={inputCls} value={s.model} onChange={(e) => setS({ ...s, model: e.target.value })} />
             )}
           </Field>
-          <Field label="API key (only for hosted endpoints)"><input className={inputCls} type="password" value={s.api_key === "set" ? "" : s.api_key} placeholder={s.api_key === "set" ? "•••••••• (set)" : ""} onChange={(e) => setS({ ...s, api_key: e.target.value })} /></Field>
+          <Field label={s.provider === "cohere" ? "Cohere API key" : "API key (only for hosted endpoints)"}><input className={inputCls} type="password" value={s.api_key === "set" ? "" : s.api_key} placeholder={s.api_key === "set" ? "•••••••• (set)" : ""} onChange={(e) => setS({ ...s, api_key: e.target.value })} /></Field>
           <div className="flex items-center gap-2"><Button onClick={save}>{saved ? "Saved" : "Save"}</Button><Button kind="ghost" onClick={doCheck}>Check connection</Button></div>
           {check && <p className="text-sm text-zinc-600 dark:text-zinc-300" data-testid="check">{check}</p>}
         </div>

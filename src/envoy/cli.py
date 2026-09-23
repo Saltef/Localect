@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 import threading
 import time
 import urllib.request
@@ -61,8 +62,9 @@ def _check(args: argparse.Namespace) -> None:
         else:
             print(f"status   : cannot reach endpoint ({r['error']})")
     else:
-        print("status   : stub provider (deterministic, offline). Point Envoy at a local "
-              "model with: envoy config --provider openai --model <name>")
+        print("status   : stub provider (deterministic, offline). Use a real model with: "
+              "envoy config --provider cohere --model <name> --api-key <key>  "
+              "or  envoy config --provider openai --model <name>")
 
 
 def _config(args: argparse.Namespace) -> None:
@@ -102,6 +104,10 @@ def _demo(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    # Windows consoles default to a legacy code page; Envoy prints Arabic, Japanese, accents.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(prog="envoy", description="Reply to anyone in their language.")
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="cmd")
@@ -116,7 +122,7 @@ def main() -> None:
     c.set_defaults(func=_check)
 
     cfg = sub.add_parser("config", help="set provider, endpoint, model, your name")
-    cfg.add_argument("--provider", choices=["stub", "openai"])
+    cfg.add_argument("--provider", choices=["stub", "openai", "cohere"])
     cfg.add_argument("--endpoint")
     cfg.add_argument("--model")
     cfg.add_argument("--api-key", dest="api_key", help="for hosted OpenAI-compatible endpoints")

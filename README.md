@@ -82,15 +82,28 @@ connectors for email, chat, and shops without touching the core.
 
 ## Using a real model
 
-Any server that speaks the OpenAI chat-completions API works: Ollama, LM
-Studio, llama.cpp server, vLLM, or a hosted endpoint. Configure from
-**Settings**, or from the shell:
+Two providers, configured from **Settings** or the shell.
+
+**Cohere's API directly** (recommended if you have a Cohere key; uses Cohere's
+own chat API and model list):
+
+```bash
+envoy config --provider cohere --model command-a-03-2025 --api-key "YOUR_KEY"
+envoy check      # verifies the key and lists the chat models it can use
+envoy demo       # loads demo data and runs one sample message in the terminal
+```
+
+**Any OpenAI-compatible server**: Ollama, LM Studio, llama.cpp server, vLLM,
+or a hosted endpoint:
 
 ```bash
 envoy config --provider openai --endpoint http://127.0.0.1:11434/v1 --model aya-expanse:8b
-envoy check      # confirms the endpoint answers and lists your model
-envoy demo       # loads demo data and runs one sample message in the terminal
+envoy check
 ```
+
+In the app, once **Check connection** succeeds the model field becomes a
+dropdown of what your key or server offers, and Compose gets its own model
+picker so you can compare models on the same message.
 
 Every agent role uses the same model by default. Power users can point
 individual roles at different models in `~/.envoy/settings.json`

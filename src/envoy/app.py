@@ -92,6 +92,8 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         s: Settings = app.state.settings
         for k, v in patch.items():
             if k in {"provider", "endpoint", "model", "api_key", "user_name", "user_language"}:
+                if k == "api_key" and v in ("", "set"):
+                    continue  # the UI sends the masked value back; keep the stored key
                 setattr(s, k, v)
         s.save()
         app.state.model = build_model(s)
