@@ -16,6 +16,25 @@ from .text import fill_name
 
 _MAX_WORDS = 8
 
+# Closings a model tends to emit as separate short segments, across languages.
+_CLOSING = re.compile(
+    r"(regards|sincerely|best|cheers|thanks|thank you|cordialement|salutations|saludos|"
+    r"atenciosamente|abraços|abracos|cumprimentos|grüßen|gruessen|freundlich|تحيات|تقبل|"
+    r"شكر|مع خالص|よろしく|敬具)",
+    re.IGNORECASE,
+)
+
+
+def _closing_like(text: str, user_name: str, signoff: str) -> bool:
+    n = _norm(text)
+    if not n:
+        return True
+    if user_name and n == _norm(user_name):
+        return True
+    if signoff and (n == _norm(signoff) or n.startswith(_norm(signoff.split()[0]))):
+        return True
+    return bool(_CLOSING.search(text)) and _short(text) or len(n.split()) <= 2
+
 
 def rendered_greeting(locale: LocaleProfile, contact_name: str) -> str:
     return fill_name(locale.greeting, contact_name, locale.language)
@@ -49,11 +68,19 @@ def enforce(segments, locale: LocaleProfile, contact_name: str, user_name: str,
         first.text = g
         changed.append(first.id)
     s = rendered_signoff(locale, user_name)
-    last = segments[-1]
-    if s and len(segments) > 1 and _short(last.text) and not has_claims(last) \
-            and _norm(last.text) != _norm(s):
-        last.text = s
-        changed.append(last.id)
+    if s and len(segments) > 1:
+        # Walk back over the trailing run of short, claim-free, closing-like segments.
+        i = len(segments)
+        while i > 1 and _short(segments[i - 1].text) and not has_claims(segments[i - 1]) \
+                and _closing_like(segments[i - 1].text, user_name, locale.signoff):
+            i -= 1
+        tail = segments[i:]
+        if tail:
+            keep = tail[0]
+            if keep.text != s or len(tail) > 1:
+                keep.text = s
+                changed.append(keep.id)
+            del segments[i + 1:]
     return changed
 
 
@@ -62,7 +89,7 @@ def quiet_critic(cq: Critique, final_by_id: dict[str, str], locale: LocaleProfil
     """Drop flags and suggestions aimed at the locale's own conventions, and
     suggestions that merely repeat the text they are attached to."""
     conventions = {_norm(rendered_greeting(locale, contact_name)),
-                   _norm(rendered_signoff(locale, user_name))}
+                   _norm(rendered_signoff(locale, user_name)), _norm(locale.signoff)}
     conventions.discard("")
 
     def is_convention(seg_id: str) -> bool:

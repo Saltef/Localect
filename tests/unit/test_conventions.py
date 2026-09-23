@@ -63,3 +63,24 @@ def test_quiet_critic_drops_convention_flags_and_noop_suggestions():
     out = quiet_critic(cq, final, EG, "", "Safea")
     assert [f.kind for f in out.flags] == [FlagKind.drifted]
     assert [s.segment_id for s in out.suggestions] == ["s1"]
+
+
+def test_enforce_collapses_split_closing_into_one_signoff():
+    segs = [RewrittenSegment(id="g1", text="أهلاً بيك،"),
+            RewrittenSegment(id="s1",
+                             text="المبلغ هيرجعلك خلال ٥ أيام عمل من وقت ما نستلم المرتجع."),
+            RewrittenSegment(id="c1", text="تحياتي،"),
+            RewrittenSegment(id="c2", text="Safea")]
+    enforce(segs, EG, "", "Safea", has_claims=lambda s: False)
+    assert [s.id for s in segs] == ["g1", "s1", "c1"]
+    assert segs[-1].text == "تحياتي،\nSafea"
+
+
+def test_enforce_keeps_a_real_closing_sentence():
+    segs = [RewrittenSegment(id="g1", text="Hi there,"),
+            RewrittenSegment(id="s1", text="Your order ships within 2 business days."),
+            RewrittenSegment(id="s2", text="If there is anything else at all, I am happy to help."),
+            RewrittenSegment(id="c1", text="Kind regards, Safea")]
+    enforce(segs, GB, "", "Safea", has_claims=lambda s: False)
+    assert [s.id for s in segs] == ["g1", "s1", "s2", "c1"]
+    assert segs[2].text.startswith("If there is") and segs[-1].text == "Kind regards,\nSafea"

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS glossary (
   notes TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS locales (
-  locale TEXT PRIMARY KEY, profile TEXT NOT NULL
+  locale TEXT PRIMARY KEY, profile TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'starter'
 );
 CREATE TABLE IF NOT EXISTS contacts (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, locale TEXT NOT NULL, notes TEXT NOT NULL DEFAULT ''
@@ -43,7 +43,16 @@ def connect(path: Path | str = ":memory:") -> sqlite3.Connection:
     con = sqlite3.connect(str(path), check_same_thread=False)
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    _migrate(con)
     return con
+
+
+def _migrate(con: sqlite3.Connection) -> None:
+    """Add columns introduced after a database was first created."""
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(locales)")}
+    if "origin" not in cols:
+        con.execute("ALTER TABLE locales ADD COLUMN origin TEXT NOT NULL DEFAULT 'starter'")
+        con.commit()
 
 
 def _uid() -> str:
@@ -86,12 +95,17 @@ def glossary_lookup(con, text: str, language: str) -> list[dict[str, Any]]:
 # --- locales -----------------------------------------------------------------
 
 
-def locale_upsert(con, profile: LocaleProfile) -> None:
+def locale_upsert(con, profile: LocaleProfile, origin: str = "user") -> None:
     con.execute(
-        "INSERT OR REPLACE INTO locales VALUES (?,?)",
-        (profile.locale, profile.model_dump_json()),
+        "INSERT OR REPLACE INTO locales (locale, profile, origin) VALUES (?,?,?)",
+        (profile.locale, profile.model_dump_json(), origin),
     )
     con.commit()
+
+
+def locale_origin(con, locale: str) -> str | None:
+    r = con.execute("SELECT origin FROM locales WHERE locale=?", (locale,)).fetchone()
+    return r["origin"] if r else None
 
 
 def locale_get(con, locale: str) -> LocaleProfile | None:
