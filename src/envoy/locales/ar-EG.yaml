@@ -4,7 +4,7 @@ language_name: Arabic
 region_name: Egypt
 variety: Egyptian Arabic
 formality: warm-formal
-greeting: "أهلاً {name}،"
+greeting: "أهلاً بيك {name}،"
 signoff: "تحياتي،"
 formats: {date: DD/MM/YYYY, currency: EGP, numerals: eastern-arabic}
 rtl: true
