@@ -88,6 +88,7 @@ def _demo(args: argparse.Namespace) -> None:
     s = Settings.load()
     con = db.connect(s.db_path)
     seed_locales(con)
+    print(f"Envoy {__version__}  provider={s.provider} model={s.model}")
     print("demo data:", seed_demo(con))
     msg = SAMPLE_MESSAGES[args.index]["text"]
     print(f"\nMessage:\n  {msg}\n")
