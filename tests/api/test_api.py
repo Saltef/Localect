@@ -69,3 +69,13 @@ def test_put_settings_rebuilds_model(settings, tmp_path, monkeypatch):
         out = c.put("/api/settings", json={"user_name": "Nadir", "api_key": "k"}).json()
         assert out["user_name"] == "Nadir" and out["api_key"] == "set"
         assert (tmp_path / "settings.json").exists()
+
+
+def test_models_endpoint_and_override_on_stub(settings):
+    with _client(settings)[0] as c:
+        r = c.get("/api/models").json()
+        assert r["models"] == [] and r["current"] == "stub"
+        c.post("/api/demo")
+        out = c.post("/api/compose", json={"message": "When does order #1 ship?",
+                                           "model": "anything"}).json()
+        assert out["result"]["model"] == "stub"  # override is ignored without a real endpoint

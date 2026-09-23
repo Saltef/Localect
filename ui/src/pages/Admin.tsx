@@ -163,12 +163,18 @@ export function HistoryPage() {
 export function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
   const [check, setCheck] = useState("");
+  const [models, setModels] = useState<string[]>([]);
   const [demo, setDemo] = useState("");
   const [saved, setSaved] = useState(false);
-  useEffect(() => { api.settings().then(setS); }, []);
+  useEffect(() => { api.settings().then(setS); api.models().then((m) => setModels(m.models)).catch(() => {}); }, []);
   if (!s) return null;
   const save = async () => { const out = await api.saveSettings(s); setS(out); setSaved(true); setTimeout(() => setSaved(false), 1500); };
-  const doCheck = async () => { const r = await api.checkSettings(); setCheck(r.ok ? (r.has_model ? `Connected. Model available.${r.note ? " " + r.note : ""}` : `Endpoint reachable, but the model is not listed. Available: ${r.models.join(", ") || "none"}`) : `Cannot reach the endpoint: ${r.error}`); };
+  const doCheck = async () => {
+    const saved = await api.saveSettings(s); setS(saved);
+    const r = await api.checkSettings();
+    setModels(r.models);
+    setCheck(r.ok ? (r.has_model ? `Connected. Model available.${r.note ? " " + r.note : ""}` : `Endpoint reachable, but "${saved.model}" is not listed. Pick one below.`) : `Cannot reach the endpoint: ${r.error}`);
+  };
   const loadDemo = async () => { const r = await api.loadDemo(); setDemo(r.knowledge ? `Loaded ${r.knowledge} documents, ${r.glossary} glossary terms, ${r.contacts} contacts.` : "Demo data is already loaded."); };
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -181,7 +187,16 @@ export function SettingsPage() {
             </div>
           </Field>
           <Field label="Endpoint" hint="OpenAI-compatible base URL. Ollama: http://127.0.0.1:11434/v1"><input className={inputCls} value={s.endpoint} onChange={(e) => setS({ ...s, endpoint: e.target.value })} /></Field>
-          <Field label="Model name" hint="A multilingual model, e.g. an Aya model pulled in Ollama"><input className={inputCls} value={s.model} onChange={(e) => setS({ ...s, model: e.target.value })} /></Field>
+          <Field label="Model name" hint={models.length ? "Pick from what the endpoint offers, or type a name" : "Type a model name, then Check connection to list what the endpoint offers"}>
+            {models.length ? (
+              <select className={inputCls} value={models.includes(s.model) ? s.model : ""} onChange={(e) => setS({ ...s, model: e.target.value })} data-testid="model-select">
+                {!models.includes(s.model) && <option value="">{s.model ? `${s.model} (not listed)` : "— choose —"}</option>}
+                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            ) : (
+              <input className={inputCls} value={s.model} onChange={(e) => setS({ ...s, model: e.target.value })} />
+            )}
+          </Field>
           <Field label="API key (only for hosted endpoints)"><input className={inputCls} type="password" value={s.api_key === "set" ? "" : s.api_key} placeholder={s.api_key === "set" ? "•••••••• (set)" : ""} onChange={(e) => setS({ ...s, api_key: e.target.value })} /></Field>
           <div className="flex items-center gap-2"><Button onClick={save}>{saved ? "Saved" : "Save"}</Button><Button kind="ghost" onClick={doCheck}>Check connection</Button></div>
           {check && <p className="text-sm text-zinc-600 dark:text-zinc-300" data-testid="check">{check}</p>}

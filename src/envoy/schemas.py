@@ -195,6 +195,7 @@ class ComposeRequest(BaseModel):
     locale: str | None = None  # override the Reader's guess
     contact_id: str | None = None
     user_language: str | None = None  # defaults to settings
+    model: str | None = None  # per-request override of the configured model name
 
 
 class ComposeResponse(BaseModel):
