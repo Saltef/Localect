@@ -6,6 +6,7 @@ from . import db
 from .agents import arbiter, critic, drafter, reader, rewriter
 from .agents.stage import StageError
 from .config import Settings
+from .conventions import enforce, quiet_critic
 from .models.base import ChatModel
 from .schemas import (
     ComposeRequest,
@@ -85,12 +86,15 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
         raise PipelineError(f"could not draft a reply ({e.reason})") from e
     for seg in d.segments:
         seg.text = strip_citations(seg.text)
+    enforce(d.segments, locale, contact_name, settings.user_name)
 
     async def _rewrite(flags: list[Flag] | None) -> Rewrite:
         try:
             rw_ = await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags)
             for seg in rw_.segments:
                 seg.text = strip_citations(seg.text)
+            enforce(rw_.segments, locale, contact_name, settings.user_name,
+                    has_claims=lambda s: False)
             return rw_
         except StageError as e:
             stage_errors.append(str(e))
@@ -98,8 +102,10 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
 
     async def _critique(rw: Rewrite) -> Critique:
         try:
-            return await critic.critique(model, d, rw, locale, sources, reading.must_preserve,
-                                         user_language_name)
+            cq_ = await critic.critique(model, d, rw, locale, sources, reading.must_preserve,
+                                        user_language_name, contact_name, settings.user_name)
+            return quiet_critic(cq_, {s.id: s.text for s in rw.segments}, locale,
+                                contact_name, settings.user_name)
         except StageError as e:
             stage_errors.append(str(e))
             return Critique(back_segments=[], flags=[Flag(

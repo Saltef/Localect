@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..conventions import rendered_greeting, rendered_signoff
 from ..models.base import ChatModel
 from ..prompts import render
 from ..schemas import Critique, Draft, FlagKind, LocaleProfile, Rewrite, SourceSnippet
@@ -44,14 +45,16 @@ SYSTEM = ("You are a skeptical bilingual proofreader. Your job is to find what c
 
 async def critique(model: ChatModel, draft: Draft, rewritten: Rewrite, locale: LocaleProfile,
                    sources: list[SourceSnippet], must_preserve: list[str],
-                   user_language_name: str) -> Critique:
+                   user_language_name: str, contact_name: str = "",
+                   user_name: str = "") -> Critique:
     glossary = "\n".join(f"- {s.text}" for s in sources if s.kind == "glossary") or "- (none)"
     srcs = "\n".join(f"- [{s.id}] {s.text}" for s in sources if s.kind != "glossary") or "- (none)"
     user = render(
         "critic",
         variety=locale.variety, region_name=locale.region_name, formality=locale.formality,
         user_language_name=user_language_name, notes=locale.notes,
-        greeting=locale.greeting or "(none)", signoff=locale.signoff or "(none)",
+        greeting=rendered_greeting(locale, contact_name) or "(none)",
+        signoff=rendered_signoff(locale, user_name).replace("\n", " / ") or "(none)",
         must_preserve=", ".join(must_preserve) or "(none)", glossary=glossary, sources=srcs,
         draft="\n".join(f"- {s.id}: {s.text}" for s in draft.segments),
         final="\n".join(f"- {s.id}: {s.text}" for s in rewritten.segments),
