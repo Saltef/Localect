@@ -8,6 +8,8 @@ Hard limits:
 - Keep glossary terms as instructed:
 {{glossary}}
 - Keep the same segment ids and the same number of segments.
+- Remove any leftover source ids or bracketed markers; a reader must never see them.
+- Keep the sign-off and the sender's name; render them as a native would.
 
 Locale conventions:
 - greeting: {{greeting}}

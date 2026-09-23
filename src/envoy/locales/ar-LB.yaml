@@ -6,6 +6,6 @@ variety: Levantine Arabic
 formality: warm-formal
 greeting: "مرحبا {name}،"
 signoff: "تحياتي،"
-formats: {date: DD/MM/YYYY, currency: USD, numerals: eastern-arabic}
+formats: {date: DD/MM/YYYY, currency: USD, numerals: western}
 rtl: true
-notes: "Friendly and light. Levantine greetings feel natural; mixing in a French or English word is common in business. avoid: heavy religious phrasing; Gulf or Egyptian slang"
+notes: "Friendly and light. Western digits are the norm in Lebanon. Levantine greetings feel natural; mixing in a French or English word is common in business. avoid: heavy religious phrasing; Gulf or Egyptian slang"

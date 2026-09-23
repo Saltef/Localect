@@ -89,6 +89,16 @@ export default function ResultView({ result }: { result: Result }) {
         </Card>
       )}
 
+      {(result.suggestions ?? []).length > 0 && (
+        <Card title="Suggestions from the native reader · optional, do not affect status">
+          <ul className="space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
+            {result.suggestions.map((s, i) => (
+              <li key={i}><span className="text-zinc-400">{s.segment_id}</span> {s.suggestion}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Sources behind each claim">
           {result.ledger.some((e) => e.source_ids.length) ? (

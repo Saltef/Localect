@@ -48,6 +48,7 @@ export type Result = {
   back_translation: string;
   status: "ready" | "check" | "escalate";
   flags: Flag[];
+  suggestions: { segment_id: string; suggestion: string }[];
   ledger: LedgerEntry[];
   revisions: number;
   stage_errors: string[];
