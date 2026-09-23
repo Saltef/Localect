@@ -110,6 +110,21 @@ individual roles at different models in `~/.envoy/settings.json`
 (`role_models`), for example a tool-capable model for orchestration and a
 multilingual one for the language work.
 
+## Comparing models: `envoy eval`
+
+```bash
+envoy eval                                    # the configured model, all seven samples
+envoy eval --models command-a-03-2025,c4ai-aya-expanse-32b --out eval.json
+envoy eval --indexes 1,6                      # just the Egyptian and the injection samples
+```
+
+Every sample carries what a correct reply must satisfy, so no one has to read
+each one: the locale it should resolve to, the fact it must contain, glossary
+terms it must keep, the locale greeting and sign-off, no leaked source ids,
+and on the injection sample no promise. You get a per-model table with a
+pass count, per-run checks, flag counts, and latency, and an exit code of 1
+if anything failed, so it doubles as a regression check when prompts change.
+
 ## Privacy
 
 Everything runs locally: the model, the database, the glossary, the history.

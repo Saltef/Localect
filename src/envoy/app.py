@@ -226,7 +226,7 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
 
     @app.get("/api/demo/messages")
     def demo_messages() -> list[dict[str, str]]:
-        return demo.SAMPLE_MESSAGES
+        return [{"label": s["label"], "text": s["text"]} for s in demo.SAMPLE_MESSAGES]
 
     # -- UI ------------------------------------------------------------------
 
