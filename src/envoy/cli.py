@@ -6,10 +6,25 @@ import argparse
 import asyncio
 import json
 import threading
+import time
+import urllib.request
 import webbrowser
 
 from . import __version__, db
 from .config import Settings, data_dir
+
+
+def _open_when_ready(url: str, timeout: float = 30.0) -> None:
+    """Open the browser once the server (and its MCP servers) answer."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(f"{url}/api/health", timeout=1) as r:
+                if r.status == 200:
+                    break
+        except Exception:  # noqa: BLE001 - not up yet
+            time.sleep(0.25)
+    webbrowser.open(url)
 
 
 def _serve(args: argparse.Namespace) -> None:
@@ -22,7 +37,7 @@ def _serve(args: argparse.Namespace) -> None:
     port = args.port or settings.port
     url = f"http://{host}:{port}"
     if not args.no_browser:
-        threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+        threading.Thread(target=_open_when_ready, args=(url,), daemon=True).start()
     print(f"Envoy {__version__} at {url}  (provider: {settings.provider}, data: {data_dir()})")
     uvicorn.run(create_app(settings), host=host, port=port, log_level="warning")
 

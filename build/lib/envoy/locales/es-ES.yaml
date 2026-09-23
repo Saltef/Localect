@@ -1,0 +1,10 @@
+locale: es-ES
+language: es
+language_name: Spanish
+region_name: Spain
+variety: Castilian Spanish
+formality: warm-formal
+greeting: "Hola, {name}:"
+signoff: "Un saludo,"
+formats: {date: DD/MM/YYYY, currency: EUR, numerals: western}
+notes: "Direct and friendly; vosotros for informal plural. Common words: ordenador, móvil, billete. avoid: Latin American-only vocabulary like computadora or celular"
