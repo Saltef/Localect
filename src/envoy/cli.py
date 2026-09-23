@@ -81,7 +81,7 @@ def _demo(args: argparse.Namespace) -> None:
     from .demo import SAMPLE_MESSAGES, seed_demo
     from .locales import seed_locales
     from .models import build_model
-    from .pipeline import compose
+    from .pipeline import PipelineError, compose
     from .schemas import ComposeRequest
     from .tools import DirectTools
 
@@ -91,8 +91,14 @@ def _demo(args: argparse.Namespace) -> None:
     print("demo data:", seed_demo(con))
     msg = SAMPLE_MESSAGES[args.index]["text"]
     print(f"\nMessage:\n  {msg}\n")
-    r = asyncio.run(compose(ComposeRequest(message=msg), settings=s, model=build_model(s),
-                            tools=DirectTools(con), con=con))
+    try:
+        r = asyncio.run(compose(ComposeRequest(message=msg), settings=s, model=build_model(s),
+                                tools=DirectTools(con), con=con))
+    except PipelineError as e:
+        print(f"Envoy could not run this message: {e}")
+        if "401" in str(e) or "API key" in str(e):
+            print("Fix: envoy config --api-key \"<your key>\"  (from your provider's dashboard)")
+        raise SystemExit(1) from None
     print(f"Locale: {r.locale.locale} ({r.locale.variety})   Status: {r.status.value}")
     print(f"\nWhat they said:\n  {r.reading.gloss}")
     print(f"\nReply:\n{r.final_text}")
