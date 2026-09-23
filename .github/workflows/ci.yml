@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install Python package and dev tools
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Unit, agent, MCP, pipeline, and API tests
+        run: pytest -q --ignore=tests/e2e
+
+      - name: Build the UI
+        working-directory: ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Install Chromium for Playwright
+        run: playwright install --with-deps chromium
+
+      - name: End-to-end test (real server, real MCP, Chromium)
+        run: pytest -q tests/e2e
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: docs/screenshots/*.png
+          if-no-files-found: ignore
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t envoy .
+      - name: Smoke-test the container
+        run: |
+          docker run -d --name envoy -p 8765:8765 envoy
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8765/api/health && break || sleep 1
+          done
+          curl -sf http://127.0.0.1:8765/api/health | grep -q '"ok":true'
+          docker rm -f envoy

@@ -1,0 +1,10 @@
+locale: pt-BR
+language: pt
+language_name: Portuguese
+region_name: Brazil
+variety: Brazilian Portuguese
+formality: warm-formal
+greeting: "Olá, {name}!"
+signoff: "Abraços,"
+formats: {date: DD/MM/YYYY, currency: BRL, numerals: western}
+notes: "Warm, upbeat, uses você. Gerund forms are natural (estamos enviando). avoid: European forms like 'estamos a enviar'; tu conjugations"

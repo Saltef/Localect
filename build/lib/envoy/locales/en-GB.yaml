@@ -1,0 +1,10 @@
+locale: en-GB
+language: en
+language_name: English
+region_name: United Kingdom
+variety: British English
+formality: warm-formal
+greeting: "Hi {name},"
+signoff: "Kind regards,"
+formats: {date: DD/MM/YYYY, currency: GBP, numerals: western}
+notes: "Polite, understated, British spelling (colour, organise). avoid: American spelling; overly enthusiastic superlatives"

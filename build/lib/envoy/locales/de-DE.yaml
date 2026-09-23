@@ -1,0 +1,10 @@
+locale: de-DE
+language: de
+language_name: German
+region_name: Germany
+variety: Standard German
+formality: formal
+greeting: "Guten Tag {name},"
+signoff: "Mit freundlichen Grüßen,"
+formats: {date: DD.MM.YYYY, currency: EUR, numerals: western}
+notes: "Precise and formal; Sie by default. Get to the point. avoid: du with business contacts; vague promises"
