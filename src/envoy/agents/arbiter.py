@@ -1,8 +1,9 @@
 """The Arbiter: deterministic checks that no model gets to overrule.
 
 It does not trust the Critic to have caught everything. Glossary terms,
-must-preserve items, segment coverage, and unsupported claims are verified in
-code, then merged with the Critic's flags. Status follows from severity.
+must-preserve items, segment coverage, unsupported claims, and the numbers in
+each segment are verified in code, then merged with the Critic's flags. Status
+follows from severity.
 """
 
 from __future__ import annotations
@@ -17,11 +18,32 @@ from ..schemas import (
     SourceSnippet,
     Status,
 )
-from ..text import to_western
+from ..text import numbers, to_western
 
 
 def _norm(text: str) -> str:
     return to_western(text).lower()
+
+
+def number_flags(seg_id: str, draft_text: str, final_text: str,
+                 must_preserve: list[str]) -> list[Flag]:
+    """Numbers are the facts most often lost or invented in a rewrite: a
+    return window, a price, a count of days. Any number in the draft segment
+    must survive into the final one, and the final one may not introduce a
+    number the draft did not have. Both are warnings: a human reads them.
+    Numbers already covered by a must-preserve item are left to that check."""
+    covered = {n for item in must_preserve for n in numbers(item)}
+    d, f = numbers(draft_text) - covered, numbers(final_text) - covered
+    out = []
+    for n in sorted(d - f, key=lambda x: (len(x), x)):
+        out.append(Flag(segment_id=seg_id, kind=FlagKind.drifted, span=n,
+                        reason=f"the number '{n}' in the draft is missing from the final text",
+                        severity="warn"))
+    for n in sorted(f - d, key=lambda x: (len(x), x)):
+        out.append(Flag(segment_id=seg_id, kind=FlagKind.unsupported_claim, span=n,
+                        reason=f"the number '{n}' appears in the final text but not in the draft",
+                        severity="warn"))
+    return out
 
 
 def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: list[str],
@@ -60,6 +82,7 @@ def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: l
                 flags.append(Flag(segment_id=seg.id, kind=FlagKind.unsupported_claim,
                                   span=c.text[:60], reason="claim has no supporting source",
                                   severity="block"))
+        flags += number_flags(seg.id, seg.text, final, must_preserve)
 
     # Deduplicate: same segment, kind, and span means the same finding.
     seen: set[tuple[str, str, str]] = set()

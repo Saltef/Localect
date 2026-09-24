@@ -159,12 +159,12 @@ staged replies arrive as MCP servers in a later milestone.
 
 ## 9. Quality bar (kept short, product-oriented)
 
-Before release, Envoy passes an internal suite: a set of real-style messages in
-several languages and Arabic varieties with known tricky spots (negations,
-numbers, false friends, off-glossary terms, culturally sensitive phrasing, and
-prompt injection hidden in an inbound message). The Critic must catch the
-seeded errors, and the Rewriter's output must read native to a human reviewer.
-Results live in the repo as a release checklist, not a research paper.
+Before release, Envoy passes `envoy eval --set heldout --perturb`: fresh
+messages in every starter locale with known facts, contradictions, glossary
+terms and injection attempts, plus planted faults the Critic and Arbiter must
+catch. The Rewriter's output must read native to a human reviewer, measured
+by a dialect-identifier ablation and a blind pairwise study. Method and
+results live in docs/EVAL.md as a release checklist, not a research paper.
 
 ---
 

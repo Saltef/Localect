@@ -117,3 +117,22 @@ async def test_history_records_result(demo_con, settings):
     rows = db.history_list(demo_con)
     assert rows[0]["id"] == r.id and rows[0]["status"] == "ready"
     assert db.history_get(demo_con, r.id)["final_text"] == r.final_text
+
+
+async def test_critic_can_run_on_a_different_model(demo_con, settings):
+    """role_models['critic'] switches the judge; the Result records both models."""
+    from envoy.models.stub import StubModel
+
+    class Switchable(StubModel):
+        def __init__(self, model="writer"):
+            self.model = model
+            self.name = f"sw:{model}"
+
+        def with_model(self, model):
+            return Switchable(model)
+
+    r = await _run(demo_con, settings, "Hi, what is the warranty on the SkyPack?", Switchable())
+    assert r.model == "sw:writer" and r.critic_model == ""
+    settings.role_models = {"critic": "judge"}
+    r = await _run(demo_con, settings, "Hi, what is the warranty on the SkyPack?", Switchable())
+    assert r.model == "sw:writer" and r.critic_model == "sw:judge"

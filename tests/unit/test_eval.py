@@ -1,36 +1,79 @@
 import asyncio
+import json
 
 from envoy import db
 from envoy.config import Settings
-from envoy.demo import SAMPLE_MESSAGES
-from envoy.eval import CHECK_ORDER, render_table, run_eval, to_json
+from envoy.demo import seed_demo
+from envoy.eval import CHECK_ORDER, INVARIANTS, render_table, run_eval, score, to_json
+from envoy.evalset import Sample, load
 from envoy.locales import seed_locales
+from envoy.models.stub import StubModel
+from envoy.pipeline import compose
+from envoy.schemas import ComposeRequest
+from envoy.tools import DirectTools
 
 
-def test_samples_carry_expectations():
-    for s in SAMPLE_MESSAGES:
-        assert s["expect_locale"] and (s.get("expect_any") or s.get("expect_all"))
-    assert SAMPLE_MESSAGES[6]["forbid"]
+def _settings():
+    return Settings(provider="stub", user_name="Safea")
 
 
-def test_eval_on_stub_passes_every_sample():
+def _con():
     con = db.connect()
     seed_locales(con)
-    settings = Settings(provider="stub", user_name="Safea")
-    rows = asyncio.run(run_eval(settings, con=con))
-    assert len(rows) == len(SAMPLE_MESSAGES)
-    failing = [(r.index, [k for k in CHECK_ORDER if not r.checks[k]]) for r in rows
-               if not r.passed]
+    seed_demo(con)
+    return con
+
+
+def test_stub_passes_every_sample_in_every_set():
+    rows = asyncio.run(run_eval(_settings(), con=_con(), sample_set="all"))
+    assert len(rows) == len(load("all"))
+    failing = [(r.sample_id, r.failed_checks, r.error) for r in rows if not r.passed]
     assert failing == [], failing
+    assert all(r.invariants == {"greeting": True, "signoff": True} for r in rows)
     table = render_table(rows)
-    assert "stub: 7/7 passed" in table and "no_forbidden" not in table
-    assert '"passed": true' in to_json(rows)
+    assert f"stub: {len(rows)}/{len(rows)} passed" in table
+    doc = json.loads(to_json(rows))
+    assert doc["runs"][0]["passed"] is True and "result" not in doc["runs"][0]
 
 
-def test_eval_subset_and_multiple_model_names_on_stub():
-    con = db.connect()
-    seed_locales(con)
-    settings = Settings(provider="stub", user_name="Safea")
-    rows = asyncio.run(run_eval(settings, models=["a", "b"], indexes=[1, 6], con=con))
-    assert [(r.model, r.index) for r in rows] == [("stub", 1), ("stub", 6), ("stub", 1),
-                                                   ("stub", 6)]
+def test_subset_by_index_and_several_model_names():
+    rows = asyncio.run(run_eval(_settings(), models=["a", "b"], indexes=[1, 6], con=_con()))
+    assert [(r.model, r.sample_id) for r in rows] == [
+        ("stub", "demo-01"), ("stub", "demo-06"), ("stub", "demo-01"), ("stub", "demo-06")]
+
+
+async def _result(message: str):
+    con = _con()
+    return await compose(ComposeRequest(message=message), settings=_settings(),
+                         model=StubModel(), tools=DirectTools(con), con=con)
+
+
+def test_facts_match_numbers_as_whole_tokens_in_any_script():
+    r = asyncio.run(_result("ازيك، امتى بيرجع الاسترداد بتاع طلب #7788؟"))
+    good = Sample(id="x", label="x", text="", locale="ar-EG", facts=[["5"]], wrong=["14"])
+    checks, invariants = score(r, good, "Safea")
+    assert all(checks.values()) and list(checks) == CHECK_ORDER
+    assert invariants == {"greeting": True, "signoff": True} and list(invariants) == INVARIANTS
+    # "5" is written as ٥ in the reply; a contradiction written either way is caught.
+    wrong = Sample(id="x", label="x", text="", locale="ar-EG", facts=[["٥"]], wrong=["٥"])
+    assert score(r, wrong, "Safea")[0]["no_wrong"] is False
+    # 7788 (the order number) does not satisfy a fact of "78", and "5" is not found in "٥٥".
+    assert score(r, Sample(id="x", label="x", text="", locale="ar", facts=[["78"]]),
+                 "Safea")[0]["fact"] is False
+
+
+def test_locale_language_prefix_terms_and_forbidden():
+    r = asyncio.run(_result("Hi, what is the warranty on the SkyPack?"))
+    s = Sample(id="x", label="x", text="", locale="en", terms=["SkyPack"], forbid=["gift card"])
+    assert all(score(r, s, "Safea")[0].values())
+    s = Sample(id="x", label="x", text="", locale="fr", terms=["Sky Pack"], forbid=["warranty"])
+    c = score(r, s, "Safea")[0]
+    assert (c["locale"], c["terms"], c["no_forbidden"]) == (False, False, False)
+
+
+def test_broken_invariant_is_reported_but_does_not_fail_the_run():
+    r = asyncio.run(_result("Hi, what is the warranty on the SkyPack?"))
+    r.final_text = "Yo!\n\n" + r.final_text
+    s = Sample(id="x", label="x", text="", locale="en")
+    checks, invariants = score(r, s, "Safea")
+    assert all(checks.values()) and invariants["greeting"] is False
