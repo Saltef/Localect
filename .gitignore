@@ -12,3 +12,5 @@ test-results/
 
 # fixtures are committed even when they live in a data/ folder
 !tests/fixtures/**
+build/
+dist/
