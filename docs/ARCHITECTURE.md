@@ -26,6 +26,7 @@ flowchart LR
             K[knowledge]
             H[history]
             T[thread]
+            ML[mail]
         end
     end
 
@@ -37,7 +38,7 @@ flowchart LR
 
     UI -->|JSON| API --> PIPE
     PIPE --> CONV
-    PIPE --> MCPC --> G & K & H & T --> DB
+    PIPE --> MCPC --> G & K & H & T & ML --> DB
     API --> DB
     PIPE -->|chat completions| M1
     PIPE -->|chat completions| M2
@@ -55,9 +56,9 @@ the UI (pre-built into the package), the MCP servers, and the sample data.
 Nothing to provision.
 
 **Why MCP for the user's data.** The Drafter reaches the glossary, the
-knowledge base, past replies, and the current thread through four
-[Model Context Protocol](https://modelcontextprotocol.io) servers that Envoy
-starts over stdio. They are the extension point: an email, chat, or shop
+knowledge base, the user's past mail, past replies, and the current thread
+through five [Model Context Protocol](https://modelcontextprotocol.io)
+servers that Envoy starts over stdio. They are the extension point: an email, chat, or shop
 connector is another MCP server, and the core never changes. In tests the
 same interface (`Tools` in `tools.py`) is served in-process by
 `DirectTools`, so the pipeline is tested without subprocesses.
@@ -79,7 +80,7 @@ flowchart TB
 
     R["<b>Reader</b><br/>language, region guess, faithful gloss,<br/>asks, must-preserve items, tone"]
     R --> LOC["Resolve locale<br/>explicit › contact › Reader's guess › language default"]
-    LOC --> SRC["Gather sources via MCP<br/>glossary · knowledge · history · thread"]
+    LOC --> SRC["Gather sources via MCP<br/>glossary · knowledge · past mail · history · thread"]
     SRC --> D
 
     D["<b>Drafter</b><br/>reply in their language,<br/>every claim tied to a source id"]
@@ -178,6 +179,19 @@ erDiagram
         text id PK
         text title
         text text "searched by the knowledge server"
+    }
+    messages {
+        text id PK
+        text external_id "Message-ID, unique"
+        text thread_id
+        text date "UTC"
+        text from_addr
+        text to_addrs
+        text subject
+        text text "author's own words, quotes and signature removed"
+        int is_mine
+        text language
+        text origin "import | capture"
     }
     history {
         text id PK
@@ -279,7 +293,9 @@ src/envoy/
   text.py           tokenizer, digit-script normalisation, cross-lingual aliases
   models/           base (interface, FakeModel), openai_compat, cohere, stub
   mcp/              client (spawns and calls the servers); servers/ glossary,
-                    knowledge, history, thread
+                    knowledge, history, thread, mail
+  memory/           past mail and documents: parse (mbox, .eml), clean (quotes,
+                    signatures, HTML), importer; see MEMORY.md
   tools.py          the Tools interface; DirectTools for in-process use
   locales/          twelve locale profiles (YAML), seeded into SQLite
   db.py             SQLite schema and migrations

@@ -167,3 +167,23 @@ def test_region_guess_is_normalized_and_languages_have_a_default_region(con):
     assert locale_for_reading(con, "ar", "ar").locale == "ar-EG"
     assert locale_for_reading(con, "AR", "").locale == "ar-EG"
     assert locale_for_reading(con, "xx", None) is None
+
+
+async def test_past_mail_is_a_source_and_the_newest_statement_wins(con, settings):
+    """Two emails give different return windows; the reply cites the newer one,
+    with a mail source id that survives citation stripping."""
+    from envoy.text import strip_citations
+
+    db.message_add(con, text="Our return window is 14 days from delivery.",
+                   date="2025-09-01T07:00:00Z", from_addr="safea@example.com", is_mine=True,
+                   to_addrs="layla@shop.example", subject="Returns", language="en")
+    db.message_add(con, text="From this month the return window is 30 days from delivery.",
+                   date="2025-09-10T10:00:00Z", from_addr="safea@example.com", is_mine=True,
+                   to_addrs="layla@shop.example", subject="Returns update", language="en")
+    con.commit()
+    r = await _run(con, settings, "Hi, how long is the return window?")
+    assert "30 days" in r.final_text and "14 days" not in r.final_text
+    cited = [sid for e in r.ledger for sid in e.source_ids]
+    assert cited and all(sid.startswith("ml:") for sid in cited)
+    assert strip_citations("as we said [ml:abc:0], 30 days") == "as we said, 30 days"
+    assert r.status == Status.ready

@@ -162,7 +162,8 @@ class StubModel:
         sources = ctx.get("sources", [])
         name = ctx.get("contact_name", "")
         user_name = ctx.get("user_name", "")
-        knowledge = [s for s in sources if s["kind"] == "knowledge"]
+        # Facts come from the knowledge base and from the user's own past mail.
+        knowledge = [s for s in sources if s["kind"] in ("knowledge", "mail")]
         segments = []
         greeting = _fill_name(locale["greeting"], name, locale["language"])
         segments.append({"id": "s1", "text": greeting, "claims": []})

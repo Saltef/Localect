@@ -28,11 +28,21 @@ CREATE TABLE IF NOT EXISTS locales (
 );
 CREATE TABLE IF NOT EXISTS contacts (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, locale TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '',
-  gender TEXT NOT NULL DEFAULT 'unknown'
+  gender TEXT NOT NULL DEFAULT 'unknown', email TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS knowledge (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY, external_id TEXT NOT NULL DEFAULT '', thread_id TEXT NOT NULL DEFAULT '',
+  date TEXT NOT NULL DEFAULT '', from_addr TEXT NOT NULL DEFAULT '',
+  from_name TEXT NOT NULL DEFAULT '', to_addrs TEXT NOT NULL DEFAULT '',
+  subject TEXT NOT NULL DEFAULT '', text TEXT NOT NULL, is_mine INTEGER NOT NULL DEFAULT 0,
+  language TEXT NOT NULL DEFAULT '', origin TEXT NOT NULL DEFAULT 'import',
+  source TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS messages_external ON messages(external_id)
+  WHERE external_id <> '';
 CREATE TABLE IF NOT EXISTS history (
   id TEXT PRIMARY KEY, created_at TEXT NOT NULL, message TEXT NOT NULL,
   locale TEXT NOT NULL, status TEXT NOT NULL, final_text TEXT NOT NULL,
@@ -56,6 +66,8 @@ def _migrate(con: sqlite3.Connection) -> None:
         con.execute("ALTER TABLE locales ADD COLUMN origin TEXT NOT NULL DEFAULT 'starter'")
         con.commit()
     cols = {r["name"] for r in con.execute("PRAGMA table_info(contacts)")}
+    if "email" not in cols:
+        con.execute("ALTER TABLE contacts ADD COLUMN email TEXT NOT NULL DEFAULT ''")
     if "gender" not in cols:
         con.execute("ALTER TABLE contacts ADD COLUMN gender TEXT NOT NULL DEFAULT 'unknown'")
         con.commit()
@@ -136,10 +148,13 @@ def locale_for_language(con, language: str) -> LocaleProfile | None:
 # --- contacts ----------------------------------------------------------------
 
 
-def contact_add(con, name: str, locale: str, notes: str = "", gender: str = "unknown") -> str:
+def contact_add(con, name: str, locale: str, notes: str = "", gender: str = "unknown",
+                email: str = "") -> str:
     cid = _uid()
-    con.execute("INSERT INTO contacts (id, name, locale, notes, gender) VALUES (?,?,?,?,?)",
-                (cid, name, locale, notes, gender if gender in GENDERS else "unknown"))
+    con.execute("INSERT INTO contacts (id, name, locale, notes, gender, email) VALUES "
+                "(?,?,?,?,?,?)", (cid, name, locale, notes,
+                                 gender if gender in GENDERS else "unknown",
+                                 email.strip().lower()))
     con.commit()
     return cid
 
@@ -150,6 +165,13 @@ def contact_list(con) -> list[dict[str, Any]]:
 
 def contact_get(con, cid: str) -> dict[str, Any] | None:
     r = con.execute("SELECT * FROM contacts WHERE id=?", (cid,)).fetchone()
+    return dict(r) if r else None
+
+
+def contact_by_email(con, email: str) -> dict[str, Any] | None:
+    if not email:
+        return None
+    r = con.execute("SELECT * FROM contacts WHERE email=?", (email.strip().lower(),)).fetchone()
     return dict(r) if r else None
 
 
@@ -196,6 +218,86 @@ def knowledge_search(con, query: str, limit: int = 5) -> list[dict[str, Any]]:
                 }))
             offset += len(para) + 2
     scored.sort(key=lambda s: -s[0])
+    return [s for _, s in scored[:limit]]
+
+
+# --- messages: the user's past mail, imported or captured ----------------------
+
+
+def message_add(con, *, text: str, external_id: str = "", thread_id: str = "", date: str = "",
+                from_addr: str = "", from_name: str = "", to_addrs: str = "", subject: str = "",
+                is_mine: bool = False, language: str = "", origin: str = "import",
+                source: str = "") -> str | None:
+    """Store one message. Returns its id, or None when the same message (by
+    Message-ID) is already stored, so an export can be imported twice."""
+    mid = _uid()
+    cur = con.execute(
+        "INSERT OR IGNORE INTO messages (id, external_id, thread_id, date, from_addr, from_name, "
+        "to_addrs, subject, text, is_mine, language, origin, source) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (mid, external_id, thread_id, date, from_addr.lower(), from_name, to_addrs.lower(),
+         subject, text, int(is_mine), language, origin, source))
+    return mid if cur.rowcount else None
+
+
+def message_list(con, limit: int = 200, query: str = "") -> list[dict[str, Any]]:
+    rows = con.execute(
+        "SELECT id, external_id, thread_id, date, from_addr, from_name, to_addrs, subject, "
+        "substr(text, 1, 240) AS preview, length(text) AS size, is_mine, language, origin, "
+        "source FROM messages ORDER BY date DESC LIMIT ?", (limit * 4 if query else limit,))
+    out = [dict(r) for r in rows]
+    if query:
+        q = query.lower()
+        out = [m for m in out if q in (m["subject"] + " " + m["preview"] + " "
+                                       + m["from_addr"] + " " + m["from_name"]).lower()]
+    return out[:limit]
+
+
+def message_get(con, mid: str) -> dict[str, Any] | None:
+    r = con.execute("SELECT * FROM messages WHERE id=?", (mid,)).fetchone()
+    return dict(r) if r else None
+
+
+def message_delete(con, mid: str) -> None:
+    con.execute("DELETE FROM messages WHERE id=?", (mid,))
+    con.commit()
+
+
+def message_count(con) -> dict[str, int]:
+    r = con.execute("SELECT count(*) AS n, coalesce(sum(is_mine), 0) AS mine FROM messages"
+                    ).fetchone()
+    return {"messages": r["n"], "mine": r["mine"]}
+
+
+def mail_search(con, query: str, language: str | None = None, contact_email: str = "",
+                limit: int = 5) -> list[dict[str, Any]]:
+    """Paragraphs of past mail with overlapping vocabulary. Newer wins a tie,
+    and mail to or from the contact being answered ranks above the rest, so
+    the fact that reaches the Drafter is the latest thing said to this
+    person, not the first thing ever said to anyone."""
+    terms = _tokens(query)
+    if not terms:
+        return []
+    contact_email = (contact_email or "").strip().lower()
+    scored: list[tuple[tuple[int, int, str], dict[str, Any]]] = []
+    for r in con.execute("SELECT * FROM messages"):
+        if language and r["language"] and not r["language"].startswith(language):
+            continue
+        with_contact = bool(contact_email) and (
+            r["from_addr"] == contact_email or contact_email in r["to_addrs"])
+        offset = 0
+        for para in r["text"].split("\n\n"):
+            score = _score(_tokens(para), terms)
+            if score:
+                scored.append(((score, int(with_contact), r["date"]), {
+                    "id": f"{r['id']}:{offset}",
+                    "text": para.strip(),
+                    "subject": r["subject"], "date": r["date"],
+                    "from_addr": r["from_addr"], "from_name": r["from_name"],
+                    "is_mine": bool(r["is_mine"]), "start": offset,
+                    "end": offset + len(para)}))
+            offset += len(para) + 2
+    scored.sort(key=lambda s: s[0], reverse=True)
     return [s for _, s in scored[:limit]]
 
 

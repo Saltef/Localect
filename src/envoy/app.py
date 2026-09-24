@@ -37,6 +37,26 @@ class ContactIn(BaseModel):
     locale: str
     notes: str = ""
     gender: str = "unknown"  # unknown | female | male; picks the gendered greeting where needed
+    email: str = ""  # ties the contact to imported mail
+
+
+class ImportIn(BaseModel):
+    paths: list[str]
+
+
+class MessageIn(BaseModel):
+    """One message captured with the user's consent (the extension, or a
+    client that already has the text). Same record the importer builds."""
+    text: str
+    subject: str = ""
+    from_addr: str = ""
+    from_name: str = ""
+    to_addrs: list[str] = []
+    date: str = ""
+    thread_id: str = ""
+    external_id: str = ""
+    is_mine: bool | None = None  # None: decided from settings.user_email
+    origin: str = "capture"
 
 
 class KnowledgeIn(BaseModel):
@@ -92,7 +112,8 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
     def put_settings(patch: dict[str, Any]) -> dict[str, Any]:
         s: Settings = app.state.settings
         for k, v in patch.items():
-            if k in {"provider", "endpoint", "model", "api_key", "user_name", "user_language"}:
+            if k in {"provider", "endpoint", "model", "api_key", "user_name", "user_email",
+                     "user_language"}:
                 if k == "api_key" and v in ("", "set"):
                     continue  # the UI sends the masked value back; keep the stored key
                 setattr(s, k, v)
@@ -184,12 +205,66 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
 
     @app.post("/api/contacts")
     def contact_add(c: ContactIn) -> dict[str, str]:
-        return {"id": db.contact_add(app.state.con, c.name, c.locale, c.notes, c.gender)}
+        return {"id": db.contact_add(app.state.con, c.name, c.locale, c.notes, c.gender,
+                                     c.email)}
 
     @app.delete("/api/contacts/{cid}")
     def contact_delete(cid: str) -> dict[str, bool]:
         db.contact_delete(app.state.con, cid)
         return {"ok": True}
+
+    # -- memory: the user's past mail ------------------------------------------
+
+    @app.get("/api/messages")
+    def messages(q: str = "", limit: int = 100) -> dict[str, Any]:
+        return {"counts": db.message_count(app.state.con),
+                "messages": db.message_list(app.state.con, limit, q)}
+
+    @app.get("/api/messages/{mid}")
+    def message(mid: str) -> dict[str, Any]:
+        m = db.message_get(app.state.con, mid)
+        if not m:
+            raise HTTPException(404, "no such message")
+        return m
+
+    @app.post("/api/messages")
+    def message_add(m: MessageIn) -> dict[str, Any]:
+        from .memory.clean import clean_body
+        from .memory.parse import now_iso
+        from .models.stub import detect_language
+
+        s: Settings = app.state.settings
+        text = clean_body(m.text)
+        if not text:
+            raise HTTPException(400, "the message has no text once quotes are removed")
+        mine = m.is_mine if m.is_mine is not None else m.from_addr.lower() in s.my_addresses
+        mid = db.message_add(
+            app.state.con, text=text, external_id=m.external_id, thread_id=m.thread_id,
+            date=m.date or now_iso(), from_addr=m.from_addr, from_name=m.from_name,
+            to_addrs=",".join(a.lower() for a in m.to_addrs), subject=m.subject, is_mine=mine,
+            language=detect_language(text), origin=m.origin or "capture")
+        app.state.con.commit()
+        return {"id": mid, "stored": mid is not None}
+
+    @app.delete("/api/messages/{mid}")
+    def message_delete(mid: str) -> dict[str, bool]:
+        db.message_delete(app.state.con, mid)
+        return {"ok": True}
+
+    @app.post("/api/import")
+    def import_files(body: ImportIn) -> dict[str, Any]:
+        """Import mail exports and documents from paths on this machine."""
+        from dataclasses import asdict
+
+        from .memory import import_paths
+
+        s: Settings = app.state.settings
+        missing = [p for p in body.paths if not Path(p).exists()]
+        if missing:
+            raise HTTPException(400, f"not found: {', '.join(missing)}")
+        report = import_paths(app.state.con, body.paths, s.my_addresses)
+        return {**asdict(report), "summary": report.summary(),
+                "counts": db.message_count(app.state.con)}
 
     # -- knowledge -----------------------------------------------------------
 

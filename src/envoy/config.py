@@ -27,6 +27,7 @@ class Settings:
     model: str = "aya-expanse:8b"
     api_key: str = ""  # only for hosted OpenAI-compatible endpoints
     user_name: str = ""
+    user_email: str = ""  # marks which imported or captured messages you wrote (comma-separated)
     user_language: str = "en"
     host: str = "127.0.0.1"
     port: int = 8765
@@ -54,9 +55,14 @@ class Settings:
         s.model = env.get("ENVOY_MODEL", s.model)
         s.api_key = env.get("ENVOY_API_KEY", s.api_key)
         s.user_language = env.get("ENVOY_USER_LANGUAGE", s.user_language)
+        s.user_email = env.get("ENVOY_USER_EMAIL", s.user_email)
         s.host = env.get("ENVOY_HOST", s.host)
         s.port = int(env.get("ENVOY_PORT", s.port))
         return s
+
+    @property
+    def my_addresses(self) -> set[str]:
+        return {a.strip().lower() for a in self.user_email.split(",") if a.strip()}
 
     def save(self) -> None:
         f = data_dir() / "settings.json"

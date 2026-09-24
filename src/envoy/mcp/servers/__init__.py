@@ -13,4 +13,4 @@ def open_db():
     return db.connect(Path(path) if path else ":memory:")
 
 
-SERVERS = ["glossary", "knowledge", "history", "thread"]
+SERVERS = ["glossary", "knowledge", "history", "thread", "mail"]

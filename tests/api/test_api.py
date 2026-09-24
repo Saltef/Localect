@@ -79,3 +79,31 @@ def test_models_endpoint_and_override_on_stub(settings):
         out = c.post("/api/compose", json={"message": "When does order #1 ship?",
                                            "model": "anything"}).json()
         assert out["result"]["model"] == "stub"  # override is ignored without a real endpoint
+
+
+def test_messages_import_capture_and_delete(settings, tmp_path):
+    from pathlib import Path
+
+    fix = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
+    settings.user_email = "safea@example.com"
+    with _client(settings)[0] as c:
+        assert c.post("/api/import", json={"paths": [str(tmp_path / "nope")]}).status_code == 400
+        r = c.post("/api/import", json={"paths": [str(fix / "warranty.eml")]}).json()
+        assert r["messages"] == 1 and r["mine"] == 1 and r["counts"]["messages"] == 1
+        # a captured message: quotes stripped, "mine" decided from settings.user_email
+        cap = c.post("/api/messages", json={
+            "text": "Sure, 30 days.\n\nOn Mon, Jo wrote:\n> how long?",
+            "from_addr": "Safea@example.com", "to_addrs": ["jo@partner.example"],
+            "subject": "Re: window"}).json()
+        assert cap["stored"]
+        m = c.get(f"/api/messages/{cap['id']}").json()
+        assert m["text"] == "Sure, 30 days." and m["is_mine"] == 1 and m["origin"] == "capture"
+        assert m["date"] and m["to_addrs"] == "jo@partner.example"
+        assert c.post("/api/messages", json={"text": "> only a quote"}).status_code == 400
+        listing = c.get("/api/messages", params={"q": "window"}).json()
+        assert listing["counts"]["messages"] == 2 and len(listing["messages"]) == 1
+        assert c.delete(f"/api/messages/{cap['id']}").json()["ok"]
+        assert c.get("/api/messages").json()["counts"]["messages"] == 1
+        # settings accept the address and mask nothing else
+        assert c.put("/api/settings", json={"user_email": "me@x.example"}).json()["user_email"] \
+            == "me@x.example"

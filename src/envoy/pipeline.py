@@ -151,6 +151,9 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     sources += await tools.glossary_lookup(req.message + " " + query, locale.language)
     sources += await tools.knowledge_search(query)
     sources += await tools.history_search(query, locale.language)
+    contact = db.contact_get(con, req.contact_id) if req.contact_id else None
+    sources += await tools.mail_search(query, locale.language,
+                                       (contact or {}).get("email") or "")
     if req.contact_id:
         sources += await tools.thread(req.contact_id)
 
