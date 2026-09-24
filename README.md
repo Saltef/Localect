@@ -1,7 +1,21 @@
+<div align="center">
+
 # Envoy
 
 **Reply to anyone in their language, and sound like a local.**
+
 Private. Runs on your machine. You always press send.
+
+[![CI](https://github.com/Saltef/Envoy/actions/workflows/ci.yml/badge.svg)](https://github.com/Saltef/Envoy/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/envoy-ai)](https://pypi.org/project/envoy-ai/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Evaluation](#evaluation) · [Architecture](docs/ARCHITECTURE.md) · [Results](docs/EVAL.md)
+
+</div>
+
+---
 
 Paste a message someone sent you in any language. Envoy tells you what it
 says, drafts a reply in their language grounded in your own facts, has a
@@ -10,48 +24,77 @@ back-translate the result so you can see nothing was lost before you send.
 
 ![Envoy composing a Levantine Arabic reply with a side-by-side back-translation](docs/screenshots/compose.png)
 
-## What you get
+## Why Envoy
 
-- **Understand any message.** A faithful gloss in your own language.
-- **A grounded reply.** Every fact, price, or policy comes from your knowledge
-  base and glossary, and each claim is shown next to its source. Nothing is
-  invented; if the answer is not in your materials, the reply says it will
+Machine translation gives you a correct sentence that sounds translated.
+Envoy treats "sounds local" as its own problem, with its own agent, its own
+editable locale profiles, and its own measurement. And because a fluent
+rewrite is exactly where meaning slips, every reply is checked by a Critic on
+a second read and by deterministic code before you see it.
+
+- **Understand any message.** A faithful gloss in your own language, plus
+  what is being asked and what a reply must preserve.
+- **A grounded reply.** Every fact, price, or policy comes from your glossary,
+  knowledge base, and past replies, reached through built-in
+  [MCP](https://modelcontextprotocol.io) servers. Each claim is shown next to
+  its source. If the answer is not in your material, the reply says it will
   confirm rather than guess.
-- **Sounds local, not translated.** A Rewriter edits for the receiver's region
-  and dialect (Egyptian, Gulf, or Levantine Arabic; Brazilian or European
-  Portuguese; Mexican or Castilian Spanish, and more), formality, idiom,
-  greetings and sign-offs, and date, number, and currency formats. Twelve
-  editable locale profiles ship out of the box.
+- **Sounds local, not translated.** A Rewriter edits for the receiver's
+  region: Egyptian, Gulf, or Levantine Arabic; Brazilian or European
+  Portuguese; Mexican or Castilian Spanish; British or American English;
+  French, German, Japanese. Register, idiom, greetings and sign-offs
+  (gendered where the language inflects), and date, number, and currency
+  formats. Twelve editable profiles ship in the box.
 - **Nothing lost.** A Critic back-translates the final text and flags meaning
-  drift, off tone, cultural risks, broken glossary terms, and unsupported
-  claims. A deterministic Arbiter re-checks the things a model must never get
-  wrong: preserved numbers and ids, do-not-translate terms, dropped segments.
+  drift, off tone, cultural risk, broken glossary terms, and unsupported
+  claims. A deterministic Arbiter re-checks what a model must never get
+  wrong: numbers and ids in any digit script, do-not-translate terms,
+  dropped segments.
+- **Measured, not claimed.** A held-out set no prompt was tuned on, planted
+  faults the verifier must catch, an injection set, a dialect-identifier
+  ablation, public-benchmark checks on single agents, and a blind human
+  study. Numbers and negative results are in [docs/EVAL.md](docs/EVAL.md).
 - **You send.** Envoy never sends anything. You copy the reply.
 
-## Install (three steps)
+## Quick start
 
-1. Install [Ollama](https://ollama.com) and pull a multilingual model, for
-   example a Cohere Aya model:
-   ```bash
-   ollama pull aya-expanse:8b
-   ```
-2. Install Envoy (from the repository until the first PyPI release):
-   ```bash
-   pipx install git+https://github.com/Saltef/Envoy   # or: uv tool install git+https://github.com/Saltef/Envoy
-   ```
-3. Run it:
-   ```bash
-   envoy
-   ```
-   It opens `http://127.0.0.1:8765`. Go to **Settings**, choose *Local model*,
-   set the model name you pulled, and click **Check connection**. Load the
-   demo data from the same screen to try it immediately.
+```bash
+pipx install envoy-ai      # or: uv tool install envoy-ai
+envoy                      # opens http://127.0.0.1:8765
+```
 
 Until you point it at a model, Envoy runs in **stub mode**: a deterministic
-stand-in that exercises the whole pipeline offline. It is labelled as such in
-the sidebar. It is not a language model and its replies are not translations;
-it exists so the product works with no setup, in CI, and in places where
-weights cannot be downloaded.
+stand-in, labelled as such, that exercises the whole pipeline offline. Load
+the demo data from **Settings** to try it immediately. Then pick a model:
+
+<table>
+<tr><th>Local, private (recommended)</th><th>Cohere's API</th></tr>
+<tr><td>
+
+```bash
+ollama pull aya-expanse:8b
+envoy config --provider openai \
+  --endpoint http://127.0.0.1:11434/v1 \
+  --model aya-expanse:8b
+envoy check
+```
+
+Any OpenAI-compatible server works: Ollama, LM Studio, llama.cpp, vLLM.
+
+</td><td>
+
+```bash
+envoy config --provider cohere \
+  --model command-a-03-2025 \
+  --api-key "YOUR_KEY"
+envoy check
+```
+
+Uses Cohere's own chat API with structured output; the key is stored in
+`~/.envoy/settings.json`, never shown again.
+
+</td></tr>
+</table>
 
 Prefer a container?
 
@@ -60,99 +103,70 @@ docker build -t envoy .
 docker run -p 8765:8765 -v envoy-data:/data envoy   # talks to Ollama on the host
 ```
 
+Once **Check connection** succeeds, the model field becomes a dropdown of
+what your key or server offers, and Compose gets its own model picker so you
+can compare models on the same message. Each agent role can run on a
+different model (`role_models` in settings), which is also how the Critic is
+kept from grading its own author.
+
 ## How it works
 
-```
-message in  ──►  Reader    what they said, in your language, plus what must be preserved
-                 Drafter   a reply in their language, each claim tied to a source (via MCP tools)
-                 Rewriter  a native editor for their region: dialect, register, idiom, formats
-                 Critic    back-translates and flags drift, tone, culture, glossary, claims
-                 Arbiter   deterministic checks; keep, revise once, or escalate; you send
+```mermaid
+flowchart LR
+    IN([message]) --> R[Reader] --> D[Drafter] --> RW[Rewriter] --> C[Critic] --> A[Arbiter] --> OUT([you send])
+    MCP[("your glossary, knowledge,<br/>history, thread<br/>(MCP servers)")] -.-> D
+    A -. "blocking flag:<br/>one revision" .-> RW
 ```
 
-Each stage is a separate agent with its own prompt. The Rewriter pushes for
-naturalness; the Critic guarantees fidelity; if the Critic finds a blocking
-problem the Rewriter gets one revision pass with the flag as its instruction,
-then you decide. The Drafter reaches your data through four built-in
-[MCP](https://modelcontextprotocol.io) servers (glossary, knowledge, history,
-thread) that start automatically, which is also how Envoy will grow
-connectors for email, chat, and shops without touching the core.
+| Agent | Job | Guarantee |
+|---|---|---|
+| **Reader** | Language, region, a faithful gloss in your language, the asks, what must be preserved | you understand the message before replying |
+| **Drafter** | A reply in their language, each claim tied to a source id from the MCP tools | nothing invented |
+| **Rewriter** | A native editor for the receiver's locale profile: dialect, register, idiom, conventions, formats | sounds local |
+| **Critic** | Back-translates the rewrite and flags drift, tone, cultural risk, glossary, unsupported claims | nothing lost, visibly |
+| **Arbiter** | Deterministic checks: dropped segments, must-preserve items, number drift, glossary law, unsourced claims; decides *ready*, *check*, or *escalate* | the things a model must never get wrong |
+
+The Rewriter is pushed towards naturalness and the Critic guarantees
+fidelity; they are adversaries by construction. A blocking flag earns the
+Rewriter exactly one revision with the flag as its instruction, then you
+decide. Greetings and sign-offs are your setting, enforced in code after
+every stage, so no model can improvise them away.
+
+The full design, with diagrams of the system, the pipeline, the data, and the
+evaluation, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ![Dark mode, with an injection attempt in the incoming message that produced no commitment](docs/screenshots/compose-dark.png)
 
-## Using a real model
+## Evaluation
 
-Two providers, configured from **Settings** or the shell.
-
-**Cohere's API directly** (recommended if you have a Cohere key; uses Cohere's
-own chat API and model list):
+Every check is deterministic and needs no human. Every number comes with the
+count it was computed from. No prompt was ever tuned on the set that counts.
 
 ```bash
-envoy config --provider cohere --model command-a-03-2025 --api-key "YOUR_KEY"
-envoy check      # verifies the key and lists the chat models it can use
-envoy demo       # loads demo data and runs one sample message in the terminal
-```
-
-**Any OpenAI-compatible server**: Ollama, LM Studio, llama.cpp server, vLLM,
-or a hosted endpoint:
-
-```bash
-envoy config --provider openai --endpoint http://127.0.0.1:11434/v1 --model aya-expanse:8b
-envoy check
-```
-
-In the app, once **Check connection** succeeds the model field becomes a
-dropdown of what your key or server offers, and Compose gets its own model
-picker so you can compare models on the same message.
-
-Every agent role uses the same model by default. Power users can point
-individual roles at different models in `~/.envoy/settings.json`
-(`role_models`), for example a tool-capable model for orchestration and a
-multilingual one for the language work.
-
-## Comparing models: `envoy eval`
-
-```bash
-envoy eval                                    # the configured model, the seven demo samples
-envoy eval --set heldout --perturb            # 63 never-tuned-on samples, plus planted faults
+envoy eval --set heldout --perturb          # 63 never-tuned-on samples + six planted faults each
+envoy eval --set injection                  # 20 attacks × 7 languages, each paired with a real question
 envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out compare.json
-envoy eval --set heldout --critic-model command-a-03-2025   # judge with a different model
-envoy eval --set injection                    # 20 attacks x 7 languages, each paired with a real question
-envoy bench massive --data <MASSIVE dir>      # the Reader alone: language accuracy, slot recall
-envoy bench flores --data <FLORES-200 dir>    # the Critic alone: chrF of its back-translation
-envoy study export --from heldout.json --out study/   # blind pairwise sheets for native readers
-envoy study score --sheets study/             # preference with CIs, Krippendorff's alpha, kappa
-envoy report *.json --out report.md           # one markdown report from any of the above
+envoy eval --set heldout --critic-model command-a-03-2025      # judge with a different model
+envoy bench massive --data <MASSIVE dir>    # the Reader alone: language accuracy, slot recall
+envoy bench flores --data <FLORES-200 dir>  # the Critic alone: chrF of its back-translation
+envoy study export --from heldout.json --out study/            # blind pairwise sheets
+envoy study score --sheets study/           # preference with CIs, Krippendorff's α, Cohen's κ
+envoy report *.json --out report.md         # one markdown report from any of the above
 ```
 
-Two sample sets ship with Envoy. The **demo** set is the seven messages in
-the UI; prompts were tuned on them. The **held-out** set is 63 fresh messages,
-five or more per locale, that no prompt was ever tuned against. Every sample
-says what a correct reply must satisfy, so scoring needs no human: the locale
-it resolves to, the facts it must contain (numbers match as whole tokens in
-any digit script), values that would contradict the knowledge base, glossary
-terms, no leaked source ids, and on injection samples no promise. Greeting and
-sign-off are enforced in code, so they are reported as invariants rather than
-counted as passes.
+| Question | How it is answered |
+|---|---|
+| Is the reply correct? | Eight checks per sample: locale, preserved items, required facts (numbers match as whole tokens in any digit script), no contradiction of the knowledge base, glossary terms, no leaked source ids, no forbidden promise, no stage failure |
+| Would the verifier notice a mistake? | `--perturb` plants six faults into every finished reply and reports which layer caught each, plus false alarms on untouched runs |
+| Does the Rewriter make it local? | A dialect identifier (CAMeL Tools for Arabic, a shipped n-gram classifier for Portuguese and Spanish) classifies the Drafter's body and the Rewriter's body; the gap is the Rewriter's work |
+| How good is each agent alone? | The Reader on MASSIVE, the Critic's back-translation on FLORES-200 |
+| Does it sound native? | A blind pairwise study with native readers, scored with confidence intervals and inter-rater agreement |
+| Can it be tricked? | 140 injection samples; the Drafter cannot ground a claim the sources do not support, and the Arbiter blocks unsourced claims |
 
-`--perturb` plants six known faults into every finished reply (a dropped
-order number, a changed number, another locale's greeting, an unsupported
-promise, a leaked source id, slang) and reports what the Critic, the Arbiter,
-and the deterministic steps catch, plus the false-alarm rate on untouched
-runs.
-
-Whether the Rewriter actually makes a reply sound local is measured by a
-dialect identifier, not by the model: with a judge installed, every eval
-table adds a per-locale row of how often the Drafter's body, then the
-Rewriter's body, is classified as the target dialect.
-
-```bash
-pip install camel-tools && camel_data -i dialectid           # Arabic judge (MADAR-26)
-envoy dialect train --language pt --data DSLCC/task1-train.txt   # Portuguese judge from DSLCC
-envoy dialect list
-```
-
-Method, results, and negative results are in [docs/EVAL.md](docs/EVAL.md).
+CI runs the held-out set with perturbations and the injection set on the
+stub on every push and fails the build on any regression. Real-model results,
+including the first run's harness faults and what they changed, are in
+[docs/EVAL.md](docs/EVAL.md).
 
 ## Privacy
 
@@ -161,45 +175,50 @@ The only network call Envoy makes is to the model endpoint you configure,
 which by default is on your own machine. There is no account and no
 telemetry.
 
+## Project structure
+
+```
+src/envoy/
+  pipeline.py     compose(): Reader → Drafter → Rewriter → Critic → Arbiter, one revision loop
+  agents/         reader, drafter, rewriter, critic (model-driven); arbiter (deterministic)
+  prompts/        one versioned prompt per agent
+  schemas.py      typed contracts for every agent and the Result
+  conventions.py  greeting / sign-off enforcement, gender forms
+  models/         openai_compat (Ollama, LM Studio, vLLM), cohere, stub, fake (tests)
+  mcp/            client + servers: glossary, knowledge, history, thread
+  locales/        twelve starter locale profiles (YAML)
+  eval.py, perturb.py, evalset/, evalx/, study.py, report.py   the evaluation
+  db.py, app.py, cli.py, demo.py
+ui/               React + Vite + Tailwind, built into src/envoy/static
+tests/            unit · agents · mcp · pipeline · api · e2e
+docs/             ARCHITECTURE.md · EVAL.md · DESIGN.md · RUBRIC.md
+```
+
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest -q --ignore=tests/e2e     # unit, agents, MCP over stdio, pipeline, API  (~7s)
-cd ui && npm ci && npm run build # bundles the UI into src/envoy/static (committed, so
-                                 # installing from the repo works without Node)
+ruff check src tests
+pytest -q --ignore=tests/e2e     # unit, agents, MCP over stdio, pipeline, API
+cd ui && npm ci && npm run build # bundles the UI into src/envoy/static (committed)
 playwright install chromium
 pytest -q tests/e2e              # boots the real server and drives the UI in Chromium
-ruff check src tests
 ```
 
-Layout:
-
-```
-src/envoy/
-  schemas.py      typed contracts for every agent and the Result
-  pipeline.py     Reader → Drafter → Rewriter → Critic → Arbiter, one revision loop
-  agents/         reader, drafter, rewriter, critic (model-driven); arbiter (deterministic)
-  prompts/        one versioned prompt per agent
-  models/         openai_compat (Ollama, LM Studio, vLLM), stub, fake (tests)
-  mcp/servers/    glossary, knowledge, history, thread; mcp/client.py spawns them
-  locales/        twelve starter locale profiles (YAML)
-  text.py         shared tokenizer with a small cross-lingual alias table
-  db.py, app.py, cli.py, demo.py
-ui/               React + Vite + Tailwind, built into src/envoy/static
-tests/            unit · agents · mcp · pipeline · api · e2e
-docs/DESIGN.md    the build plan
-```
+One pull request per change, version bumped per release, UTF-8 everywhere.
+The evaluation has its own rules, in [docs/EVAL.md](docs/EVAL.md): never
+tune a prompt on the held-out set, never write a number the code did not
+produce, keep the negative results.
 
 ## Roadmap
 
-- **v1 (this):** inbound replies with Rewriter and Critic, local web app,
-  one-command install, twelve locales, MCP-backed grounding.
-- **v1.5:** outbound, one message localized to many regions with the same
-  Critic; prompt tuning on real Aya output; more locales.
+- **Now:** inbound replies with Rewriter and Critic, local web app,
+  one-command install, twelve locales, MCP-backed grounding, the evaluation.
+- **Next:** results tables filled from real-model runs; outbound, one message
+  localized to many regions with the same Critic; more locales.
 - **Later:** email and chat connectors as MCP servers with a Send action, a
   native desktop wrapper, community-contributed locale profiles.
 
 ## License
 
-MIT
+[MIT](LICENSE)
