@@ -136,3 +136,16 @@ async def test_critic_can_run_on_a_different_model(demo_con, settings):
     settings.role_models = {"critic": "judge"}
     r = await _run(demo_con, settings, "Hi, what is the warranty on the SkyPack?", Switchable())
     assert r.model == "sw:writer" and r.critic_model == "sw:judge"
+
+
+async def test_contact_gender_selects_the_greeting_form(demo_con, settings):
+    f = db.contact_add(demo_con, "منى", "ar-EG", gender="female")
+    m = db.contact_add(demo_con, "عمر", "ar-EG", gender="male")
+    u = db.contact_add(demo_con, "سامي", "ar-EG")
+    rf = await _run(demo_con, settings, "امتى بيوصل الاسترداد؟", contact_id=f)
+    rm = await _run(demo_con, settings, "امتى بيوصل الاسترداد؟", contact_id=m)
+    ru = await _run(demo_con, settings, "امتى بيوصل الاسترداد؟", contact_id=u)
+    assert rf.final_text.startswith("أهلاً بيكي منى،") and rf.contact_gender == "female"
+    assert rm.final_text.startswith("أهلاً بيك عمر،") and rm.contact_gender == "male"
+    assert ru.final_text.startswith("أهلاً وسهلاً سامي،") and ru.contact_gender == "unknown"
+    assert all(r.status == Status.ready for r in (rf, rm, ru))

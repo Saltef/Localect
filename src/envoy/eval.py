@@ -28,10 +28,11 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from . import db
-from .config import Settings
+from .config import Settings, data_dir
 from .conventions import rendered_greeting, rendered_signoff
 from .demo import seed_demo
 from .evalset import SETS, Sample, load
+from .evalx.dialect import DialectScorer, discover, matches
 from .locales import seed_locales
 from .models import build_model
 from .perturb import (
@@ -69,6 +70,7 @@ class RunScore:
     suggestions: int = 0
     revisions: int = 0
     final_text: str = ""
+    dialect: dict[str, Any] = field(default_factory=dict)  # draft vs final, when a scorer exists
     result: Result | None = field(default=None, repr=False, compare=False)
 
     @property
@@ -112,6 +114,23 @@ def score(result: Result, sample: Sample, user_name: str
     return checks, invariants
 
 
+def _body(segments) -> str:
+    """The reply without its greeting and sign-off: those are applied in code
+    and identical in draft and final, so they would only dilute the measure."""
+    inner = segments[1:-1] if len(segments) > 2 else segments
+    return "\n".join(s.text for s in inner)
+
+
+def dialect_ablation(result: Result, scorer: DialectScorer) -> dict[str, Any]:
+    """Classify the Drafter's body and the Rewriter's body with the same judge."""
+    draft_label = scorer.predict(_body(result.draft.segments))
+    final_label = scorer.predict(_body(result.rewrite.segments))
+    target = result.locale.locale
+    return {"scorer": scorer.name, "target": target, "draft": draft_label,
+            "final": final_label, "draft_ok": matches(draft_label, target),
+            "final_ok": matches(final_label, target)}
+
+
 def select(samples: list[Sample], indexes: list[int] | None) -> list[Sample]:
     if indexes is None:
         return samples
@@ -121,10 +140,12 @@ def select(samples: list[Sample], indexes: list[int] | None) -> list[Sample]:
 async def run_eval(settings: Settings, models: list[str] | None = None,
                    indexes: list[int] | None = None, con=None, on_row=None,
                    sample_set: str = "demo", samples: list[Sample] | None = None,
-                   critic_model: str | None = None) -> list[RunScore]:
+                   critic_model: str | None = None,
+                   scorers: dict[str, DialectScorer] | None = None) -> list[RunScore]:
     con = con if con is not None else db.connect(settings.db_path)
     seed_locales(con)
     seed_demo(con)
+    scorers = discover(data_dir()) if scorers is None else scorers
     if critic_model:
         settings.role_models = {**settings.role_models, "critic": critic_model}
     base = build_model(settings)
@@ -150,6 +171,8 @@ async def run_eval(settings: Settings, models: list[str] | None = None,
                 row.revisions = r.revisions
                 row.final_text = r.final_text
                 row.result = r
+                if (scorer := scorers.get(r.locale.language)) is not None:
+                    row.dialect = dialect_ablation(r, scorer)
             except PipelineError as e:
                 row.error = str(e)[:200]
             row.seconds = round(time.perf_counter() - t0, 1)
@@ -224,7 +247,27 @@ def render_table(rows: list[RunScore]) -> str:
             lines.append(f"  {r.sample_id:10} {('pass' if r.passed else 'fail'):7} "
                          f"{r.status:9} {r.locale:7} {r.seconds:>5}  {marks}"
                          + (f"  ({', '.join(extra)})" if extra else ""))
+        lines += render_dialect(rs)
     return "\n".join(lines)
+
+
+def render_dialect(rows: list[RunScore]) -> list[str]:
+    """Per locale: how often the draft body, then the final body, was
+    classified as the target dialect. The gap is the Rewriter's work."""
+    scored = [r for r in rows if r.dialect]
+    if not scored:
+        return []
+    lines = ["  dialect (judged by " + ", ".join(sorted({r.dialect["scorer"] for r in scored}))
+             + "):  locale  n  draft  final"]
+    by_locale: dict[str, list[RunScore]] = {}
+    for r in scored:
+        by_locale.setdefault(r.dialect["target"], []).append(r)
+    for locale, rs in sorted(by_locale.items()):
+        n = len(rs)
+        d = 100 * sum(r.dialect["draft_ok"] for r in rs) / n
+        f = 100 * sum(r.dialect["final_ok"] for r in rs) / n
+        lines.append(f"    {locale:7} {n:>3}  {d:4.0f}%  {f:4.0f}%")
+    return lines
 
 
 def to_json(rows: list[RunScore], perturbations: list[PerturbScore] | None = None,

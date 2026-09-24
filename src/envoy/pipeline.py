@@ -36,25 +36,29 @@ def _fallback_locale(language: str) -> LocaleProfile:
                          region_name="unspecified", variety=name, greeting="", signoff="")
 
 
-def resolve_locale(con, req: ComposeRequest, reading) -> tuple[LocaleProfile, str]:
-    if req.locale:
-        p = db.locale_get(con, req.locale)
-        if p:
-            return p, ""
-    contact_name = ""
+def resolve_locale(con, req: ComposeRequest, reading) -> tuple[LocaleProfile, str, str]:
+    """The locale to write in, and the receiver's name and gender when a
+    contact is known. An explicit locale wins, then the contact's, then the
+    Reader's regional guess, then any profile for the language."""
+    contact_name, gender = "", "unknown"
     if req.contact_id:
         c = db.contact_get(con, req.contact_id)
         if c:
-            contact_name = c["name"]
-            p = db.locale_get(con, c["locale"])
-            if p:
-                return p, contact_name
+            contact_name, gender = c["name"], c.get("gender") or "unknown"
+    if req.locale:
+        p = db.locale_get(con, req.locale)
+        if p:
+            return p, contact_name, gender
+    if req.contact_id and contact_name:
+        p = db.locale_get(con, db.contact_get(con, req.contact_id)["locale"])
+        if p:
+            return p, contact_name, gender
     if reading.region_guess:
         p = db.locale_get(con, reading.region_guess)
         if p:
-            return p, contact_name
+            return p, contact_name, gender
     p = db.locale_for_language(con, reading.language)
-    return (p or _fallback_locale(reading.language)), contact_name
+    return (p or _fallback_locale(reading.language)), contact_name, gender
 
 
 def critic_model_for(settings: Settings, model: ChatModel) -> ChatModel:
@@ -66,25 +70,27 @@ def critic_model_for(settings: Settings, model: ChatModel) -> ChatModel:
     return model
 
 
-def polish(rw: Rewrite, locale: LocaleProfile, contact_name: str, user_name: str) -> Rewrite:
+def polish(rw: Rewrite, locale: LocaleProfile, contact_name: str, user_name: str,
+           gender: str = "unknown") -> Rewrite:
     """What the pipeline does to every rewrite before anyone judges it: strip
     leaked source ids and apply the locale's own greeting and sign-off."""
     for seg in rw.segments:
         seg.text = strip_citations(seg.text)
-    enforce(rw.segments, locale, contact_name, user_name, has_claims=lambda s: False)
+    enforce(rw.segments, locale, contact_name, user_name, gender=gender,
+            has_claims=lambda s: False)
     return rw
 
 
 async def verify(critic_model: ChatModel, d, rw: Rewrite, locale: LocaleProfile, sources,
                  must_preserve: list[str], user_language_name: str, contact_name: str,
-                 user_name: str, stage_errors: list[str]):
+                 user_name: str, stage_errors: list[str], gender: str = "unknown"):
     """Critic, then Arbiter. Returns (critique, flags, status, ledger). A Critic
     failure becomes a warning flag rather than a verdict."""
     try:
         cq = await critic.critique(critic_model, d, rw, locale, sources, must_preserve,
-                                   user_language_name, contact_name, user_name)
+                                   user_language_name, contact_name, user_name, gender)
         cq = quiet_critic(cq, {s.id: s.text for s in rw.segments}, locale, contact_name,
-                          user_name)
+                          user_name, gender)
     except StageError as e:
         stage_errors.append(str(e))
         cq = Critique(back_segments=[], flags=[Flag(
@@ -108,7 +114,7 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     except StageError as e:
         raise PipelineError(f"could not read the message ({e.reason})") from e
 
-    locale, contact_name = resolve_locale(con, req, reading)
+    locale, contact_name, gender = resolve_locale(con, req, reading)
 
     query = " ".join([reading.gloss, reading.intent, *reading.asks])
     sources = []
@@ -121,24 +127,27 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     try:
         d = await drafter.draft(model, reading, locale, sources,
                                 user_language_name=user_language_name,
-                                contact_name=contact_name, user_name=settings.user_name)
+                                contact_name=contact_name, user_name=settings.user_name,
+                                gender=gender)
     except StageError as e:
         raise PipelineError(f"could not draft a reply ({e.reason})") from e
     for seg in d.segments:
         seg.text = strip_citations(seg.text)
-    enforce(d.segments, locale, contact_name, settings.user_name)
+    enforce(d.segments, locale, contact_name, settings.user_name, gender=gender)
 
     async def _rewrite(flags: list[Flag] | None) -> Rewrite:
         try:
-            rw_ = await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags)
-            return polish(rw_, locale, contact_name, settings.user_name)
+            rw_ = await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags,
+                                         contact_name=contact_name, gender=gender)
+            return polish(rw_, locale, contact_name, settings.user_name, gender)
         except StageError as e:
             stage_errors.append(str(e))
             return Rewrite(segments=[RewrittenSegment(id=s.id, text=s.text) for s in d.segments])
 
     async def _verify(rw: Rewrite):
         return await verify(judge, d, rw, locale, sources, reading.must_preserve,
-                            user_language_name, contact_name, settings.user_name, stage_errors)
+                            user_language_name, contact_name, settings.user_name, stage_errors,
+                            gender)
 
     rw = await _rewrite(None)
     cq, flags, status, ledger = await _verify(rw)
@@ -154,7 +163,8 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
         status = Status.check
 
     result = Result(
-        message=req.message, user_language=user_language, locale=locale, reading=reading,
+        message=req.message, user_language=user_language, locale=locale,
+        contact_name=contact_name, contact_gender=gender, reading=reading,
         sources=sources, draft=d, rewrite=rw, critique=cq, final_text=rw.text(),
         back_translation=cq.back_translation(), status=status, flags=flags,
         suggestions=cq.suggestions, ledger=ledger,

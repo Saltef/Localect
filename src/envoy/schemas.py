@@ -41,8 +41,11 @@ class LocaleProfile(BaseModel):
     region_name: str  # e.g. "Egypt"
     variety: str  # e.g. "Egyptian Arabic"
     formality: str = "warm-formal"  # casual | warm-formal | formal
-    greeting: str = ""
+    greeting: str = ""  # the form used when the receiver's gender is unknown
     signoff: str = ""
+    # Languages that inflect address by gender carry variants keyed "female" / "male".
+    greetings: dict[str, str] = Field(default_factory=dict)
+    signoffs: dict[str, str] = Field(default_factory=dict)
     formats: LocaleFormats = Field(default_factory=LocaleFormats)
     notes: str = ""
     rtl: bool = False
@@ -181,6 +184,8 @@ class Result(BaseModel):
     message: str
     user_language: str
     locale: LocaleProfile
+    contact_name: str = ""
+    contact_gender: str = "unknown"  # unknown | female | male
     reading: Reading
     sources: list[SourceSnippet]
     draft: Draft

@@ -22,3 +22,24 @@ def test_history_thread_is_per_contact(con):
     db.history_add(con, "{}", "r1", "2026-01-01T00:00:00", "hi", "en-US", "ready", "hello", "c1")
     db.history_add(con, "{}", "r2", "2026-01-02T00:00:00", "hey", "en-US", "ready", "yo", "c2")
     assert [r["id"] for r in db.history_thread(con, "c1")] == ["r1"]
+
+
+def test_contacts_carry_a_gender_and_old_databases_are_migrated():
+    import sqlite3
+
+    from envoy import db
+
+    con = db.connect()
+    cid = db.contact_add(con, "Mona", "ar-EG", gender="female")
+    assert db.contact_get(con, cid)["gender"] == "female"
+    assert db.contact_get(con, db.contact_add(con, "X", "en-US", gender="banana"))["gender"] \
+        == "unknown"
+    # A database created before the column existed.
+    old = sqlite3.connect(":memory:")
+    old.row_factory = sqlite3.Row
+    old.executescript("CREATE TABLE contacts (id TEXT PRIMARY KEY, name TEXT NOT NULL, "
+                      "locale TEXT NOT NULL, notes TEXT NOT NULL DEFAULT ''); "
+                      "CREATE TABLE locales (locale TEXT PRIMARY KEY, profile TEXT NOT NULL); "
+                      "INSERT INTO contacts VALUES ('c1', 'Layla', 'ar-LB', '')")
+    db._migrate(old)
+    assert dict(old.execute("SELECT * FROM contacts").fetchone())["gender"] == "unknown"

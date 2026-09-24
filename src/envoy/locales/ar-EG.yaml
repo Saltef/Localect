@@ -4,8 +4,9 @@ language_name: Arabic
 region_name: Egypt
 variety: Egyptian Arabic
 formality: warm-formal
-greeting: "أهلاً بيك {name}،"
+greeting: "أهلاً وسهلاً {name}،"
 signoff: "تحياتي،"
+greetings: {female: "أهلاً بيكي {name}،", male: "أهلاً بيك {name}،"}
 formats: {date: DD/MM/YYYY, currency: EGP, numerals: eastern-arabic}
 rtl: true
 notes: "Warm and direct. Egyptian colloquial is fine in greetings; keep the body in clear Modern Standard Arabic with an Egyptian feel. avoid: stiff literary phrasing; overly formal honorifics"

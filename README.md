@@ -133,7 +133,20 @@ counted as passes.
 order number, a changed number, another locale's greeting, an unsupported
 promise, a leaked source id, slang) and reports what the Critic, the Arbiter,
 and the deterministic steps catch, plus the false-alarm rate on untouched
-runs. Method, results, and negative results are in [docs/EVAL.md](docs/EVAL.md).
+runs.
+
+Whether the Rewriter actually makes a reply sound local is measured by a
+dialect identifier, not by the model: with a judge installed, every eval
+table adds a per-locale row of how often the Drafter's body, then the
+Rewriter's body, is classified as the target dialect.
+
+```bash
+pip install camel-tools && camel_data -i dialectid           # Arabic judge (MADAR-26)
+envoy dialect train --language pt --data DSLCC/task1-train.txt   # Portuguese judge from DSLCC
+envoy dialect list
+```
+
+Method, results, and negative results are in [docs/EVAL.md](docs/EVAL.md).
 
 ## Privacy
 

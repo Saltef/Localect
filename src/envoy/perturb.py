@@ -138,8 +138,9 @@ def mutate(result: Result, mutation: str) -> tuple[Rewrite, str, str] | None:
     raise ValueError(f"unknown mutation {mutation!r}")
 
 
-async def perturb_one(result: Result, mutation: str, critic_model, user_name: str,
-                      contact_name: str = "") -> PerturbScore:
+async def perturb_one(result: Result, mutation: str, critic_model, user_name: str
+                      ) -> PerturbScore:
+    contact_name, gender = result.contact_name, result.contact_gender
     row = PerturbScore(model=result.model, critic_model=critic_model.name,
                        sample_id="", mutation=mutation)
     out = mutate(result, mutation)
@@ -151,7 +152,7 @@ async def perturb_one(result: Result, mutation: str, critic_model, user_name: st
     original = {s.id: s.text for s in result.rewrite.segments}
     mutated = {s.id: s.text for s in rw.segments}
 
-    polish(rw, result.locale, contact_name, user_name)
+    polish(rw, result.locale, contact_name, user_name, gender)
     after = {s.id: s.text for s in rw.segments}
     if after.get(seg_id) == original.get(seg_id) and mutated.get(seg_id) != original.get(seg_id):
         row.neutralized = True
@@ -161,7 +162,7 @@ async def perturb_one(result: Result, mutation: str, critic_model, user_name: st
         critic_model, result.draft, rw, result.locale, result.sources,
         result.reading.must_preserve,
         LANG_NAMES.get(result.user_language, result.user_language), contact_name, user_name,
-        errors)
+        errors, gender)
     expected = EXPECTED[mutation]
     critic_hits = [f for f in cq.flags if f.kind in expected]
     critic_keys = {(f.segment_id, f.kind, f.span) for f in cq.flags}

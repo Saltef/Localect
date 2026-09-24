@@ -36,12 +36,25 @@ def _closing_like(text: str, user_name: str, signoff: str) -> bool:
     return bool(_CLOSING.search(text)) and _short(text) or len(n.split()) <= 2
 
 
-def rendered_greeting(locale: LocaleProfile, contact_name: str) -> str:
-    return fill_name(locale.greeting, contact_name, locale.language)
+GENDERS = ("unknown", "female", "male")
 
 
-def rendered_signoff(locale: LocaleProfile, user_name: str) -> str:
-    base = locale.signoff.strip()
+def greeting_form(locale: LocaleProfile, gender: str = "unknown") -> str:
+    """The template for this receiver: a gendered variant when the language
+    inflects address and the gender is known, else the neutral form."""
+    return locale.greetings.get(gender) or locale.greeting
+
+
+def signoff_form(locale: LocaleProfile, gender: str = "unknown") -> str:
+    return locale.signoffs.get(gender) or locale.signoff
+
+
+def rendered_greeting(locale: LocaleProfile, contact_name: str, gender: str = "unknown") -> str:
+    return fill_name(greeting_form(locale, gender), contact_name, locale.language)
+
+
+def rendered_signoff(locale: LocaleProfile, user_name: str, gender: str = "unknown") -> str:
+    base = signoff_form(locale, gender).strip()
     if not base:
         return ""
     return f"{base}\n{user_name}" if user_name else base
@@ -56,23 +69,24 @@ def _norm(text: str) -> str:
 
 
 def enforce(segments, locale: LocaleProfile, contact_name: str, user_name: str,
-            *, has_claims=lambda s: bool(getattr(s, "claims", None))) -> list[str]:
+            *, gender: str = "unknown",
+            has_claims=lambda s: bool(getattr(s, "claims", None))) -> list[str]:
     """Replace a short, claim-free first/last segment with the locale's own
     greeting / sign-off. Returns the ids of segments that were changed."""
     changed: list[str] = []
     if not segments:
         return changed
-    g = rendered_greeting(locale, contact_name)
+    g = rendered_greeting(locale, contact_name, gender)
     first = segments[0]
     if g and _short(first.text) and not has_claims(first) and _norm(first.text) != _norm(g):
         first.text = g
         changed.append(first.id)
-    s = rendered_signoff(locale, user_name)
+    s = rendered_signoff(locale, user_name, gender)
     if s and len(segments) > 1:
         # Walk back over the trailing run of short, claim-free, closing-like segments.
         i = len(segments)
         while i > 1 and _short(segments[i - 1].text) and not has_claims(segments[i - 1]) \
-                and _closing_like(segments[i - 1].text, user_name, locale.signoff):
+                and _closing_like(segments[i - 1].text, user_name, signoff_form(locale, gender)):
             i -= 1
         tail = segments[i:]
         if tail:
@@ -85,11 +99,12 @@ def enforce(segments, locale: LocaleProfile, contact_name: str, user_name: str,
 
 
 def quiet_critic(cq: Critique, final_by_id: dict[str, str], locale: LocaleProfile,
-                 contact_name: str, user_name: str) -> Critique:
+                 contact_name: str, user_name: str, gender: str = "unknown") -> Critique:
     """Drop flags and suggestions aimed at the locale's own conventions, and
     suggestions that merely repeat the text they are attached to."""
-    conventions = {_norm(rendered_greeting(locale, contact_name)),
-                   _norm(rendered_signoff(locale, user_name)), _norm(locale.signoff)}
+    conventions = {_norm(rendered_greeting(locale, contact_name, gender)),
+                   _norm(rendered_signoff(locale, user_name, gender)),
+                   _norm(signoff_form(locale, gender))}
     conventions.discard("")
 
     def is_convention(seg_id: str) -> bool:

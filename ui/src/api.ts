@@ -23,6 +23,8 @@ export type LocaleProfile = {
   formality: string;
   greeting: string;
   signoff: string;
+  greetings?: Record<string, string>;
+  signoffs?: Record<string, string>;
   formats: { date: string; currency: string; numerals: string };
   notes: string;
   rtl: boolean;
@@ -71,7 +73,7 @@ export type GlossaryItem = {
   do_not_translate: number;
   notes: string;
 };
-export type Contact = { id: string; name: string; locale: string; notes: string };
+export type Contact = { id: string; name: string; locale: string; notes: string; gender?: string };
 export type KnowledgeItem = { id: string; title: string; size: number };
 export type HistoryItem = {
   id: string;
