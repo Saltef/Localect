@@ -16,8 +16,11 @@ def _segments_block(draft: Draft) -> str:
 async def rewrite(model: ChatModel, draft: Draft, locale: LocaleProfile,
                   sources: list[SourceSnippet], must_preserve: list[str],
                   flags: list[Flag] | None = None, *, contact_name: str = "",
-                  gender: str = "unknown") -> Rewrite:
+                  gender: str = "unknown", voice: list[dict] | None = None) -> Rewrite:
     glossary = "\n".join(f"- {s.text}" for s in sources if s.kind == "glossary") or "- (none)"
+    voice_block = "\n\n".join(
+        f"[{(v.get('date') or '')[:10]}] {v['text']}" for v in (voice or []) if v.get("text")
+    ) or "(none on file)"
     user = render(
         "rewriter",
         variety=locale.variety, region_name=locale.region_name, formality=locale.formality,
@@ -26,6 +29,7 @@ async def rewrite(model: ChatModel, draft: Draft, locale: LocaleProfile,
         glossary=glossary, greeting=rendered_greeting(locale, contact_name, gender),
         signoff=signoff_form(locale, gender),
         notes=locale.notes, draft=_segments_block(draft), schema=schema_text(Rewrite),
+        voice=voice_block,
     )
     if flags:
         user += "\n\nA reviewer flagged problems with your previous version. Fix each one:\n" + \
@@ -35,5 +39,6 @@ async def rewrite(model: ChatModel, draft: Draft, locale: LocaleProfile,
         "must_preserve": must_preserve,
         "glossary": [s.meta for s in sources if s.kind == "glossary"],
         "revise": bool(flags), "flags": [f.model_dump() for f in (flags or [])],
+        "voice": voice or [],
     }
     return await run_stage(model, "rewriter", Rewrite, SYSTEM, user, context=context)

@@ -12,7 +12,9 @@ _BLOCKING = {"drifted", "unsupported_claim", "off_glossary", "missing_item"}
 def normalize_critique(raw: dict) -> dict:
     """Tolerate a model's near-misses: unknown flag kinds become suggestions,
     missing severities get the right default, odd shapes get coerced."""
-    valid = {k.value for k in FlagKind}
+    # The Arbiter alone raises the source-conflict kinds; a model naming them
+    # becomes a suggestion like any other unknown kind.
+    valid = {k.value for k in FlagKind} - {"conflicting_sources", "stale_source", "stage_failure"}
     flags, suggestions = [], list(raw.get("suggestions") or [])
     for f in raw.get("flags") or []:
         if not isinstance(f, dict):

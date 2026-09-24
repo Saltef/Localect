@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import urllib.request
 from pathlib import Path
 
@@ -71,3 +72,38 @@ def test_compose_flow_and_screenshots(server):
         dp.screenshot(path=str(SHOTS / "compose-dark.png"), full_page=True)
         browser.close()
     assert (SHOTS / "compose.png").stat().st_size > 10_000
+
+
+def test_memory_page_imports_reads_facts_and_settles_a_conflict(server):
+    """Import the fixture mailbox from the Memory page, read it for facts, see
+    the two return windows disagree, reject the old one."""
+    from pathlib import Path
+
+    fix = Path(__file__).resolve().parents[1] / "fixtures" / "mail" / "sample.mbox"
+    with pw.sync_playwright() as p:
+        browser = _launch(p)
+        page = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+        page.goto(server)
+        page.get_by_test_id("nav-settings").click()
+        page.get_by_label("Your email address(es)").fill("safea@example.com")
+        page.get_by_role("button", name="Save").first.click()
+        page.get_by_role("button", name="Saved").first.wait_for()
+        page.get_by_test_id("nav-memory").click()
+        page.get_by_test_id("import-paths").fill(str(fix))
+        page.get_by_role("button", name="Import").click()
+        page.get_by_test_id("memory-note").wait_for()
+        assert "5 message(s) stored (3 written by you)" in page.get_by_test_id(
+            "memory-note").inner_text()
+        assert page.get_by_test_id("message-row").count() == 5
+        page.get_by_role("button", name=re.compile(r"Read \d+ message")).click()
+        page.get_by_text("fact(s) found").wait_for()
+        assert page.get_by_test_id("fact-row").count() >= 2
+        assert page.get_by_text("topic(s) with disagreeing facts").count() == 1
+        page.screenshot(path=str(SHOTS / "memory.png"))
+        # reject the older statement from the conflict card
+        card = page.get_by_text("Facts that disagree").locator("xpath=ancestor::section")
+        card.get_by_role("button").nth(3).click()  # second row: reject
+        page.get_by_test_id("memory-search").fill("zz-nothing")
+        page.get_by_test_id("memory-search").fill("")
+        page.wait_for_function("!document.body.innerText.includes('disagreeing facts')")
+        browser.close()

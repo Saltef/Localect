@@ -17,7 +17,7 @@ you dated facts with the message each came from.
 |---|---|---|---|
 | M1 | **Import past mail and documents** | `envoy import` for mbox, `.eml`, Markdown, text and PDF; quoted replies and signatures stripped; a `messages` table; a `mail` MCP tool that ranks the newest statement and the contact being answered first; the Drafter cites mail with who said it and when | done (0.9.0) |
 | M2 | **Retrieval across languages** | Embeddings through the configured provider (Cohere's multilingual embed model on the API path, any OpenAI-compatible server's `/embeddings` locally, an offline hashed embedder otherwise), fused with the token search by reciprocal rank; the contact and recency priors applied after fusion; `envoy index`; the knowledge base searched the same way | done (0.9.1) |
-| M3 | Extract the correct fact | Dated facts pulled out of messages into a reviewable Memory page; "sources disagree" flag from the Critic when two statements conflict, with both dates; your own sent mail as voice examples for the Rewriter | |
+| M3 | **Extract the correct fact** | An Extractor agent turns each message into dated facts (topic, statement, value) on a reviewable Memory page; facts are sources with `fc:` ids; the Arbiter flags a reply that cites the newest of two disagreeing facts (warn) or an older one (block); your own sent mail as voice examples for the Rewriter | done (0.9.2) |
 | M4 | Measure it | A fixture mailbox with superseded facts in several languages; recall at k, stale-fact rate, cross-lingual retrieval; held-out samples that depend on the mailbox; a retrieval section in the report | |
 | M5 | Sources page and docs | What was imported, what each reply cited, exclude a thread, pause | |
 | M6 | Remember as you send | The browser extension: turn memory on per site, a visible indicator, capture the message on send with the message it answers, never a keystroke | |
@@ -72,6 +72,59 @@ embedder indexes at search time because it costs nothing. A remote embedder
 is never called during a search except for the query itself. Vectors live in
 the same SQLite file, one per paragraph per embedder, and are deleted with
 their message.
+
+## Facts: what was said, with a date
+
+Search finds paragraphs. A reply needs the fact inside the paragraph, and it
+needs to know whether a later message changed it. So each stored message is
+read once by an Extractor agent (one model call per message; the stub does
+it with a rule) that lists what the message states:
+
+- **topic**: a short English key for what the fact is about ("return
+  window", "shipping time"), the same however it is phrased;
+- **statement**: the sentence as written, in its own language;
+- **value**: the number, amount, date or duration it fixes, if any.
+
+Each fact keeps who said it (you or them), to or from whom, the date, the
+language, and the message it came from. The Memory page in the app lists
+them, searchable, with confirm and reject for each, and shows at the top
+every topic on which two facts disagree, newest first.
+
+```bash
+envoy import mail.mbox --extract   # read the mail for facts right after importing it
+envoy extract                      # read whatever has not been read yet
+```
+
+A captured message is read on arrival. `POST /api/extract` runs it from the
+app; `GET /api/facts`, `PUT /api/facts/{id}` (status, statement, value,
+topic) and `DELETE /api/facts/{id}` are the review endpoints, and
+`GET /api/memory` reports the counts and the conflicts.
+
+### When facts disagree
+
+Facts reach the Drafter as sources (`fc:` ids) with "you said on 2025-09-10"
+attached, ranked with the party being answered first, then confirmed over
+automatic, then newest. The Arbiter then compares the retrieved facts by
+topic key:
+
+- the reply cites the **newest** of two disagreeing facts: a warning
+  (`conflicting_sources`) naming both values and dates, so the reply lands
+  as *check*, and the reader sees that an older statement exists;
+- the reply cites an **older** one: a block (`stale_source`), because the
+  reply repeats something that was later changed. This is not handed to the
+  Rewriter for a revision, since fixing a fact means changing meaning; a
+  person decides.
+
+Rejecting a fact on the Memory page removes it from retrieval and from the
+conflict; confirming one ranks it above automatic ones. Deleting a message
+deletes its facts.
+
+### Your voice
+
+The Rewriter is given up to three of your own recent messages in the
+receiver's language, to the same contact when there are any, as examples of
+how you write. It is told to match the register and phrasing and never to
+copy content or change a fact.
 
 ## How a reply uses it
 

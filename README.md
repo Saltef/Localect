@@ -51,8 +51,9 @@ a second read and by deterministic code before you see it.
   wrong: numbers and ids in any digit script, do-not-translate terms,
   dropped segments.
 - **Drafts from what you actually said.** Import your past mail and Envoy
-  cites it like any other source, newest statement first, with who said it
-  and when. See [docs/MEMORY.md](docs/MEMORY.md).
+  reads it into dated facts you can review, cites them like any other
+  source, warns when two of them disagree, and writes in your own voice.
+  See [docs/MEMORY.md](docs/MEMORY.md).
 - **Measured, not claimed.** A held-out set no prompt was tuned on, planted
   faults the verifier must catch, an injection set, a dialect-identifier
   ablation, public-benchmark checks on single agents, and a blind human
@@ -190,13 +191,13 @@ telemetry.
 ```
 src/envoy/
   pipeline.py     compose(): Reader → Drafter → Rewriter → Critic → Arbiter, one revision loop
-  agents/         reader, drafter, rewriter, critic (model-driven); arbiter (deterministic)
+  agents/         reader, drafter, rewriter, critic, extractor (model-driven); arbiter (code)
   prompts/        one versioned prompt per agent
   schemas.py      typed contracts for every agent and the Result
   conventions.py  greeting / sign-off enforcement, gender forms
   models/         openai_compat (Ollama, LM Studio, vLLM), cohere, stub, fake (tests)
   mcp/            client + servers: glossary, knowledge, history, thread, mail
-  memory/         import of past mail (mbox, .eml) and documents; embeddings; hybrid search
+  memory/         past mail: import, embeddings, hybrid search, extracted facts
   locales/        twelve starter locale profiles (YAML)
   eval.py, perturb.py, evalset/, evalx/, study.py, report.py   the evaluation
   db.py, app.py, cli.py, demo.py

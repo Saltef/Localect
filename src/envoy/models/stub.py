@@ -155,6 +155,26 @@ class StubModel:
             "tone": "neutral",
         }
 
+    # -- extractor --------------------------------------------------------
+    def _extractor(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        """Every sentence that fixes a number is a fact; its topic is the
+        sentence's canonical (alias-folded) words, so the same statement in two
+        languages gets the same key. Real models write a proper English topic."""
+        from ..text import ALIASES
+
+        facts = []
+        text: str = ctx.get("text", "")
+        for sent in re.split(r"(?<=[.!?؟。])\s+|\n+", text):
+            sent = sent.strip()
+            if not sent or not re.search(r"\d", to_western(sent)):
+                continue
+            nums = re.findall(r"\d+(?:[.,]\d+)?", to_western(sent))
+            words = _tokens(sent) - {to_western(n) for n in nums}
+            concepts = sorted(w for w in words if w in ALIASES)
+            topic = " ".join(concepts or sorted(words))[:60] or "untitled"
+            facts.append({"topic": topic, "statement": sent, "value": nums[0]})
+        return {"facts": facts}
+
     # -- drafter ----------------------------------------------------------
     def _drafter(self, ctx: dict[str, Any]) -> dict[str, Any]:
         reading = ctx["reading"]
@@ -162,8 +182,9 @@ class StubModel:
         sources = ctx.get("sources", [])
         name = ctx.get("contact_name", "")
         user_name = ctx.get("user_name", "")
-        # Facts come from the knowledge base and from the user's own past mail.
-        knowledge = [s for s in sources if s["kind"] in ("knowledge", "mail")]
+        # Facts come from the knowledge base, from the user's own past mail, and
+        # from the dated facts extracted from it.
+        knowledge = [s for s in sources if s["kind"] in ("knowledge", "mail", "fact")]
         segments = []
         greeting = _fill_name(locale["greeting"], name, locale["language"])
         segments.append({"id": "s1", "text": greeting, "claims": []})

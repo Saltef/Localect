@@ -62,7 +62,26 @@ export type Settings = {
   model: string;
   api_key: string;
   user_name: string;
+  user_email: string;
   user_language: string;
+  embed_model: string;
+};
+export type Fact = {
+  id: string; topic: string; topic_key: string; statement: string; value: string;
+  said_on: string; said_by: "you" | "them"; party: string; message_id: string;
+  language: string; status: "auto" | "confirmed" | "rejected";
+};
+export type MessageItem = {
+  id: string; date: string; from_addr: string; from_name: string; to_addrs: string;
+  subject: string; preview: string; size: number; is_mine: number; language: string; origin: string;
+};
+export type MemoryStatus = {
+  embedder: { name: string; offline: boolean };
+  counts: { messages: number; mine: number };
+  vectors: Record<string, number>;
+  facts: { facts: number; auto: number; confirmed: number; rejected: number };
+  unextracted: number;
+  conflicts: Fact[][];
 };
 export type Health = { ok: boolean; version: string; provider: string; model: string; mcp: boolean };
 export type GlossaryItem = {
@@ -135,6 +154,14 @@ export const api = {
   delKnowledge: (id: string) => req<{ ok: boolean }>("DELETE", `/api/knowledge/${id}`),
   history: () => req<HistoryItem[]>("GET", "/api/history"),
   historyGet: (id: string) => req<Result>("GET", `/api/history/${id}`),
+  memory: () => req<MemoryStatus>("GET", "/api/memory"),
+  messages: (q = "") => req<{ counts: { messages: number; mine: number }; messages: MessageItem[] }>("GET", `/api/messages?q=${encodeURIComponent(q)}`),
+  delMessage: (id: string) => req<{ ok: boolean }>("DELETE", `/api/messages/${id}`),
+  importPaths: (paths: string[]) => req<{ summary: string; skipped: string[] }>("POST", "/api/import", { paths }),
+  extract: () => req<{ messages: number; facts: number; failed: number }>("POST", "/api/extract"),
+  facts: (q = "", status = "") => req<Fact[]>("GET", `/api/facts?q=${encodeURIComponent(q)}&status=${status}`),
+  patchFact: (id: string, p: Partial<Pick<Fact, "status" | "statement" | "value" | "topic">>) => req<Fact>("PUT", `/api/facts/${id}`, p),
+  delFact: (id: string) => req<{ ok: boolean }>("DELETE", `/api/facts/${id}`),
   loadDemo: () => req<{ glossary: number; knowledge: number; contacts: number }>("POST", "/api/demo"),
   samples: () => req<Sample[]>("GET", "/api/demo/messages"),
 };

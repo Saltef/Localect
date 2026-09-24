@@ -188,7 +188,7 @@ def has_value(text: str, value: str) -> bool:
     return v in t
 
 
-_CITATION = re.compile(r"\s*\[?\b(?:kb|gl|hx|th|ml):[A-Za-z0-9_:\-]+\]?")
+_CITATION = re.compile(r"\s*\[?\b(?:kb|gl|hx|th|ml|fc):[A-Za-z0-9_:\-]+\]?")
 
 
 def strip_citations(text: str) -> str:

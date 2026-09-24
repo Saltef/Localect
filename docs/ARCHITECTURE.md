@@ -80,7 +80,7 @@ flowchart TB
 
     R["<b>Reader</b><br/>language, region guess, faithful gloss,<br/>asks, must-preserve items, tone"]
     R --> LOC["Resolve locale<br/>explicit › contact › Reader's guess › language default"]
-    LOC --> SRC["Gather sources via MCP<br/>glossary · knowledge · past mail · history · thread"]
+    LOC --> SRC["Gather sources via MCP<br/>glossary · knowledge · facts · past mail · history · thread"]
     SRC --> D
 
     D["<b>Drafter</b><br/>reply in their language,<br/>every claim tied to a source id"]
@@ -95,13 +95,13 @@ flowchart TB
     C --> QC["quiet_critic: drop flags aimed<br/>at the locale's own conventions"]
     QC --> A
 
-    A["<b>Arbiter</b> (deterministic)<br/>dropped segments · must-preserve items ·<br/>glossary law · number drift · unsourced claims"]
+    A["<b>Arbiter</b> (deterministic)<br/>dropped segments · must-preserve items ·<br/>glossary law · number drift · unsourced claims ·<br/>facts that disagree"]
     A -->|blocking flags, first pass| RW2["Rewriter, one revision<br/>with the flags as instructions"]
     RW2 --> C
     A -->|"ready · check · escalate"| OUT([Result: final text, back-translation,<br/>per-segment ledger, flags, status])
 ```
 
-Five agents, one job each, one prompt each (`prompts/*.md`). Every stage
+Five agents in the reply path, one job each, one prompt each (`prompts/*.md`), plus an Extractor that reads stored mail into dated facts outside the reply path (see [MEMORY.md](MEMORY.md)). Every stage
 returns a typed JSON object (`schemas.py`); `agents/stage.py` renders the
 prompt, validates the reply against the Pydantic schema, and retries once
 with the validation error, or with a specific correction when the model
@@ -125,7 +125,7 @@ until it looks fine.
 |---|---|---|---|
 | Conventions (`conventions.py`) | code, applied after every stage | improvised greetings and sign-offs, leaked `[kb:…]` ids | no: the locale profile is the user's setting, models cannot override it |
 | Critic (`agents/critic.py`) | a model, ideally not the Drafter's | meaning drift, tone, cultural risk, register, unsupported claims | yes: measured by planted faults and false alarms |
-| Arbiter (`agents/arbiter.py`) | code | dropped segments, missing must-preserve items, numbers added or lost in any digit script, glossary violations, claims without a source | no: it is a checklist |
+| Arbiter (`agents/arbiter.py`) | code | dropped segments, missing must-preserve items, numbers added or lost in any digit script, glossary violations, claims without a source, a reply citing a fact that a newer fact contradicts | no: it is a checklist |
 
 The split matters for the evaluation: anything code enforces is reported as
 an invariant, not counted as a pass, so the model's score is the model's.
@@ -179,6 +179,18 @@ erDiagram
         text id PK
         text title
         text text "searched by the knowledge server"
+    }
+    messages ||--o{ facts : "extracted from"
+    facts {
+        text id PK
+        text topic "short English key"
+        text topic_key "alias-folded, comparable"
+        text statement
+        text value
+        text said_on
+        text said_by "you | them"
+        text party "the other address"
+        text status "auto | confirmed | rejected"
     }
     messages {
         text id PK
@@ -285,7 +297,7 @@ Negative results stay in the document.
 ```
 src/envoy/
   pipeline.py       compose(): the flow above, locale resolution, one revision loop
-  agents/           reader, drafter, rewriter, critic (model-driven); arbiter (code);
+  agents/           reader, drafter, rewriter, critic, extractor (model-driven); arbiter (code);
                     stage.py runs one prompt → schema round trip with retry
   prompts/          one versioned prompt per agent
   schemas.py        Reading, Draft, Rewrite, Critique, Flag, Result: the contracts
@@ -295,7 +307,7 @@ src/envoy/
   mcp/              client (spawns and calls the servers); servers/ glossary,
                     knowledge, history, thread, mail
   memory/           past mail and documents: parse (mbox, .eml), clean (quotes,
-                    signatures, HTML), importer; see MEMORY.md
+                    signatures, HTML), importer, embed, index, search, facts; see MEMORY.md
   tools.py          the Tools interface; DirectTools for in-process use
   locales/          twelve locale profiles (YAML), seeded into SQLite
   db.py             SQLite schema and migrations

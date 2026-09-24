@@ -46,6 +46,13 @@ class ImportIn(BaseModel):
     paths: list[str]
 
 
+class FactPatch(BaseModel):
+    status: str | None = None  # auto | confirmed | rejected
+    statement: str | None = None
+    value: str | None = None
+    topic: str | None = None
+
+
 class MessageIn(BaseModel):
     """One message captured with the user's consent (the extension, or a
     client that already has the text). Same record the importer builds."""
@@ -230,7 +237,7 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         return m
 
     @app.post("/api/messages")
-    def message_add(m: MessageIn) -> dict[str, Any]:
+    async def message_add(m: MessageIn) -> dict[str, Any]:
         from .memory.clean import clean_body
         from .memory.parse import now_iso
         from .models.stub import detect_language
@@ -246,9 +253,20 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
             to_addrs=",".join(a.lower() for a in m.to_addrs), subject=m.subject, is_mine=mine,
             language=detect_language(text), origin=m.origin or "capture")
         app.state.con.commit()
+        facts_found = 0
         if mid:
             index_message(app.state.con, build_embedder(s), mid)
-        return {"id": mid, "stored": mid is not None}
+            # Read the new message for facts right away; a failure here must
+            # not lose the capture, so it is reported, not raised.
+            from .agents.stage import StageError
+            from .memory.facts import extract_message
+
+            try:
+                facts_found = await extract_message(app.state.con, app.state.model,
+                                                    db.message_get(app.state.con, mid))
+            except StageError:
+                facts_found = -1
+        return {"id": mid, "stored": mid is not None, "facts": facts_found}
 
     @app.delete("/api/messages/{mid}")
     def message_delete(mid: str) -> dict[str, bool]:
@@ -276,7 +294,43 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         s: Settings = app.state.settings
         return {"embedder": describe(build_embedder(s)),
                 "counts": db.message_count(app.state.con),
-                "vectors": db.embedding_count(app.state.con)}
+                "vectors": db.embedding_count(app.state.con),
+                "facts": db.fact_count(app.state.con),
+                "unextracted": len(db.messages_unextracted(app.state.con)),
+                "conflicts": db.facts_conflicts(app.state.con)}
+
+    @app.get("/api/facts")
+    def facts(q: str = "", party: str = "", status: str = "", limit: int = 200
+              ) -> list[dict[str, Any]]:
+        return db.fact_list(app.state.con, q, party, status, limit)
+
+    @app.put("/api/facts/{fid}")
+    def fact_patch(fid: str, patch: FactPatch) -> dict[str, Any]:
+        from .memory.facts import topic_key
+
+        if patch.status is not None and patch.status not in ("auto", "confirmed", "rejected"):
+            raise HTTPException(400, "status must be auto, confirmed or rejected")
+        fields = patch.model_dump()
+        if patch.topic is not None:
+            fields["topic_key"] = topic_key(patch.topic)
+        out = db.fact_update(app.state.con, fid, **fields)
+        if not out:
+            raise HTTPException(404, "no such fact")
+        return out
+
+    @app.delete("/api/facts/{fid}")
+    def fact_delete(fid: str) -> dict[str, bool]:
+        db.fact_delete(app.state.con, fid)
+        return {"ok": True}
+
+    @app.post("/api/extract")
+    async def extract_now(limit: int = 1000) -> dict[str, Any]:
+        from dataclasses import asdict
+
+        from .memory.facts import extract_pending
+
+        report = await extract_pending(app.state.con, app.state.model, limit)
+        return {**asdict(report), "facts_total": db.fact_count(app.state.con)}
 
     @app.post("/api/index")
     def index_now() -> dict[str, Any]:

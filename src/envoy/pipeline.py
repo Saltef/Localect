@@ -152,10 +152,12 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     sources += await tools.knowledge_search(query)
     sources += await tools.history_search(query, locale.language)
     contact = db.contact_get(con, req.contact_id) if req.contact_id else None
-    sources += await tools.mail_search(query, locale.language,
-                                       (contact or {}).get("email") or "")
+    contact_email = (contact or {}).get("email") or ""
+    sources += await tools.facts_search(query, locale.language, contact_email)
+    sources += await tools.mail_search(query, locale.language, contact_email)
     if req.contact_id:
         sources += await tools.thread(req.contact_id)
+    voice = await tools.voice_examples(locale.language, contact_email)
 
     try:
         d = await drafter.draft(model, reading, locale, sources,
@@ -171,7 +173,7 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     async def _rewrite(flags: list[Flag] | None) -> Rewrite:
         try:
             rw_ = await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags,
-                                         contact_name=contact_name, gender=gender)
+                                         contact_name=contact_name, gender=gender, voice=voice)
             return polish(rw_, locale, contact_name, settings.user_name, gender)
         except StageError as e:
             stage_errors.append(str(e))
