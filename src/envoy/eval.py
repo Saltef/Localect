@@ -69,6 +69,8 @@ class RunScore:
     flags_warn: int = 0
     suggestions: int = 0
     revisions: int = 0
+    message: str = ""
+    draft_text: str = ""
     final_text: str = ""
     dialect: dict[str, Any] = field(default_factory=dict)  # draft vs final, when a scorer exists
     result: Result | None = field(default=None, repr=False, compare=False)
@@ -158,7 +160,7 @@ async def run_eval(settings: Settings, models: list[str] | None = None,
         for sample in chosen:
             t0 = time.perf_counter()
             row = RunScore(model=model.name, sample_id=sample.id, set=sample.set,
-                           label=sample.label, seconds=0.0)
+                           label=sample.label, seconds=0.0, message=sample.text)
             try:
                 r = await compose(ComposeRequest(message=sample.text), settings=settings,
                                   model=model, tools=DirectTools(con), con=con)
@@ -169,6 +171,7 @@ async def run_eval(settings: Settings, models: list[str] | None = None,
                 row.flags_warn = sum(1 for f in r.flags if f.severity == "warn")
                 row.suggestions = len(r.suggestions)
                 row.revisions = r.revisions
+                row.draft_text = r.draft.text()
                 row.final_text = r.final_text
                 row.result = r
                 if (scorer := scorers.get(r.locale.language)) is not None:

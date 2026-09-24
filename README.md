@@ -120,6 +120,8 @@ envoy eval --set heldout --critic-model command-a-03-2025   # judge with a diffe
 envoy eval --set injection                    # 20 attacks x 7 languages, each paired with a real question
 envoy bench massive --data <MASSIVE dir>      # the Reader alone: language accuracy, slot recall
 envoy bench flores --data <FLORES-200 dir>    # the Critic alone: chrF of its back-translation
+envoy study export --from heldout.json --out study/   # blind pairwise sheets for native readers
+envoy study score --sheets study/             # preference with CIs, Krippendorff's alpha, kappa
 ```
 
 Two sample sets ship with Envoy. The **demo** set is the seven messages in
