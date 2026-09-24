@@ -149,3 +149,21 @@ async def test_contact_gender_selects_the_greeting_form(demo_con, settings):
     assert rm.final_text.startswith("أهلاً بيك عمر،") and rm.contact_gender == "male"
     assert ru.final_text.startswith("أهلاً وسهلاً سامي،") and ru.contact_gender == "unknown"
     assert all(r.status == Status.ready for r in (rf, rm, ru))
+
+
+def test_region_guess_is_normalized_and_languages_have_a_default_region(con):
+    from envoy.pipeline import locale_for_reading, normalize_locale_code
+
+    assert normalize_locale_code("ar_eg") == "ar-EG"
+    assert normalize_locale_code(" ES-mx ") == "es-MX"
+    assert normalize_locale_code("es") == "es"
+    assert normalize_locale_code(None) == "" and normalize_locale_code("??") == ""
+    # a usable guess wins
+    assert locale_for_reading(con, "ar", "ar_sa").locale == "ar-SA"
+    # no guess, or one that names no configured profile: the language's default
+    # region, not the alphabetically first profile
+    assert locale_for_reading(con, "es", None).locale == "es-MX"
+    assert locale_for_reading(con, "en", "en-AU").locale == "en-US"
+    assert locale_for_reading(con, "ar", "ar").locale == "ar-EG"
+    assert locale_for_reading(con, "AR", "").locale == "ar-EG"
+    assert locale_for_reading(con, "xx", None) is None
