@@ -339,6 +339,13 @@ which attacks got through, *pending the rerun on 0.8.2*.
 
 None.
 
+## Interrupting a run
+
+`envoy eval --out FILE` rewrites the JSON after every scored sample and
+every perturbation, atomically, with `"partial": true` until the run
+completes. Ctrl+C prints the table for what finished, keeps the file, and
+exits 130, so a two-hour run that has to stop keeps what it measured.
+
 ## Gates and the report
 
 CI runs, on every push, `envoy eval --set heldout --perturb` and

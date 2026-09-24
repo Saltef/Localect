@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -322,12 +323,24 @@ def render_dialect(rows: list[RunScore]) -> list[str]:
 
 
 def to_json(rows: list[RunScore], perturbations: list[PerturbScore] | None = None,
-            alarms: dict[str, int] | None = None) -> str:
+            alarms: dict[str, int] | None = None, partial: bool = False) -> str:
     doc: dict[str, Any] = {"runs": [r.to_dict() for r in rows]}
     if perturbations is not None:
         doc["perturbations"] = perturb_to_dicts(perturbations)
         doc["false_alarms"] = alarms or {}
+    if partial:
+        doc["partial"] = True  # the run was still going, or was interrupted, when this was written
     return json.dumps(doc, ensure_ascii=False, indent=1)
+
+
+def save_json(path: str, rows: list[RunScore], perturbations: list[PerturbScore] | None = None,
+              alarms: dict[str, int] | None = None, partial: bool = False) -> None:
+    """Write the file whole, then move it into place, so a reader never sees
+    half a document and an interrupted run keeps its last complete state."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(to_json(rows, perturbations, alarms, partial))
+    os.replace(tmp, path)
 
 
 def main_eval(settings: Settings, models: list[str] | None, indexes: list[int] | None,
@@ -337,12 +350,27 @@ def main_eval(settings: Settings, models: list[str] | None, indexes: list[int] |
         print(f"unknown set {sample_set!r}; choose one of {', '.join(SETS)}")
         return 2
 
+    # Everything scored so far. The JSON is rewritten after every sample, so
+    # a run that is interrupted (Ctrl+C) or dies still leaves its results.
+    rows: list[RunScore] = []
+    perturbations: list[PerturbScore] | None = [] if perturb else None
+    alarms: dict[str, int] | None = None
+
+    def checkpoint() -> None:
+        if out:
+            save_json(out, rows, perturbations, alarms, partial=True)
+
     def live(row: RunScore) -> None:
         state = "ERROR" if row.error else ("pass" if row.passed else "fail")
         print(f"  [{row.model}] {row.sample_id} {row.label}: {state} ({row.seconds}s)",
               flush=True)
+        rows.append(row)
+        checkpoint()
 
     def live_p(row: PerturbScore) -> None:
+        if perturbations is not None:
+            perturbations.append(row)
+        checkpoint()
         if not row.applicable:
             return
         how = "neutralized" if row.neutralized else "critic" if row.by_critic \
@@ -352,17 +380,25 @@ def main_eval(settings: Settings, models: list[str] | None, indexes: list[int] |
     print(f"Envoy eval  set={sample_set}  provider={settings.provider}  "
           f"models={models or ['(configured)']}"
           + (f"  critic={critic_model}" if critic_model else ""))
-    rows = asyncio.run(run_eval(settings, models, indexes, on_row=live, sample_set=sample_set,
-                                critic_model=critic_model))
-    print(render_table(rows))
-    perturbations, alarms = None, None
-    if perturb:
-        print("\nPerturbing every run:")
-        perturbations, alarms = asyncio.run(run_perturbations(rows, settings, on_row=live_p))
-        print(render_perturb(perturbations, alarms))
+    try:
+        asyncio.run(run_eval(settings, models, indexes, on_row=live, sample_set=sample_set,
+                             critic_model=critic_model))
+        print(render_table(rows))
+        if perturb:
+            print("\nPerturbing every run:")
+            perturbations, alarms = asyncio.run(
+                run_perturbations(rows, settings, on_row=live_p))
+            print(render_perturb(perturbations, alarms))
+    except KeyboardInterrupt:
+        print(f"\nInterrupted after {len(rows)} runs"
+              + (f" and {len(perturbations)} perturbations" if perturbations else "") + ".")
+        print(render_table(rows))
+        if out:
+            checkpoint()
+            print(f"\nWrote {out} (partial)")
+        return 130
     if out:
-        with open(out, "w", encoding="utf-8") as f:
-            f.write(to_json(rows, perturbations, alarms))
+        save_json(out, rows, perturbations, alarms)
         print(f"\nWrote {out}")
     if report:
         from .report import render

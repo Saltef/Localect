@@ -98,3 +98,37 @@ def test_failed_checks_come_with_a_reason_and_the_reader_output(settings, demo_c
     assert sample.facts[0][0] in why["no_wrong"] and sample.facts[0][0] in why["no_forbidden"]
     assert why["terms"] == "glossary terms missing: zzz"
     assert set(why) == {"locale", "fact", "no_wrong", "terms", "no_forbidden"}
+
+
+def test_main_eval_checkpoints_after_every_sample_and_survives_interrupt(tmp_path, monkeypatch):
+    from envoy import eval as ev
+
+    monkeypatch.setenv("ENVOY_DATA_DIR", str(tmp_path / "data"))
+    settings = Settings(provider="stub", user_name="Safea")
+    out = tmp_path / "demo.json"
+    seen = []
+
+    real_run_eval = ev.run_eval
+
+    async def spy(*a, **kw):
+        rows = await real_run_eval(*a, **kw)
+        seen.append(json.loads(out.read_text(encoding="utf-8")))
+        return rows
+
+    monkeypatch.setattr(ev, "run_eval", spy)
+    assert ev.main_eval(settings, None, [0, 1], str(out), "demo") == 0
+    # while running, the file held every finished row and said it was partial
+    assert seen[0]["partial"] is True and len(seen[0]["runs"]) == 2
+    final = json.loads(out.read_text(encoding="utf-8"))
+    assert "partial" not in final and len(final["runs"]) == 2
+
+    async def interrupted(*a, on_row=None, **kw):
+        on_row(ev.RunScore(model="stub", sample_id="demo-01", set="demo", label="x",
+                           seconds=0.1, error="stopped"))
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(ev, "run_eval", interrupted)
+    assert ev.main_eval(settings, None, None, str(out), "demo", perturb=True) == 130
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert doc["partial"] is True and [r["sample_id"] for r in doc["runs"]] == ["demo-01"]
+    assert doc["perturbations"] == [] and not (tmp_path / "demo.json.tmp").exists()
