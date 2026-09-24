@@ -92,12 +92,13 @@ def test_scoring_recovers_a_planted_preference_and_agreement(tmp_path):
     report = score(tmp_path)
     assert report["raters"] == ["mona", "omar"] and report["items_rated"] == 9
     c = report["comparisons"]["rewrite|ar-EG|final vs draft"]
-    assert c["items"] == 4 and c["prefer_winner"] == 1.0 and c["ci95"] == [1.0, 1.0]
+    assert c["items"] == 4 and c["winner"] == "final" and c["ci95"] == [1.0, 1.0]
+    assert c["prefer"] == {"final": 1.0, "draft": 0.0, "tie": 0.0}
     assert c["alpha"] == 1.0 and c["kappa"] == 1.0
     assert c["conditions"]["final"]["nativeness"] == 5.0
     assert c["conditions"]["draft"]["send"] == 0.0 and c["conditions"]["final"]["send"] == 1.0
     m = report["comparisons"]["model|pt-BR|m1 vs m2"]
-    assert m["winner"] == "m2" and m["prefer_winner"] == 1.0
+    assert m["winner"] == "m2" and m["prefer"]["m2"] == 1.0 and m["prefer"]["m1"] == 0.0
     text = render_report(report)
     assert "prefer final 100%" in text and "alpha=1.00" in text and "kappa=1.00" in text
 
@@ -106,22 +107,26 @@ def test_disagreement_ties_and_missing_cells(tmp_path):
     export(build_items(_runs()), tmp_path)
     _fill(tmp_path, "a", lambda k: "final" if k["kind"] == "rewrite" else "m2", lambda c: 4)
     _fill(tmp_path, "b", lambda k: "draft" if k["kind"] == "rewrite" else "m1", lambda c: 3)
-    # Rater b leaves one row blank and marks another a tie.
+    # Rater b leaves one rewrite row blank and marks another rewrite row a tie.
     sheet = tmp_path / "sheet-ar-EG.b.csv"
+    key = json.loads((tmp_path / "key.json").read_text(encoding="utf-8"))
     with sheet.open(encoding="utf-8-sig", newline="") as f:
         rows = list(csv.DictReader(f))
-    rows[0]["prefer"] = ""
-    rows[0]["nativeness_left"] = ""
-    rows[1]["prefer"] = "tie"
+    rewrite_rows = [r for r in rows if key[r["item"]]["kind"] == "rewrite"]
+    rewrite_rows[0]["prefer"] = ""
+    rewrite_rows[0]["nativeness_left"] = ""
+    rewrite_rows[1]["prefer"] = "tie"
     with sheet.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
         w.writerows(rows)
     report = score(tmp_path)
     c = report["comparisons"]["rewrite|ar-EG|final vs draft"]
-    assert 0.5 < c["prefer_winner"] < 1.0 and c["tie_votes"] == 1
+    # Four items: one with only a's vote (final), one split with a tie, two split.
+    assert c["winner"] == "final" and c["items"] == 4 and c["tie_votes"] == 1
+    assert c["prefer"] == {"final": 0.625, "draft": 0.25, "tie": 0.125}
     assert c["alpha"] is not None and c["alpha"] < 0.5
-    assert c["ci95"][0] <= c["prefer_winner"] <= c["ci95"][1]
+    assert c["ci95"][0] <= c["prefer"]["final"] <= c["ci95"][1]
 
 
 def test_agreement_statistics_on_known_data():

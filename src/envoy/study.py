@@ -232,9 +232,10 @@ def score(sheets_dir: Path) -> dict[str, Any]:
             sorted([k["left"], k["right"]]))
         groups[(k["kind"], k["locale"], pair)].append(item)
     for (kind, locale, pair), items in sorted(groups.items()):
-        winner, loser = (("final", "draft") if kind == "rewrite" else tuple(pair.split(" vs ")))
-        # Item-level preference: 1 winner, 0 loser, 0.5 tie, averaged over raters.
-        prefs, ties = [], 0
+        a, b = (("final", "draft") if kind == "rewrite" else tuple(pair.split(" vs ")))
+        # Item-level vote shares for a, b and tie, averaged over the item's raters.
+        shares: dict[str, list[float]] = {a: [], b: [], "tie": []}
+        ties = 0
         cond_scores: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
         agreement: dict[str, dict[str, str]] = {}
         for item in items:
@@ -243,9 +244,9 @@ def score(sheets_dir: Path) -> dict[str, Any]:
                 p = rec["prefer"]
                 if p is None:
                     continue
-                votes.append(1.0 if p == winner else 0.0 if p == loser else 0.5)
+                votes.append(p)
                 agreement.setdefault(item, {})[rec["rater"]] = p
-                for cond in (winner, loser):
+                for cond in (a, b):
                     for metric in ("nativeness", "register"):
                         v = rec.get(cond, {}).get(metric)
                         if v is not None:
@@ -255,16 +256,20 @@ def score(sheets_dir: Path) -> dict[str, Any]:
                         if v is not None:
                             cond_scores[cond][metric].append(1.0 if v else 0.0)
             if votes:
-                prefs.append(sum(votes) / len(votes))
-                ties += sum(1 for v in votes if v == 0.5)
-        rate = sum(prefs) / len(prefs) if prefs else 0.0
-        lo, hi = bootstrap_ci(prefs)
+                for cond in shares:
+                    shares[cond].append(sum(1 for v in votes if v == cond) / len(votes))
+                ties += votes.count("tie")
+        n_items = len(shares[a])
+        means = {c: (sum(v) / n_items if n_items else 0.0) for c, v in shares.items()}
+        winner = a if means[a] >= means[b] else b
+        lo, hi = bootstrap_ci(shares[winner])
         raters = sorted({r for d in agreement.values() for r in d})
         kappa = cohen_kappa(*({i: d[r] for i, d in agreement.items() if r in d} for r in raters)) \
             if len(raters) == 2 else None
         out["comparisons"][f"{kind}|{locale}|{pair}"] = {
-            "kind": kind, "locale": locale, "pair": pair, "winner": winner, "items": len(prefs),
-            "prefer_winner": round(rate, 3), "ci95": [round(lo, 3), round(hi, 3)],
+            "kind": kind, "locale": locale, "pair": pair, "winner": winner, "items": n_items,
+            "prefer": {c: round(v, 3) for c, v in means.items()},
+            "ci95": [round(lo, 3), round(hi, 3)],
             "tie_votes": ties, "alpha": krippendorff_alpha(agreement), "kappa": kappa,
             "conditions": {c: {m: round(statistics.fmean(v), 3) for m, v in ms.items() if v}
                            for c, ms in cond_scores.items()},
@@ -280,8 +285,9 @@ def render_report(report: dict[str, Any]) -> str:
     for c in report["comparisons"].values():
         a = c["alpha"]
         k = c["kappa"]
-        lines.append(f"\n  {c['kind']:8} {c['locale']:7} {c['pair']}: prefer {c['winner']} "
-                     f"{100 * c['prefer_winner']:.0f}% (95% CI {100 * c['ci95'][0]:.0f}-"
+        w = c["winner"]
+        lines.append(f"\n  {c['kind']:8} {c['locale']:7} {c['pair']}: prefer {w} "
+                     f"{100 * c['prefer'][w]:.0f}% (95% CI {100 * c['ci95'][0]:.0f}-"
                      f"{100 * c['ci95'][1]:.0f}), n={c['items']}, ties={c['tie_votes']}"
                      + (f", alpha={a:.2f}" if a is not None else "")
                      + (f", kappa={k:.2f}" if k is not None else ""))
