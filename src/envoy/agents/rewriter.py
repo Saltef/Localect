@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..conventions import rendered_greeting, signoff_form
 from ..models.base import ChatModel
 from ..prompts import render
 from ..schemas import Draft, Flag, LocaleProfile, Rewrite, SourceSnippet
@@ -14,14 +15,16 @@ def _segments_block(draft: Draft) -> str:
 
 async def rewrite(model: ChatModel, draft: Draft, locale: LocaleProfile,
                   sources: list[SourceSnippet], must_preserve: list[str],
-                  flags: list[Flag] | None = None) -> Rewrite:
+                  flags: list[Flag] | None = None, *, contact_name: str = "",
+                  gender: str = "unknown") -> Rewrite:
     glossary = "\n".join(f"- {s.text}" for s in sources if s.kind == "glossary") or "- (none)"
     user = render(
         "rewriter",
         variety=locale.variety, region_name=locale.region_name, formality=locale.formality,
         date_format=locale.formats.date, currency=locale.formats.currency,
         numerals=locale.formats.numerals, must_preserve=", ".join(must_preserve) or "(none)",
-        glossary=glossary, greeting=locale.greeting, signoff=locale.signoff,
+        glossary=glossary, greeting=rendered_greeting(locale, contact_name, gender),
+        signoff=signoff_form(locale, gender),
         notes=locale.notes, draft=_segments_block(draft), schema=schema_text(Rewrite),
     )
     if flags:

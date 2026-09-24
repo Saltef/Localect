@@ -13,7 +13,7 @@ Envoy makes three claims. Each needs its own evidence.
 |---|---|---|
 | the reply is grounded and keeps the facts | check scores on the held-out set | runnable now |
 | the verifier catches faults | perturbation recall and false-alarm rate | runnable now |
-| the reply sounds local | dialect-identifier ablation, then a human study | milestones 2 and 4 |
+| the reply sounds local | dialect-identifier ablation, then a human study | ablation runnable now; study in milestone 4 |
 
 ## Sample sets
 
@@ -75,6 +75,46 @@ regression gate for the deterministic layers, which must stay at 100% on the
 faults they own, and it shows honestly that slang detection is 0% without a
 model.
 
+## Does the Rewriter make it local? The dialect ablation
+
+The Rewriter's job is to make the body of a reply read as if a native of the
+receiver's region wrote it. The cheapest repeatable judge of that is a
+dialect identifier trained on labelled text from those regions. When one is
+available for a sample's language, `envoy eval` classifies the **Drafter's
+body** and the **Rewriter's final body** with the same judge (greeting and
+sign-off are excluded, since code applies them to both) and reports, per
+locale, the share classified as the target. The gap between the two columns
+is the Rewriter's measurable work; a final column below the draft column is a
+Rewriter that makes things worse.
+
+Judges (`envoy dialect list` shows which are installed):
+
+| language | judge | data | how |
+|---|---|---|---|
+| ar | CAMeL Tools MADAR-26 city identifier, cities grouped into ar-EG / ar-LB / ar-SA / other regions / MSA | ships with CAMeL Tools | `pip install camel-tools && camel_data -i dialectid` |
+| ar | Envoy's own n-gram model | MADAR corpus (request from the MADAR project) | `envoy dialect train --language ar --data <dir>` |
+| pt | Envoy's own n-gram model | DSL Corpus Collection, `pt-BR` / `pt-PT` | `envoy dialect train --language pt --data <DSLCC task file or dir>` |
+| es | Envoy's own n-gram model | DSL Corpus Collection, `es-ES` / `es-AR` / `es-PE` | `envoy dialect train --language es --data <...>`; Latin American labels are grouped as `es-LA`, so an es-MX target counts as a hit when the reply reads Latin American and not Castilian |
+
+Envoy's n-gram model is a multinomial naive Bayes over hashed character
+n-grams (1 to 4), pure Python, saved as JSON under `~/.envoy/models/`.
+Training data is read as `text<TAB>label` lines, or one file per label. The
+judge never sees a prompt, and nothing in Envoy is tuned against it.
+
+What it does not measure: correctness (the checks do), register within a
+dialect (a human does), or Modern Standard Arabic written on purpose. A
+classifier calling the body MSA is reported as a miss for every Arabic
+target, which is the right default for a reply meant to sound local and the
+wrong one for a formal Gulf letter; read the per-locale rows with that in mind.
+
+### Gender
+
+Arabic and Portuguese greetings inflect for the receiver's gender. Contacts
+now carry a gender (unknown, female, male) and locale profiles carry
+gendered variants; the neutral form is used when the gender is unknown. This
+is applied in code, so it is an invariant, not a model score. A reply that
+greets a woman in the masculine is a bug in the profile, not the model.
+
 ## Results
 
 ### Stub (deterministic, CI)
@@ -85,6 +125,10 @@ misses plant "$50" into replies to messages that already mention $50, so the
 number check cannot see it), leak_citation 100% (neutralized), slang 0%.
 False alarms: 0 of 70.
 
+Dialect ablation on the stub: not meaningful. The stub quotes the knowledge
+base in English, so every Arabic, Portuguese and Spanish body is English and
+no judge calls it the target; the test suite only checks the plumbing.
+
 ### Command A (Cohere)
 
 *pending: run on your machine*
@@ -92,6 +136,10 @@ False alarms: 0 of 70.
 ### Aya Expanse (Cohere)
 
 *pending: run on your machine*
+
+### Dialect ablation, per locale
+
+*pending: needs a real model and a judge (see above)*
 
 ## Negative results
 
@@ -115,6 +163,12 @@ envoy check                                                   # confirm the mode
 envoy eval --set heldout --perturb --out heldout.json
 envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --perturb --out compare.json
 envoy eval --set heldout --critic-model command-a-03-2025      # judge with a model other than the drafter
+
+# Dialect judges (once), then the ablation appears in every eval table:
+pip install camel-tools && camel_data -i dialectid             # Arabic
+envoy dialect train --language pt --data path/to/DSLCC/task1-train.txt
+envoy dialect train --language es --data path/to/DSLCC/task1-train.txt
+envoy dialect list
 ```
 
 On Windows run the same commands in PowerShell or cmd. Output is UTF-8.

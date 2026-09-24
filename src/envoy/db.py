@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from .conventions import GENDERS
 from .schemas import LocaleProfile
 from .text import score as _score
 from .text import tokens as _tokens
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS locales (
   locale TEXT PRIMARY KEY, profile TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'starter'
 );
 CREATE TABLE IF NOT EXISTS contacts (
-  id TEXT PRIMARY KEY, name TEXT NOT NULL, locale TEXT NOT NULL, notes TEXT NOT NULL DEFAULT ''
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, locale TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '',
+  gender TEXT NOT NULL DEFAULT 'unknown'
 );
 CREATE TABLE IF NOT EXISTS knowledge (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL
@@ -52,6 +54,10 @@ def _migrate(con: sqlite3.Connection) -> None:
     cols = {r["name"] for r in con.execute("PRAGMA table_info(locales)")}
     if "origin" not in cols:
         con.execute("ALTER TABLE locales ADD COLUMN origin TEXT NOT NULL DEFAULT 'starter'")
+        con.commit()
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(contacts)")}
+    if "gender" not in cols:
+        con.execute("ALTER TABLE contacts ADD COLUMN gender TEXT NOT NULL DEFAULT 'unknown'")
         con.commit()
 
 
@@ -130,9 +136,10 @@ def locale_for_language(con, language: str) -> LocaleProfile | None:
 # --- contacts ----------------------------------------------------------------
 
 
-def contact_add(con, name: str, locale: str, notes: str = "") -> str:
+def contact_add(con, name: str, locale: str, notes: str = "", gender: str = "unknown") -> str:
     cid = _uid()
-    con.execute("INSERT INTO contacts VALUES (?,?,?,?)", (cid, name, locale, notes))
+    con.execute("INSERT INTO contacts (id, name, locale, notes, gender) VALUES (?,?,?,?,?)",
+                (cid, name, locale, notes, gender if gender in GENDERS else "unknown"))
     con.commit()
     return cid
 

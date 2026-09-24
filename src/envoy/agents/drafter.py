@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from ..conventions import rendered_greeting, signoff_form
 from ..models.base import ChatModel
 from ..prompts import render
 from ..schemas import Draft, LocaleProfile, Reading, SourceSnippet
-from ..text import fill_name
 from .stage import run_stage, schema_text
 
 SYSTEM = ("You write grounded replies. You never state a fact, price, policy, or promise "
@@ -24,7 +24,7 @@ def _glossary_block(sources: list[SourceSnippet]) -> str:
 
 async def draft(model: ChatModel, reading: Reading, locale: LocaleProfile,
                 sources: list[SourceSnippet], *, user_language_name: str,
-                contact_name: str, user_name: str) -> Draft:
+                contact_name: str, user_name: str, gender: str = "unknown") -> Draft:
     user = render(
         "drafter",
         language_name=locale.language_name, variety=locale.variety,
@@ -32,14 +32,14 @@ async def draft(model: ChatModel, reading: Reading, locale: LocaleProfile,
         asks="; ".join(reading.asks) or "(none)",
         must_preserve=", ".join(reading.must_preserve) or "(none)",
         contact_name=contact_name or "(unknown)", user_name=user_name or "(not set)",
-        greeting=fill_name(locale.greeting, contact_name, locale.language) or "(none)",
-        signoff=locale.signoff or "(none)",
+        greeting=rendered_greeting(locale, contact_name, gender) or "(none)",
+        signoff=signoff_form(locale, gender) or "(none)",
         glossary=_glossary_block(sources), sources=_sources_block(sources),
         schema=schema_text(Draft),
     )
     context = {
         "reading": reading.model_dump(), "locale": locale.model_dump(),
         "sources": [s.model_dump() for s in sources],
-        "contact_name": contact_name, "user_name": user_name,
+        "contact_name": contact_name, "user_name": user_name, "gender": gender,
     }
     return await run_stage(model, "drafter", Draft, SYSTEM, user, context=context)

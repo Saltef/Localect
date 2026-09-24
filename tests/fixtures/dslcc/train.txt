@@ -1,0 +1,10 @@
+Estou a enviar a encomenda hoje e o telemóvel fica pronto amanhã.	pt-PT
+Obrigado pela atenção, o vosso pedido segue por correio esta semana.	pt-PT
+Se tiver alguma dúvida, estamos a responder durante o horário de apoio.	pt-PT
+A mochila mais pequena cabe um portátil de treze polegadas.	pt-PT
+Pode fazer a devolução nos trinta dias seguintes à entrega.	pt-PT
+Estamos enviando o pedido hoje e o celular fica pronto amanhã.	pt-BR
+Obrigado pelo contato, seu pedido está a caminho essa semana.	pt-BR
+Se tiver qualquer dúvida, a gente responde no horário de atendimento.	pt-BR
+A mochila menor cabe um notebook de treze polegadas.	pt-BR
+Você pode fazer a devolução em até trinta dias depois da entrega.	pt-BR

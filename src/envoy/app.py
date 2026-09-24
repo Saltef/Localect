@@ -36,6 +36,7 @@ class ContactIn(BaseModel):
     name: str
     locale: str
     notes: str = ""
+    gender: str = "unknown"  # unknown | female | male; picks the gendered greeting where needed
 
 
 class KnowledgeIn(BaseModel):
@@ -183,7 +184,7 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
 
     @app.post("/api/contacts")
     def contact_add(c: ContactIn) -> dict[str, str]:
-        return {"id": db.contact_add(app.state.con, c.name, c.locale, c.notes)}
+        return {"id": db.contact_add(app.state.con, c.name, c.locale, c.notes, c.gender)}
 
     @app.delete("/api/contacts/{cid}")
     def contact_delete(cid: str) -> dict[str, bool]:

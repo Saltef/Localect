@@ -84,3 +84,36 @@ def test_enforce_keeps_a_real_closing_sentence():
     enforce(segs, GB, "", "Safea", has_claims=lambda s: False)
     assert [s.id for s in segs] == ["g1", "s1", "s2", "c1"]
     assert segs[2].text.startswith("If there is") and segs[-1].text == "Kind regards,\nSafea"
+
+
+def test_gendered_forms_are_used_only_when_the_gender_is_known():
+    from envoy.conventions import greeting_form, signoff_form
+
+    eg = LocaleProfile(locale="ar-EG", language="ar", language_name="Arabic",
+                       region_name="Egypt", variety="Egyptian Arabic",
+                       greeting="أهلاً وسهلاً {name}،", signoff="تحياتي،",
+                       greetings={"female": "أهلاً بيكي {name}،", "male": "أهلاً بيك {name}،"})
+    assert rendered_greeting(eg, "منى", "female") == "أهلاً بيكي منى،"
+    assert rendered_greeting(eg, "عمر", "male") == "أهلاً بيك عمر،"
+    assert rendered_greeting(eg, "", "unknown") == "أهلاً وسهلاً،"
+    assert greeting_form(eg, "other") == eg.greeting and signoff_form(eg, "female") == "تحياتي،"
+    assert rendered_greeting(GB, "Sam", "female") == "Hi Sam,"  # no variants: neutral form
+
+    segs = [RewrittenSegment(id="g1", text="أهلاً عميلنا العزيز،"),
+            RewrittenSegment(id="s1", text="المبلغ هيرجعلك خلال ٥ أيام."),
+            RewrittenSegment(id="c1", text="مع خالص التقدير،")]
+    enforce(segs, eg, "منى", "Safea", gender="female", has_claims=lambda s: False)
+    assert segs[0].text == "أهلاً بيكي منى،"
+
+
+def test_every_starter_arabic_locale_greets_both_genders_correctly():
+    from envoy.locales import load_starter_profiles
+
+    for p in load_starter_profiles():
+        if p.language != "ar":
+            continue
+        f, m, u = (rendered_greeting(p, "", g) for g in ("female", "male", "unknown"))
+        assert f and m and u, p.locale
+        if p.greetings:
+            assert f != m, f"{p.locale}: female and male forms must differ"
+            assert u not in (f, m), f"{p.locale}: the unknown form must be neutral"

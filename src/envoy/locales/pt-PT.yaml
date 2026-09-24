@@ -6,5 +6,6 @@ variety: European Portuguese
 formality: formal
 greeting: "Caro(a) {name},"
 signoff: "Com os melhores cumprimentos,"
+greetings: {female: "Cara {name},", male: "Caro {name},"}
 formats: {date: DD/MM/YYYY, currency: EUR, numerals: western}
 notes: "More reserved and formal than Brazil. Uses 'estamos a enviar' rather than the gerund. avoid: Brazilian gerund forms; overly familiar tone"

@@ -50,10 +50,16 @@ export function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [locales, setLocales] = useState<LocaleProfile[]>([]);
   const [name, setName] = useState(""); const [locale, setLocale] = useState("en-US"); const [notes, setNotes] = useState("");
+  const [gender, setGender] = useState("unknown");
   const [editing, setEditing] = useState<LocaleProfile | null>(null);
   const load = () => { api.contacts().then(setContacts); api.locales().then(setLocales); };
   useEffect(() => { load(); }, []);
-  const add = async (e: FormEvent) => { e.preventDefault(); await api.addContact({ name, locale, notes }); setName(""); setNotes(""); load(); };
+  const add = async (e: FormEvent) => { e.preventDefault(); await api.addContact({ name, locale, notes, gender }); setName(""); setNotes(""); setGender("unknown"); load(); };
+  const setVariant = (kind: "greetings" | "signoffs", g: string, v: string) => {
+    if (!editing) return;
+    const next = { ...(editing[kind] || {}) }; if (v) next[g] = v; else delete next[g];
+    setEditing({ ...editing, [kind]: next });
+  };
   const save = async () => { if (editing) { await api.saveLocale(editing); setEditing(null); load(); } };
   return (
     <div className="space-y-4">
@@ -63,7 +69,7 @@ export function ContactsPage() {
             <ul className="divide-y divide-zinc-100 text-sm dark:divide-zinc-800">
               {contacts.map((c) => (
                 <li key={c.id} className="flex items-center justify-between py-2">
-                  <span><b>{c.name}</b> <Badge tone="indigo">{c.locale}</Badge> <span className="text-zinc-500">{c.notes}</span></span>
+                  <span><b>{c.name}</b> <Badge tone="indigo">{c.locale}</Badge>{c.gender && c.gender !== "unknown" ? <Badge>{c.gender}</Badge> : null} <span className="text-zinc-500">{c.notes}</span></span>
                   <Button kind="danger" onClick={() => api.delContact(c.id).then(load)}><Trash2 className="h-4 w-4" /></Button>
                 </li>
               ))}
@@ -74,6 +80,7 @@ export function ContactsPage() {
           <form onSubmit={add} className="space-y-3">
             <Field label="Name"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required /></Field>
             <Field label="Locale"><select className={inputCls} value={locale} onChange={(e) => setLocale(e.target.value)}>{locales.map((l) => <option key={l.locale} value={l.locale}>{l.variety} ({l.locale})</option>)}</select></Field>
+            <Field label="Addressed as" hint="Arabic and Portuguese greetings change with the receiver's gender"><select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)}>{["unknown", "female", "male"].map((g) => <option key={g} value={g}>{g}</option>)}</select></Field>
             <Field label="Notes"><input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
             <Button type="submit">Add</Button>
           </form>
@@ -92,8 +99,12 @@ export function ContactsPage() {
           <div className="mt-4 space-y-3 rounded-lg border border-indigo-200 p-4 dark:border-indigo-900">
             <div className="font-medium">Editing {editing.variety} ({editing.locale})</div>
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Greeting" hint="{name} is replaced with the contact's name"><input className={inputCls} value={editing.greeting} onChange={(e) => setEditing({ ...editing, greeting: e.target.value })} /></Field>
+              <Field label="Greeting" hint="{name} is replaced with the contact's name; used when their gender is unknown"><input className={inputCls} value={editing.greeting} onChange={(e) => setEditing({ ...editing, greeting: e.target.value })} /></Field>
               <Field label="Sign-off"><input className={inputCls} value={editing.signoff} onChange={(e) => setEditing({ ...editing, signoff: e.target.value })} /></Field>
+              <Field label="Greeting · female" hint="optional, for languages that inflect address"><input className={inputCls} value={editing.greetings?.female || ""} onChange={(e) => setVariant("greetings", "female", e.target.value)} /></Field>
+              <Field label="Greeting · male"><input className={inputCls} value={editing.greetings?.male || ""} onChange={(e) => setVariant("greetings", "male", e.target.value)} /></Field>
+              <Field label="Sign-off · female"><input className={inputCls} value={editing.signoffs?.female || ""} onChange={(e) => setVariant("signoffs", "female", e.target.value)} /></Field>
+              <Field label="Sign-off · male"><input className={inputCls} value={editing.signoffs?.male || ""} onChange={(e) => setVariant("signoffs", "male", e.target.value)} /></Field>
               <Field label="Formality"><select className={inputCls} value={editing.formality} onChange={(e) => setEditing({ ...editing, formality: e.target.value })}>{["casual", "warm-formal", "formal"].map((f) => <option key={f}>{f}</option>)}</select></Field>
               <Field label="Numerals"><select className={inputCls} value={editing.formats.numerals} onChange={(e) => setEditing({ ...editing, formats: { ...editing.formats, numerals: e.target.value } })}>{["western", "eastern-arabic"].map((f) => <option key={f}>{f}</option>)}</select></Field>
             </div>

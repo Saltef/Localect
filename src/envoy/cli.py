@@ -85,6 +85,44 @@ def _eval(args: argparse.Namespace) -> None:
                                args.perturb, args.critic_model))
 
 
+def _dialect(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from .evalx.dialect import NgramModel, discover, read_corpus
+
+    if args.action == "train":
+        src = Path(args.data)
+        if not src.exists():
+            print(f"no such file or directory: {src}")
+            raise SystemExit(2)
+        model = NgramModel(args.language).train(read_corpus(src))
+        if not model.labels:
+            print("no labelled lines found; expected 'text<TAB>label' lines or one file per label")
+            raise SystemExit(2)
+        out = Path(args.out) if args.out \
+            else data_dir() / "models" / f"dialect-{args.language}.json"
+        model.save(out)
+        print(f"trained {args.language} dialect model on {sum(model.docs.values())} lines: "
+              + ", ".join(f"{k} ({v})" for k, v in sorted(model.docs.items())))
+        print(f"saved to {out}; envoy eval will use it for {args.language} samples")
+        return
+    scorers = discover(data_dir())
+    if args.action == "list":
+        if not scorers:
+            print("no dialect scorers available. Train one with: envoy dialect train "
+                  "--language pt --data <DSLCC dir>; for Arabic, pip install camel-tools "
+                  "and camel_data -i dialectid")
+        for lang, sc in sorted(scorers.items()):
+            print(f"{lang}: {sc.name}")
+        return
+    sc = scorers.get(args.language)
+    if sc is None:
+        print(f"no dialect scorer for {args.language!r}; run 'envoy dialect list'")
+        raise SystemExit(2)
+    for text in args.text:
+        print(f"{sc.predict(text) or '?'}\t{text}")
+
+
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
     for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_language"):
@@ -174,6 +212,16 @@ def main() -> None:
                     help="also plant known faults in every run and score what the verifier catches")
     ev.add_argument("--out", help="write full results as JSON to this file")
     ev.set_defaults(func=_eval)
+
+    dl = sub.add_parser("dialect", help="train or query the dialect identifiers that score "
+                                        "the Rewriter")
+    dl.add_argument("action", choices=["train", "check", "list"])
+    dl.add_argument("--language", default="pt", help="ISO 639-1 code the model is for")
+    dl.add_argument("--data", help="train: a labelled file or directory (DSLCC, MADAR, ...)")
+    dl.add_argument("--out", help="train: where to save (default: <data dir>/models/)")
+    dl.add_argument("--text", action="append", default=[],
+                    help="check: text to classify (repeatable)")
+    dl.set_defaults(func=_dialect)
 
     d = sub.add_parser("demo", help="load demo data and run one sample message")
     d.add_argument("--index", type=int, default=0)

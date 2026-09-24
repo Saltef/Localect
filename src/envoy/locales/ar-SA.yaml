@@ -4,8 +4,10 @@ language_name: Arabic
 region_name: Saudi Arabia
 variety: Gulf Arabic
 formality: formal
-greeting: "حياك الله {name}،"
-signoff: "تقبّل تحياتي،"
+greeting: "حياكم الله {name}،"
+signoff: "مع أطيب التحيات،"
+greetings: {female: "حياكِ الله {name}،", male: "حياك الله {name}،"}
+signoffs: {female: "تقبّلي تحياتي،", male: "تقبّل تحياتي،"}
 formats: {date: DD/MM/YYYY, currency: SAR, numerals: eastern-arabic}
 rtl: true
 notes: "Respectful and formal. Religious greetings are welcome and expected. avoid: casual humour; slang from other regions"
