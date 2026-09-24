@@ -67,6 +67,19 @@ def _check(args: argparse.Namespace) -> None:
               "or  envoy config --provider openai --model <name>")
 
 
+def _eval(args: argparse.Namespace) -> None:
+    from .eval import main_eval
+
+    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    indexes = None
+    if args.indexes:
+        indexes = []
+        for part in args.indexes.split(","):
+            a, _, b = part.partition("-")
+            indexes.extend(range(int(a), int(b or a) + 1))
+    raise SystemExit(main_eval(Settings.load(), models, indexes, args.out))
+
+
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
     for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_language"):
@@ -145,6 +158,12 @@ def main() -> None:
     cfg.add_argument("--user-language", dest="user_language")
     cfg.set_defaults(func=_config)
 
+    ev = sub.add_parser("eval", help="run every sample through one or more models and score it")
+    ev.add_argument("--models", help="comma-separated model names to compare (default: configured)")
+    ev.add_argument("--indexes", help="which samples, e.g. 0-6 or 1,6 (default: all)")
+    ev.add_argument("--out", help="write full results as JSON to this file")
+    ev.set_defaults(func=_eval)
+
     d = sub.add_parser("demo", help="load demo data and run one sample message")
     d.add_argument("--index", type=int, default=0)
     d.set_defaults(func=_demo)
@@ -152,7 +171,11 @@ def main() -> None:
     args = p.parse_args()
     if args.cmd is None:
         args = p.parse_args(["serve"])
-    args.func(args)
+    try:
+        args.func(args)
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+        raise SystemExit(130) from None
 
 
 if __name__ == "__main__":

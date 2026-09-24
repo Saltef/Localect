@@ -162,7 +162,9 @@ class StubModel:
             terms = _tokens(ask)
             best, best_score = None, 0
             for k in knowledge:
-                s = score(_tokens(k["text"]), terms)
+                # The section title is a strong hint of topic ("Returns and refunds").
+                title = str(k.get("meta", {}).get("title", ""))
+                s = score(_tokens(k["text"]), terms) + score(_tokens(title), terms)
                 if s > best_score:
                     best, best_score = k, s
             if best:
