@@ -16,7 +16,7 @@ you dated facts with the message each came from.
 | | Milestone | What it delivers | Status |
 |---|---|---|---|
 | M1 | **Import past mail and documents** | `envoy import` for mbox, `.eml`, Markdown, text and PDF; quoted replies and signatures stripped; a `messages` table; a `mail` MCP tool that ranks the newest statement and the contact being answered first; the Drafter cites mail with who said it and when | done (0.9.0) |
-| M2 | Retrieval across languages | Embeddings through the configured provider (Ollama locally, Cohere's multilingual embed model on the API path, a hashed fallback for the stub), fused with the token search; recency and per-contact priors | next |
+| M2 | **Retrieval across languages** | Embeddings through the configured provider (Cohere's multilingual embed model on the API path, any OpenAI-compatible server's `/embeddings` locally, an offline hashed embedder otherwise), fused with the token search by reciprocal rank; the contact and recency priors applied after fusion; `envoy index`; the knowledge base searched the same way | done (0.9.1) |
 | M3 | Extract the correct fact | Dated facts pulled out of messages into a reviewable Memory page; "sources disagree" flag from the Critic when two statements conflict, with both dates; your own sent mail as voice examples for the Rewriter | |
 | M4 | Measure it | A fixture mailbox with superseded facts in several languages; recall at k, stale-fact rate, cross-lingual retrieval; held-out samples that depend on the mailbox; a retrieval section in the report | |
 | M5 | Sources page and docs | What was imported, what each reply cited, exclude a thread, pause | |
@@ -43,6 +43,35 @@ not stored. HTML-only mail is rendered to text with quoted blocks dropped.
 
 PDF import needs `pip install pypdf` (or `pipx inject envoy-ai pypdf`); the
 other formats need nothing.
+
+## Search across languages
+
+Vocabulary overlap cannot find "prazo de devolução" in a policy that says
+"return window". Every paragraph of mail and knowledge is therefore also
+embedded, and a search runs both rankings and fuses them (reciprocal rank
+fusion, so the two need no common score scale). The priors that matter for
+mail, the contact being answered and then the newest statement, are applied
+after fusion.
+
+Which embedder, by provider:
+
+| provider | embedder | how to set |
+|---|---|---|
+| cohere | `embed-multilingual-v3.0` through `/v2/embed` (query and document input types, batches of 96) | on by default with your key; `--embed-model` to change |
+| openai (Ollama, LM Studio, vLLM) | the model you name, through `/v1/embeddings` | `envoy config --embed-model bge-m3` after `ollama pull bge-m3` |
+| stub, or nothing configured | `hash-v1`: hashed words and character trigrams with Envoy's cross-lingual alias table folded in, offline and deterministic | nothing to set |
+
+```bash
+envoy index          # embed whatever is not embedded yet; safe to rerun
+envoy check          # shows which embedder is in use
+```
+
+`envoy import` indexes when it finishes (skip with `--no-index`), the API
+indexes after an import and after each captured message, and the offline
+embedder indexes at search time because it costs nothing. A remote embedder
+is never called during a search except for the query itself. Vectors live in
+the same SQLite file, one per paragraph per embedder, and are deleted with
+their message.
 
 ## How a reply uses it
 

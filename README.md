@@ -196,7 +196,7 @@ src/envoy/
   conventions.py  greeting / sign-off enforcement, gender forms
   models/         openai_compat (Ollama, LM Studio, vLLM), cohere, stub, fake (tests)
   mcp/            client + servers: glossary, knowledge, history, thread, mail
-  memory/         import of past mail (mbox, .eml) and documents; quote and signature cleaning
+  memory/         import of past mail (mbox, .eml) and documents; embeddings; hybrid search
   locales/        twelve starter locale profiles (YAML)
   eval.py, perturb.py, evalset/, evalx/, study.py, report.py   the evaluation
   db.py, app.py, cli.py, demo.py

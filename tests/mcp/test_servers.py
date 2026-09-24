@@ -31,7 +31,8 @@ async def test_all_five_servers_over_stdio():
         assert h and h[0].text == "It ships in 2 days."
         t = await tools.thread("c1")
         assert t and "They wrote" in t[0].text
-        m = await tools.mail_search("return window", "en", "layla@shop.example")
+        # cross-lingual through the hybrid search inside the mail server
+        m = await tools.mail_search("prazo de devolução", "en", "layla@shop.example")
         assert m and m[0].id.startswith("ml:") and m[0].kind == "mail"
         assert m[0].meta["said"] == "you wrote on 2025-09-10, re: Returns"
         assert m[0].text == "The return window is 30 days from delivery."

@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS messages_external ON messages(external_id)
   WHERE external_id <> '';
+CREATE TABLE IF NOT EXISTS embeddings (
+  kind TEXT NOT NULL, ref TEXT NOT NULL, model TEXT NOT NULL, dim INTEGER NOT NULL,
+  vector BLOB NOT NULL, PRIMARY KEY (kind, ref, model)
+);
 CREATE TABLE IF NOT EXISTS history (
   id TEXT PRIMARY KEY, created_at TEXT NOT NULL, message TEXT NOT NULL,
   locale TEXT NOT NULL, status TEXT NOT NULL, final_text TEXT NOT NULL,
@@ -196,6 +200,7 @@ def knowledge_list(con) -> list[dict[str, Any]]:
 
 def knowledge_delete(con, kid: str) -> None:
     con.execute("DELETE FROM knowledge WHERE id=?", (kid,))
+    con.execute("DELETE FROM embeddings WHERE kind='knowledge' AND ref LIKE ?", (kid + ":%",))
     con.commit()
 
 
@@ -260,6 +265,7 @@ def message_get(con, mid: str) -> dict[str, Any] | None:
 
 def message_delete(con, mid: str) -> None:
     con.execute("DELETE FROM messages WHERE id=?", (mid,))
+    con.execute("DELETE FROM embeddings WHERE kind='mail' AND ref LIKE ?", (mid + ":%",))
     con.commit()
 
 
@@ -299,6 +305,31 @@ def mail_search(con, query: str, language: str | None = None, contact_email: str
             offset += len(para) + 2
     scored.sort(key=lambda s: s[0], reverse=True)
     return [s for _, s in scored[:limit]]
+
+
+# --- embeddings: one vector per paragraph, per model ---------------------------
+
+
+def embedding_put_many(con, kind: str, model: str, items: list[tuple[str, bytes, int]]) -> None:
+    con.executemany(
+        "INSERT OR REPLACE INTO embeddings (kind, ref, model, dim, vector) VALUES (?,?,?,?,?)",
+        [(kind, ref, model, dim, vec) for ref, vec, dim in items])
+    con.commit()
+
+
+def embedding_refs(con, kind: str, model: str) -> set[str]:
+    return {r["ref"] for r in con.execute(
+        "SELECT ref FROM embeddings WHERE kind=? AND model=?", (kind, model))}
+
+
+def embedding_all(con, kind: str, model: str) -> list[tuple[str, bytes]]:
+    return [(r["ref"], r["vector"]) for r in con.execute(
+        "SELECT ref, vector FROM embeddings WHERE kind=? AND model=?", (kind, model))]
+
+
+def embedding_count(con) -> dict[str, int]:
+    return {f"{r['kind']}:{r['model']}": r["n"] for r in con.execute(
+        "SELECT kind, model, count(*) AS n FROM embeddings GROUP BY kind, model")}
 
 
 # --- history -----------------------------------------------------------------

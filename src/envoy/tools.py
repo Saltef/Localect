@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Protocol
 
 from . import db
+from .memory import search as memsearch
+from .memory.embed import Embedder, HashEmbedder
 from .schemas import SourceSnippet
 
 
@@ -65,14 +67,15 @@ def thread_snippets(rows: list[dict]) -> list[SourceSnippet]:
 
 
 class DirectTools:
-    def __init__(self, con) -> None:
+    def __init__(self, con, embedder: Embedder | None = None) -> None:
         self.con = con
+        self.embedder = embedder or HashEmbedder()
 
     async def glossary_lookup(self, text, language):
         return glossary_snippets(db.glossary_lookup(self.con, text, language))
 
     async def knowledge_search(self, query):
-        return knowledge_snippets(db.knowledge_search(self.con, query))
+        return knowledge_snippets(memsearch.knowledge_search(self.con, self.embedder, query))
 
     async def history_search(self, query, language):
         return history_snippets(db.history_search(self.con, query, language))
@@ -81,4 +84,5 @@ class DirectTools:
         return thread_snippets(db.history_thread(self.con, contact_id))
 
     async def mail_search(self, query, language, contact_email):
-        return mail_snippets(db.mail_search(self.con, query, language, contact_email))
+        return mail_snippets(memsearch.mail_search(self.con, self.embedder, query, language,
+                                                   contact_email))

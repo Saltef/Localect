@@ -90,6 +90,10 @@ def test_messages_import_capture_and_delete(settings, tmp_path):
         assert c.post("/api/import", json={"paths": [str(tmp_path / "nope")]}).status_code == 400
         r = c.post("/api/import", json={"paths": [str(fix / "warranty.eml")]}).json()
         assert r["messages"] == 1 and r["mine"] == 1 and r["counts"]["messages"] == 1
+        assert r["indexed"]["mail"] >= 1
+        mem = c.get("/api/memory").json()
+        assert mem["embedder"] == {"name": "hash-v1", "offline": True}
+        assert mem["vectors"]["mail:hash-v1"] >= 1
         # a captured message: quotes stripped, "mine" decided from settings.user_email
         cap = c.post("/api/messages", json={
             "text": "Sure, 30 days.\n\nOn Mon, Jo wrote:\n> how long?",
@@ -99,6 +103,7 @@ def test_messages_import_capture_and_delete(settings, tmp_path):
         m = c.get(f"/api/messages/{cap['id']}").json()
         assert m["text"] == "Sure, 30 days." and m["is_mine"] == 1 and m["origin"] == "capture"
         assert m["date"] and m["to_addrs"] == "jo@partner.example"
+        assert c.post("/api/index").json()["indexed"] == {"mail": 0, "knowledge": 0}  # captured
         assert c.post("/api/messages", json={"text": "> only a quote"}).status_code == 400
         listing = c.get("/api/messages", params={"q": "window"}).json()
         assert listing["counts"]["messages"] == 2 and len(listing["messages"]) == 1
