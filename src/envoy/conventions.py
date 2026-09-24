@@ -15,6 +15,8 @@ from .schemas import Critique, LocaleProfile
 from .text import fill_name
 
 _MAX_WORDS = 8
+_MAX_CHARS = 20  # for scripts written without spaces (Japanese, Chinese, Korean)
+_CJK = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uff66-\uff9f]")
 
 # Closings a model tends to emit as separate short segments, across languages.
 _CLOSING = re.compile(
@@ -33,7 +35,9 @@ def _closing_like(text: str, user_name: str, signoff: str) -> bool:
         return True
     if signoff and (n == _norm(signoff) or n.startswith(_norm(signoff.split()[0]))):
         return True
-    return bool(_CLOSING.search(text)) and _short(text) or len(n.split()) <= 2
+    if bool(_CLOSING.search(text)) and _short(text):
+        return True
+    return _chars(n) <= 6 if _CJK.search(text) else len(n.split()) <= 2
 
 
 GENDERS = ("unknown", "female", "male")
@@ -60,7 +64,20 @@ def rendered_signoff(locale: LocaleProfile, user_name: str, gender: str = "unkno
     return f"{base}\n{user_name}" if user_name else base
 
 
+def _chars(text: str) -> int:
+    """Letters only: what a length limit should count in a script without spaces."""
+    return len(re.findall(r"\w", text))
+
+
 def _short(text: str) -> bool:
+    """Short enough to be a greeting or a sign-off rather than a sentence of
+    the reply. A segment that carries a number is never one: replacing it
+    would drop a fact. Japanese has no word spaces, so it is measured in
+    characters, not whitespace tokens."""
+    if re.search(r"\d", text):
+        return False
+    if _CJK.search(text):
+        return _chars(text) <= _MAX_CHARS
     return len(re.findall(r"\S+", text)) <= _MAX_WORDS
 
 

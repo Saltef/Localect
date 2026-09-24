@@ -49,6 +49,9 @@ class CohereModel:
         self.api_key = api_key
         self.name = f"cohere:{model}"
         self._client = httpx.Client(timeout=timeout)
+        # Whether this model accepts a JSON schema in response_format; learned on
+        # the first 400 so a model that rejects it is not asked twice per call.
+        self._schema_ok: bool | None = None
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json",
@@ -92,16 +95,27 @@ class CohereModel:
     ) -> str:
         payload: dict[str, Any] = {"model": self.model, "messages": messages, "temperature": 0}
         if schema is not None:
-            payload["response_format"] = {"type": "json_object"}
+            payload["response_format"] = self._response_format(schema)
         try:
             try:
                 body = self._chat(payload)
             except httpx.HTTPStatusError as e:
-                if e.response.status_code == 400 and "response_format" in payload:
+                if e.response.status_code != 400 or "response_format" not in payload:
+                    raise
+                if "json_schema" in payload["response_format"]:
+                    # The schema was refused: constrain to JSON only, and remember.
+                    self._schema_ok = False
+                    payload["response_format"] = {"type": "json_object"}
+                    try:
+                        body = self._chat(payload)
+                    except httpx.HTTPStatusError as e2:
+                        if e2.response.status_code != 400:
+                            raise
+                        payload.pop("response_format")
+                        body = self._chat(payload)
+                else:
                     payload.pop("response_format")
                     body = self._chat(payload)
-                else:
-                    raise
         except httpx.HTTPStatusError as e:
             detail = e.response.text[:200]
             raise ModelError(f"Cohere returned {e.response.status_code}: {detail}") from e
@@ -112,6 +126,13 @@ class CohereModel:
             return "".join(p.get("text", "") for p in parts if p.get("type") == "text")
         except (KeyError, TypeError) as e:
             raise ModelError(f"unexpected response shape: {body!r}"[:300]) from e
+
+    def _response_format(self, schema: type[BaseModel]) -> dict[str, Any]:
+        """Structured output: the schema itself when the model accepts one, so
+        it cannot echo the schema or drop a required key; JSON mode otherwise."""
+        if self._schema_ok is False:
+            return {"type": "json_object"}
+        return {"type": "json_object", "json_schema": schema.model_json_schema()}
 
     def check(self) -> dict[str, Any]:
         try:

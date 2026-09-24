@@ -56,3 +56,16 @@ def test_report_lists_failures_and_handles_a_bare_list():
     assert "| stub | 6/7 |" in md and "fact 1" in md
     assert "Nothing to report" in render([{"runs": []}])
     assert "### Checks" in render([{"runs": doc["runs"]}])
+
+
+def test_failure_rows_carry_the_reason_and_stay_one_table_cell():
+    doc = _eval_doc()
+    doc["runs"][1]["passed"] = False
+    doc["runs"][1]["checks"]["fact"] = False
+    doc["runs"][1]["details"] = {"fact": "not in the reply: 30 | thirty\nmore"}
+    doc["runs"][2]["passed"] = False
+    doc["runs"][2]["status"] = "escalate"
+    doc["runs"][2]["flags"] = ["s1:drifted:block lost the date"]
+    md = render([doc])
+    assert "| stub | demo-01 | fact (not in the reply: 30 \\| thirty more) |" in md
+    assert "| stub | demo-02 | escalate, s1:drifted:block lost the date |" in md

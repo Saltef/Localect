@@ -63,11 +63,22 @@ def runs_md(runs: list[dict[str, Any]]) -> list[str]:
     fails = [r for r in runs if not r.get("passed")]
     if fails:
         lines += ["", "Failures:", ""]
-        rows = [[r["model"], r["sample_id"], r.get("error") or ", ".join(
-            k for k in CHECK_ORDER if not r["checks"].get(k, True)) or r.get("status", "")]
-            for r in fails]
+        rows = [[r["model"], r["sample_id"], _why(r)] for r in fails]
         lines += _table(["model", "sample", "why"], rows)
     return lines
+
+
+def _why(r: dict[str, Any]) -> str:
+    if r.get("error"):
+        text = r["error"]
+    else:
+        failed = [k for k in CHECK_ORDER if not r["checks"].get(k, True)]
+        details = r.get("details") or {}
+        parts = [f"{k} ({details[k]})" if details.get(k) else k for k in failed]
+        if not parts and r.get("status"):
+            parts = [r["status"]] + ["; ".join(r["flags"][:3])] * bool(r.get("flags"))
+        text = ", ".join(parts)
+    return text.replace("|", "\\|").replace("\n", " ")
 
 
 def dialect_md(runs: list[dict[str, Any]]) -> list[str]:

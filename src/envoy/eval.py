@@ -64,7 +64,10 @@ class RunScore:
     locale: str = ""
     error: str = ""
     checks: dict[str, bool] = field(default_factory=dict)
+    details: dict[str, str] = field(default_factory=dict)  # why each failed check failed
     invariants: dict[str, bool] = field(default_factory=dict)
+    reading: dict[str, Any] = field(default_factory=dict)  # what the Reader reported
+    flags: list[str] = field(default_factory=list)  # segment:kind:severity reason
     flags_block: int = 0
     flags_warn: int = 0
     suggestions: int = 0
@@ -114,6 +117,41 @@ def score(result: Result, sample: Sample, user_name: str
         "signoff": final.rstrip().endswith(rendered_signoff(result.locale, user_name).rstrip()),
     }
     return checks, invariants
+
+
+def explain(result: Result, sample: Sample, checks: dict[str, bool]) -> dict[str, str]:
+    """One line per failed check saying what was looked for and not found (or
+    found and not wanted), so a failure can be diagnosed from the JSON alone."""
+    final = result.final_text
+    low = to_western(final).lower()
+    draft_low = to_western(result.draft.text()).lower()
+    out: dict[str, str] = {}
+    if not checks.get("locale", True):
+        out["locale"] = (f"resolved to {result.locale.locale}, expected {sample.locale}; the "
+                         f"Reader said language={result.reading.language!r} "
+                         f"region_guess={result.reading.region_guess!r}")
+    if not checks.get("preserved", True):
+        lost = [i for i in result.reading.must_preserve
+                if has_value(draft_low, i) and not has_value(final, i)]
+        out["preserved"] = "dropped by the rewrite: " + ", ".join(lost)
+    if not checks.get("fact", True):
+        missing = [" | ".join(alts) for alts in sample.facts
+                   if not any(has_value(final, a) for a in alts)]
+        out["fact"] = "not in the reply: " + "; ".join(missing)
+    if not checks.get("no_wrong", True):
+        out["no_wrong"] = "contradicts the knowledge base: " + ", ".join(
+            v for v in sample.wrong if has_value(final, v))
+    if not checks.get("terms", True):
+        out["terms"] = "glossary terms missing: " + ", ".join(
+            t for t in sample.terms if t.lower() not in low)
+    if not checks.get("no_leaks", True):
+        out["no_leaks"] = "source ids left in the text"
+    if not checks.get("no_forbidden", True):
+        out["no_forbidden"] = "forbidden phrase present: " + ", ".join(
+            p for p in sample.forbid if has_value(final, p))
+    if not checks.get("verified", True):
+        out["verified"] = "; ".join(result.stage_errors)[:300]
+    return out
 
 
 def _body(segments) -> str:
@@ -167,6 +205,13 @@ async def run_eval(settings: Settings, models: list[str] | None = None,
                 row.status, row.locale = r.status.value, r.locale.locale
                 row.critic_model = r.critic_model
                 row.checks, row.invariants = score(r, sample, settings.user_name)
+                row.details = explain(r, sample, row.checks)
+                row.reading = {"language": r.reading.language,
+                               "region_guess": r.reading.region_guess,
+                               "must_preserve": list(r.reading.must_preserve),
+                               "asks": list(r.reading.asks)}
+                row.flags = [f"{f.segment_id}:{f.kind.value}:{f.severity} {f.reason}"[:200]
+                             for f in r.flags]
                 row.flags_block = sum(1 for f in r.flags if f.severity == "block")
                 row.flags_warn = sum(1 for f in r.flags if f.severity == "warn")
                 row.suggestions = len(r.suggestions)
@@ -177,7 +222,7 @@ async def run_eval(settings: Settings, models: list[str] | None = None,
                 if (scorer := scorers.get(r.locale.language)) is not None:
                     row.dialect = dialect_ablation(r, scorer)
             except PipelineError as e:
-                row.error = str(e)[:200]
+                row.error = str(e)[:500]
             row.seconds = round(time.perf_counter() - t0, 1)
             rows.append(row)
             if on_row:
@@ -250,6 +295,9 @@ def render_table(rows: list[RunScore]) -> str:
             lines.append(f"  {r.sample_id:10} {('pass' if r.passed else 'fail'):7} "
                          f"{r.status:9} {r.locale:7} {r.seconds:>5}  {marks}"
                          + (f"  ({', '.join(extra)})" if extra else ""))
+            for k in failed:
+                if r.details.get(k):
+                    lines.append(f"{'':13}why {k}: {r.details[k][:160]}")
         lines += render_dialect(rs)
     return "\n".join(lines)
 

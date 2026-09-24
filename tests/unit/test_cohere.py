@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 from pydantic import BaseModel
@@ -43,8 +45,9 @@ def test_generate_retries_without_response_format_on_400():
             return httpx.Response(400, json={"message": "unsupported"})
         return httpx.Response(200, json={"message": {"content": [{"type": "text", "text": "{}"}]}})
 
+    # a model that rejects any response_format: schema, then JSON mode, then none
     assert _model(handler).generate([], role="r", schema=S) == "{}"
-    assert calls == [True, False]
+    assert calls == [True, True, False]
 
 
 def test_generate_reports_cohere_error_body():
@@ -85,3 +88,32 @@ def test_with_model_and_build_model_wiring():
                  endpoint="http://127.0.0.1:11434/v1")
     built = build_model(s)
     assert isinstance(built, CohereModel) and built.endpoint == "https://api.cohere.com"
+
+
+def test_generate_sends_the_schema_and_falls_back_to_json_mode_once():
+    formats = []
+
+    def handler(req):
+        body = json.loads(req.read().decode())
+        rf = body.get("response_format")
+        formats.append(sorted(rf) if rf else None)
+        if rf and "json_schema" in rf:
+            return httpx.Response(400, json={"message": "invalid schema"})
+        return httpx.Response(200, json={"message": {"content": [{"type": "text", "text": "{}"}]}})
+
+    m = _model(handler)
+    assert m.generate([], role="r", schema=S) == "{}"
+    assert m.generate([], role="r", schema=S) == "{}"
+    # first call: schema refused, JSON mode used; second call: JSON mode straight away
+    assert formats == [["json_schema", "type"], ["type"], ["type"]]
+
+
+def test_generate_keeps_the_schema_when_the_model_accepts_it():
+    seen = []
+
+    def handler(req):
+        seen.append(json.loads(req.read().decode())["response_format"])
+        return httpx.Response(200, json={"message": {"content": [{"type": "text", "text": "{}"}]}})
+
+    _model(handler).generate([], role="r", schema=S)
+    assert seen[0]["type"] == "json_object" and seen[0]["json_schema"]["title"] == "S"

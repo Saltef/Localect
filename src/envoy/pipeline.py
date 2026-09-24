@@ -30,6 +30,40 @@ class PipelineError(RuntimeError):
     pass
 
 
+# Where a message goes when the Reader cannot place it: the most widely
+# spoken variety of each language, not the first configured profile in
+# alphabetical order (which was es-ES over es-MX, en-GB over en-US, ar-EG
+# over ar-SA). A configured contact or an explicit locale still wins.
+DEFAULT_REGION = {"ar": "ar-EG", "de": "de-DE", "en": "en-US", "es": "es-MX", "fr": "fr-FR",
+                  "ja": "ja-JP", "pt": "pt-BR"}
+
+
+def normalize_locale_code(code: str | None) -> str:
+    """"ar_eg", "AR-EG", "ar-eg" -> "ar-EG"; "es" -> "es"; junk -> ""."""
+    if not code:
+        return ""
+    parts = [p for p in code.strip().replace("_", "-").split("-") if p]
+    if not parts or not parts[0].isalpha():
+        return ""
+    lang = parts[0].lower()
+    return f"{lang}-{parts[1].upper()}" if len(parts) > 1 and parts[1].isalnum() else lang
+
+
+def locale_for_reading(con, language: str, region_guess: str | None) -> LocaleProfile | None:
+    """The Reader's regional guess when it names a configured profile, else
+    the language's default region, else any profile for the language."""
+    language = normalize_locale_code(language).split("-")[0]
+    guess = normalize_locale_code(region_guess)
+    if "-" in guess:
+        p = db.locale_get(con, guess)
+        if p:
+            return p
+    default = DEFAULT_REGION.get(language)
+    if default and (p := db.locale_get(con, default)):
+        return p
+    return db.locale_for_language(con, language)
+
+
 def _fallback_locale(language: str) -> LocaleProfile:
     name = LANG_NAMES.get(language, language)
     return LocaleProfile(locale=f"{language}-XX", language=language, language_name=name,
@@ -53,11 +87,7 @@ def resolve_locale(con, req: ComposeRequest, reading) -> tuple[LocaleProfile, st
         p = db.locale_get(con, db.contact_get(con, req.contact_id)["locale"])
         if p:
             return p, contact_name, gender
-    if reading.region_guess:
-        p = db.locale_get(con, reading.region_guess)
-        if p:
-            return p, contact_name, gender
-    p = db.locale_for_language(con, reading.language)
+    p = locale_for_reading(con, reading.language, reading.region_guess)
     return (p or _fallback_locale(reading.language)), contact_name, gender
 
 

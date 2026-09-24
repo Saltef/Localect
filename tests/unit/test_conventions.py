@@ -117,3 +117,31 @@ def test_every_starter_arabic_locale_greets_both_genders_correctly():
         if p.greetings:
             assert f != m, f"{p.locale}: female and male forms must differ"
             assert u not in (f, m), f"{p.locale}: the unknown form must be neutral"
+
+
+JA = LocaleProfile(locale="ja-JP", language="ja", language_name="Japanese", region_name="Japan",
+                   variety="Standard Japanese", greeting="{name}様\n\nお世話になっております。",
+                   signoff="何卒よろしくお願いいたします。")
+
+
+def test_enforce_measures_japanese_in_characters_not_whitespace_tokens():
+    # Japanese has no word spaces, so every segment used to count as "short"
+    # and the sign-off walk swallowed the body of the reply.
+    segs = [RewrittenSegment(id="g1", text="お客様\n\nいつもお世話になっております。"),
+            RewrittenSegment(id="s1", text="ご注文の商品は2日以内に発送いたします。"),
+            RewrittenSegment(id="s2", text="追跡番号は発送後にメールでお知らせいたします。"),
+            RewrittenSegment(id="c1", text="今後ともよろしくお願い申し上げます。"),
+            RewrittenSegment(id="c2", text="Safea")]
+    changed = enforce(segs, JA, "", "Safea", has_claims=lambda s: False)
+    assert changed == ["g1", "c1"]
+    assert [s.id for s in segs] == ["g1", "s1", "s2", "c1"]
+    assert segs[0].text == "お客様\n\nお世話になっております。"
+    assert segs[1].text.startswith("ご注文") and segs[2].text.startswith("追跡番号")
+    assert segs[-1].text == "何卒よろしくお願いいたします。\nSafea"
+
+
+def test_enforce_never_replaces_a_segment_that_carries_a_number():
+    segs = [Segment(id="s1", text="Order #3030 ships in 2 days."),
+            Segment(id="c1", text="Refund in ٥ days, regards")]
+    assert enforce(segs, GB, "", "Safea") == []
+    assert segs[1].text == "Refund in ٥ days, regards"

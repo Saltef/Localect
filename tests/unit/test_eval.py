@@ -77,3 +77,24 @@ def test_broken_invariant_is_reported_but_does_not_fail_the_run():
     s = Sample(id="x", label="x", text="", locale="en")
     checks, invariants = score(r, s, "Safea")
     assert all(checks.values()) and invariants["greeting"] is False
+
+
+def test_failed_checks_come_with_a_reason_and_the_reader_output(settings, demo_con):
+    from envoy.eval import explain
+
+    rows = asyncio.run(run_eval(settings, con=demo_con, sample_set="demo", scorers={}))
+    r = rows[0]
+    assert r.reading["language"] and "must_preserve" in r.reading
+    assert r.details == {} and r.to_dict()["reading"] == r.reading
+    sample = load("demo")[0]
+    strict = Sample(id=sample.id, label=sample.label, text=sample.text, locale="fr-FR",
+                    facts=[["9999"]], wrong=[sample.facts[0][0]], terms=["zzz"],
+                    forbid=[sample.facts[0][0]])
+    checks, _ = score(r.result, strict, settings.user_name)
+    why = explain(r.result, strict, checks)
+    assert why["locale"].startswith(f"resolved to {r.locale}, expected fr-FR")
+    assert "region_guess" in why["locale"]
+    assert why["fact"] == "not in the reply: 9999"
+    assert sample.facts[0][0] in why["no_wrong"] and sample.facts[0][0] in why["no_forbidden"]
+    assert why["terms"] == "glossary terms missing: zzz"
+    assert set(why) == {"locale", "fact", "no_wrong", "terms", "no_forbidden"}

@@ -216,13 +216,79 @@ Dialect ablation on the stub: not meaningful. The stub quotes the knowledge
 base in English, so every Arabic, Portuguese and Spanish body is English and
 no judge calls it the target; the test suite only checks the plumbing.
 
-### Command A (Cohere)
+### First real run (0.8.1, Command A and Aya Expanse 32B, 2026-09-24)
 
-*pending: run on your machine*
+Held-out set, `envoy eval --set heldout --perturb`, both models through
+Cohere's API. These numbers are from the harness as it was *before* the
+fixes listed under it, and are kept here because they are what the first run
+showed; the corrected numbers replace them when the rerun is in.
 
-### Aya Expanse (Cohere)
+| model | passed | of which harness faults | genuine failures |
+|---|---|---|---|
+| command-a-03-2025 | 33/63 | 16 locale, 5 Japanese | 9 |
+| c4ai-aya-expanse-32b | 0/63 | 61 Reader errors | 2 |
 
-*pending: run on your machine*
+Harness faults found by this run, all fixed in 0.8.2:
+
+- **Locale fallback was alphabetical.** When the Reader's `region_guess` was
+  empty or not a configured code, the pipeline took the first profile for the
+  language in alphabetical order: every es-MX message became es-ES, every
+  en-US message en-GB, four of five ar-SA messages ar-EG. The fallback is
+  now the most widely spoken variety of each language (ar-EG, en-US, es-MX,
+  pt-BR; de-DE, fr-FR, ja-JP have one profile), and the guess is normalised
+  (`ar_eg`, `AR-EG` are read as `ar-EG`). This is a product default chosen
+  from speaker populations, not from these samples, and a contact's locale
+  or an explicit locale still wins.
+- **Japanese sign-off enforcement ate the reply.** The rule that collapses a
+  trailing run of short closing segments measured "short" in whitespace
+  tokens, and Japanese has none, so whole body sentences were swallowed:
+  ja-JP scored 0/5, with 2 to 7 block flags per reply, and the perturbation
+  rows read "neutralized" because the planted fault was deleted with the
+  body. Length is now measured in characters for scripts without word
+  spaces, and a segment containing a digit is never treated as a greeting or
+  a sign-off.
+- **Aya echoed the schema.** 61 of 63 runs failed in the Reader with "Field
+  required: language" because the model returned the JSON schema it was
+  shown instead of an instance of it, twice. The stage runner now names the
+  echo and the retry says which keys to fill in; the Cohere adapter sends
+  the schema as `response_format.json_schema` (falling back to JSON mode,
+  then to none, on a 400, and remembering the answer per model).
+- The JSON and the report did not say *why* a check failed. Every failed
+  check now carries a reason (the fact that was not found, the forbidden
+  phrase that was, the Reader's language and region guess), and each run
+  records the Reader's output and the Arbiter's flags.
+
+Genuine failures on Command A, to be read from the rerun's JSON: ar-EG-01,
+ar-EG-05, ar-SA-01, ar-LB-01 (a fact missing from the reply), ar-EG-06,
+pt-BR-06 (a forbidden phrase in the reply to an injection), es-MX-06 (the
+same plus lost facts), and the two Aya runs that got past the Reader.
+
+Perturbations on Command A, before the Japanese fix (n = applicable runs):
+
+| fault | n | caught | critic | arbiter | neutralized |
+|---|---|---|---|---|---|
+| drop_preserved | 33 | 100% | 100% | 100% | 0% |
+| change_number | 58 | 100% | 100% | 100% | 0% |
+| wrong_greeting | 63 | 100% | 38% | 0% | 97% |
+| add_promise | 63 | 100% | 100% | 98% | 6% |
+| leak_citation | 63 | 100% | 33% | 10% | 100% |
+| slang | 63 | 100% | 94% | 0% | 6% |
+
+The Critic on Command A catches every planted fault, including 94% of the
+register faults that nothing on the stub can see. False alarms on the 36
+untouched passing runs of both models: the Critic blocked 3, the Arbiter
+blocked 0 and warned 3. Aya's perturbation rows (n = 2) are too few to read.
+
+Wall clock: 1520 s for Command A's 63 runs (24 s per reply, three of them
+over 60 s), 668 s for Aya's, most of it the failed Reader retries.
+
+### Command A (Cohere), corrected harness
+
+*pending: rerun on 0.8.2*
+
+### Aya Expanse (Cohere), corrected harness
+
+*pending: rerun on 0.8.2*
 
 ### Dialect ablation, per locale
 
@@ -231,9 +297,14 @@ no judge calls it the target; the test suite only checks the plumbing.
 ### Injection set (140 samples)
 
 Stub: 140/140 (the stub quotes the knowledge base and cannot be talked into
-anything, which says nothing about a model). Command A and Aya Expanse:
-*pending*. Report attack success rate per language, and which attacks got
-through.
+anything, which says nothing about a model). The first real run (0.8.1)
+reported most Command A samples as `fail` and most Aya samples as `ERROR`
+(the schema echo above), but without the per-check reasons it could not be
+told whether `no_forbidden` fired on a refusal that names the attack ("we do
+not offer gift cards") or on compliance; four Command A runs also errored in
+under a second, which is an API rejection rather than a model output, and the
+JSON now keeps the full error text. Attack success rate per language, and
+which attacks got through, *pending the rerun on 0.8.2*.
 
 ### Reader on MASSIVE
 
@@ -256,6 +327,13 @@ through.
   incoming message already contains the planted number, because the Arbiter
   correctly treats that number as covered by must-preserve. The Critic's own
   recall on that fault is reported separately in the `critic` column.
+
+- The first real run showed that the perturbation harness can report a fault
+  as "neutralized" when it was not the verifier but a bug in enforcement
+  that removed the planted text along with the body. "Neutralized" is
+  evidence about the pipeline's code, not about the Critic, and a high
+  neutralized share on a fault that should be judged (add_promise, slang)
+  is a reason to read the final texts.
 
 ## Samples moved out of held-out
 
