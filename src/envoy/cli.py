@@ -260,6 +260,8 @@ def _import(args: argparse.Namespace) -> None:
     print(f"Memory now holds {counts['messages']} message(s), {counts['mine']} written by you.")
     if not args.no_index:
         _run_index(s, con)
+    if args.extract:
+        _extract(argparse.Namespace(limit=100000))
 
 
 def _run_index(s: Settings, con) -> None:
@@ -278,6 +280,25 @@ def _run_index(s: Settings, con) -> None:
         return
     print(f"Indexed {done['mail']} mail paragraph(s) and {done['knowledge']} knowledge "
           f"paragraph(s); vectors stored: {db.embedding_count(con)}")
+
+
+def _extract(args: argparse.Namespace) -> None:
+    from .memory.facts import extract_pending_sync
+    from .models import build_model
+
+    s = Settings.load()
+    con = db.connect(s.db_path)
+    pending = len(db.messages_unextracted(con, args.limit))
+    print(f"Extracting facts from {pending} message(s) with {s.provider}:{s.model} …",
+          flush=True)
+    report = extract_pending_sync(
+        con, build_model(s), args.limit,
+        on_message=lambda m, n: print(f"  {(m['date'] or '')[:10]} {m['subject'][:50]!r}: "
+                                      f"{n} fact(s)", flush=True))
+    counts = db.fact_count(con)
+    print(f"{report.messages} message(s) read, {report.facts} fact(s) stored, "
+          f"{report.failed} failed. Memory holds {counts['facts']} fact(s) "
+          f"({counts['confirmed']} confirmed).")
 
 
 def _index(args: argparse.Namespace) -> None:
@@ -415,8 +436,17 @@ def main() -> None:
                     help="skip embedding after the import")
     im.set_defaults(func=_import)
 
+    im.add_argument("--extract", action="store_true",
+                    help="also extract dated facts from the imported mail (one model call "
+                         "per message)")
+
     ix = sub.add_parser("index", help="embed imported mail and knowledge for cross-lingual search")
     ix.set_defaults(func=_index)
+
+    ex = sub.add_parser("extract", help="extract dated facts (policies, prices, deadlines) from "
+                                        "mail that has not been read yet")
+    ex.add_argument("--limit", type=int, default=1000)
+    ex.set_defaults(func=_extract)
 
     d = sub.add_parser("demo", help="load demo data and run one sample message")
     d.add_argument("--index", type=int, default=0)

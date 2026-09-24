@@ -22,7 +22,7 @@ async def test_all_five_servers_over_stdio():
         listed = await tools.list_tools()
         assert listed == {"glossary": ["lookup", "do_not_translate"], "knowledge": ["search"],
                           "history": ["search_past"], "thread": ["get_thread"],
-                          "mail": ["search_mail"]}
+                          "mail": ["search_mail", "search_facts", "voice_examples"]}
         g = await tools.glossary_lookup("my SkyPack", "ar")
         assert g[0].kind == "glossary" and g[0].meta["term"] == "SkyPack"
         k = await tools.knowledge_search("pedido envío")
@@ -36,5 +36,8 @@ async def test_all_five_servers_over_stdio():
         assert m and m[0].id.startswith("ml:") and m[0].kind == "mail"
         assert m[0].meta["said"] == "you wrote on 2025-09-10, re: Returns"
         assert m[0].text == "The return window is 30 days from delivery."
+        v = await tools.voice_examples("en", "layla@shop.example")
+        assert v and v[0]["text"].startswith("The return window")
+        assert await tools.facts_search("return window", "en", "") == []
     finally:
         await tools.stop()

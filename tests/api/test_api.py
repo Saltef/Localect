@@ -112,3 +112,36 @@ def test_messages_import_capture_and_delete(settings, tmp_path):
         # settings accept the address and mask nothing else
         assert c.put("/api/settings", json={"user_email": "me@x.example"}).json()["user_email"] \
             == "me@x.example"
+
+
+def test_facts_extract_review_and_memory_status(settings):
+    from pathlib import Path
+
+    fix = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
+    settings.user_email = "safea@example.com"
+    with _client(settings)[0] as c:
+        c.post("/api/import", json={"paths": [str(fix / "sample.mbox")]})
+        mem = c.get("/api/memory").json()
+        assert mem["unextracted"] == 5 and mem["facts"]["facts"] == 0
+        ex = c.post("/api/extract").json()
+        assert ex["messages"] == 5 and ex["facts_total"]["facts"] >= 2
+        mem = c.get("/api/memory").json()
+        assert mem["unextracted"] == 0 and len(mem["conflicts"]) == 1
+        facts = c.get("/api/facts", params={"q": "return window"}).json()
+        assert [f["value"] for f in facts] == ["30", "14"]
+        assert c.get("/api/facts", params={"party": "layla@shop.example"}).json()
+        assert c.put(f"/api/facts/{facts[1]['id']}", json={"status": "banana"}).status_code == 400
+        assert c.put(f"/api/facts/{facts[1]['id']}", json={"status": "rejected"}).json()["status"] \
+            == "rejected"
+        assert c.get("/api/memory").json()["conflicts"] == []
+        fixed = c.put(f"/api/facts/{facts[0]['id']}", json={"topic": "Return period",
+                                                             "value": "30 days"}).json()
+        assert fixed["topic"] == "Return period" and fixed["topic_key"] == "period return"
+        assert c.put("/api/facts/nope", json={"status": "confirmed"}).status_code == 404
+        assert c.delete(f"/api/facts/{facts[0]['id']}").json()["ok"]
+        # a captured message is read for facts on arrival
+        cap = c.post("/api/messages", json={"text": "Shipping to Cairo takes 4 days.",
+                                            "from_addr": "safea@example.com",
+                                            "to_addrs": ["omar@example.org"]}).json()
+        assert cap["stored"] and cap["facts"] == 1
+        assert c.get("/api/facts", params={"q": "cairo"}).json()[0]["value"] == "4"

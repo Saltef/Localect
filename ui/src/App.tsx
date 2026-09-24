@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Clock, Languages, MessageSquare, Settings as SettingsIcon, Users } from "lucide-react";
+import { BookOpen, Brain, Clock, Languages, MessageSquare, Settings as SettingsIcon, Users } from "lucide-react";
 import { api, type Health } from "./api";
 import { Badge } from "./components/ui";
 import { ContactsPage, GlossaryPage, HistoryPage, KnowledgePage, SettingsPage } from "./pages/Admin";
 import Compose from "./pages/Compose";
+import MemoryPage from "./pages/Memory";
 
 const NAV = [
   { id: "compose", label: "Compose", Icon: MessageSquare },
   { id: "contacts", label: "Contacts & locales", Icon: Users },
   { id: "glossary", label: "Glossary", Icon: BookOpen },
   { id: "knowledge", label: "Knowledge", Icon: Languages },
+  { id: "memory", label: "Memory", Icon: Brain },
   { id: "history", label: "History", Icon: Clock },
   { id: "settings", label: "Settings", Icon: SettingsIcon },
 ] as const;
@@ -55,6 +57,7 @@ export default function App() {
           {page === "contacts" && <ContactsPage />}
           {page === "glossary" && <GlossaryPage />}
           {page === "knowledge" && <KnowledgePage />}
+          {page === "memory" && <MemoryPage />}
           {page === "history" && <HistoryPage />}
           {page === "settings" && <SettingsPage />}
         </div>

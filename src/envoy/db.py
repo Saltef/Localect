@@ -39,10 +39,17 @@ CREATE TABLE IF NOT EXISTS messages (
   from_name TEXT NOT NULL DEFAULT '', to_addrs TEXT NOT NULL DEFAULT '',
   subject TEXT NOT NULL DEFAULT '', text TEXT NOT NULL, is_mine INTEGER NOT NULL DEFAULT 0,
   language TEXT NOT NULL DEFAULT '', origin TEXT NOT NULL DEFAULT 'import',
-  source TEXT NOT NULL DEFAULT ''
+  source TEXT NOT NULL DEFAULT '', extracted_at TEXT NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS messages_external ON messages(external_id)
   WHERE external_id <> '';
+CREATE TABLE IF NOT EXISTS facts (
+  id TEXT PRIMARY KEY, topic TEXT NOT NULL, topic_key TEXT NOT NULL, statement TEXT NOT NULL,
+  value TEXT NOT NULL DEFAULT '', said_on TEXT NOT NULL DEFAULT '',
+  said_by TEXT NOT NULL DEFAULT 'them', party TEXT NOT NULL DEFAULT '',
+  message_id TEXT NOT NULL DEFAULT '', language TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'auto', created_at TEXT NOT NULL DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS embeddings (
   kind TEXT NOT NULL, ref TEXT NOT NULL, model TEXT NOT NULL, dim INTEGER NOT NULL,
   vector BLOB NOT NULL, PRIMARY KEY (kind, ref, model)
@@ -69,6 +76,9 @@ def _migrate(con: sqlite3.Connection) -> None:
     if "origin" not in cols:
         con.execute("ALTER TABLE locales ADD COLUMN origin TEXT NOT NULL DEFAULT 'starter'")
         con.commit()
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(messages)")}
+    if cols and "extracted_at" not in cols:
+        con.execute("ALTER TABLE messages ADD COLUMN extracted_at TEXT NOT NULL DEFAULT ''")
     cols = {r["name"] for r in con.execute("PRAGMA table_info(contacts)")}
     if "email" not in cols:
         con.execute("ALTER TABLE contacts ADD COLUMN email TEXT NOT NULL DEFAULT ''")
@@ -266,7 +276,123 @@ def message_get(con, mid: str) -> dict[str, Any] | None:
 def message_delete(con, mid: str) -> None:
     con.execute("DELETE FROM messages WHERE id=?", (mid,))
     con.execute("DELETE FROM embeddings WHERE kind='mail' AND ref LIKE ?", (mid + ":%",))
+    con.execute("DELETE FROM facts WHERE message_id=?", (mid,))
     con.commit()
+
+
+def messages_unextracted(con, limit: int = 1000) -> list[dict[str, Any]]:
+    return [dict(r) for r in con.execute(
+        "SELECT * FROM messages WHERE extracted_at='' ORDER BY date LIMIT ?", (limit,))]
+
+
+def message_mark_extracted(con, mid: str, when: str) -> None:
+    con.execute("UPDATE messages SET extracted_at=? WHERE id=?", (when, mid))
+
+
+def voice_examples(con, language: str | None, contact_email: str = "", limit: int = 3,
+                   max_chars: int = 400) -> list[dict[str, Any]]:
+    """The user's own recent messages in this language, to this contact when
+    there are any: how they write, for the Rewriter to match."""
+    contact_email = (contact_email or "").strip().lower()
+    rows = [dict(r) for r in con.execute(
+        "SELECT id, date, to_addrs, subject, text, language FROM messages WHERE is_mine=1 "
+        "ORDER BY date DESC LIMIT 200")]
+    if language:
+        rows = [r for r in rows if not r["language"] or r["language"].startswith(language)]
+    rows.sort(key=lambda r: (bool(contact_email) and contact_email in r["to_addrs"], r["date"]),
+              reverse=True)
+    out = []
+    for r in rows[:limit]:
+        text = r["text"] if len(r["text"]) <= max_chars else r["text"][:max_chars].rsplit(
+            " ", 1)[0] + " …"
+        out.append({"id": r["id"], "date": r["date"], "subject": r["subject"], "text": text})
+    return out
+
+
+# --- facts: dated statements extracted from messages --------------------------
+
+
+def fact_add(con, *, topic: str, topic_key: str, statement: str, value: str = "",
+             said_on: str = "", said_by: str = "them", party: str = "", message_id: str = "",
+             language: str = "", status: str = "auto", created_at: str = "") -> str:
+    fid = _uid()
+    con.execute(
+        "INSERT INTO facts (id, topic, topic_key, statement, value, said_on, said_by, party, "
+        "message_id, language, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (fid, topic, topic_key, statement, value, said_on, said_by, party.lower(), message_id,
+         language, status, created_at))
+    return fid
+
+
+def fact_get(con, fid: str) -> dict[str, Any] | None:
+    r = con.execute("SELECT * FROM facts WHERE id=?", (fid,)).fetchone()
+    return dict(r) if r else None
+
+
+def fact_list(con, query: str = "", party: str = "", status: str = "", limit: int = 200
+              ) -> list[dict[str, Any]]:
+    rows = [dict(r) for r in con.execute("SELECT * FROM facts ORDER BY said_on DESC")]
+    q = query.lower()
+    party = party.strip().lower()
+    out = [r for r in rows
+           if (not q or q in (r["topic"] + " " + r["statement"] + " " + r["value"]).lower())
+           and (not party or r["party"] == party) and (not status or r["status"] == status)]
+    return out[:limit]
+
+
+def fact_update(con, fid: str, **fields) -> dict[str, Any] | None:
+    allowed = {"topic", "topic_key", "statement", "value", "status"}
+    sets = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if sets:
+        con.execute("UPDATE facts SET " + ", ".join(f"{k}=?" for k in sets) + " WHERE id=?",
+                    (*sets.values(), fid))
+        con.commit()
+    return fact_get(con, fid)
+
+
+def fact_delete(con, fid: str) -> None:
+    con.execute("DELETE FROM facts WHERE id=?", (fid,))
+    con.commit()
+
+
+def fact_count(con) -> dict[str, int]:
+    out = {"facts": 0, "auto": 0, "confirmed": 0, "rejected": 0}
+    for r in con.execute("SELECT status, count(*) AS n FROM facts GROUP BY status"):
+        out[r["status"]] = r["n"]
+        out["facts"] += r["n"]
+    return out
+
+
+def facts_search(con, query: str, language: str | None = None, party: str = "",
+                 limit: int = 6) -> list[dict[str, Any]]:
+    """Facts whose topic or statement overlaps the query, rejected ones
+    excluded, ranked by overlap, then the party being answered, then
+    confirmed over automatic, then newest. Facts carry their topic key so the
+    Arbiter can see when two of them disagree."""
+    terms = _tokens(query)
+    if not terms:
+        return []
+    party = (party or "").strip().lower()
+    scored = []
+    for r in con.execute("SELECT * FROM facts WHERE status<>'rejected'"):
+        score = _score(_tokens(r["topic"] + " " + r["statement"]), terms)
+        if not score:
+            continue
+        scored.append(((score, int(bool(party) and r["party"] == party),
+                        int(r["status"] == "confirmed"), r["said_on"]), dict(r)))
+    scored.sort(key=lambda s: s[0], reverse=True)
+    return [s for _, s in scored[:limit]]
+
+
+def facts_conflicts(con, party: str = "") -> list[list[dict[str, Any]]]:
+    """Groups of facts on the same topic with different values."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for r in con.execute("SELECT * FROM facts WHERE status<>'rejected' ORDER BY said_on DESC"):
+        if party and r["party"] and r["party"] != party.lower():
+            continue
+        if r["value"]:
+            groups.setdefault(r["topic_key"], []).append(dict(r))
+    return [g for g in groups.values() if len({f["value"] for f in g}) > 1]
 
 
 def message_count(con) -> dict[str, int]:

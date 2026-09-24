@@ -220,6 +220,7 @@ export function SettingsPage() {
         <Card title="You">
           <div className="space-y-3">
             <Field label="Your name" hint="Used in sign-offs"><input className={inputCls} value={s.user_name} onChange={(e) => setS({ ...s, user_name: e.target.value })} /></Field>
+            <Field label="Your email address(es)" hint="Comma-separated. Marks which imported or captured messages you wrote, so Envoy can learn your facts and your voice."><input className={inputCls} value={s.user_email || ""} onChange={(e) => setS({ ...s, user_email: e.target.value })} /></Field>
             <Field label="Your language" hint="Glosses and back-translations are shown in this language"><select className={inputCls} value={s.user_language} onChange={(e) => setS({ ...s, user_language: e.target.value })}>{["en", "ar", "es", "pt", "fr", "de", "ja"].map((l) => <option key={l}>{l}</option>)}</select></Field>
             <Button onClick={save}>{saved ? "Saved" : "Save"}</Button>
           </div>

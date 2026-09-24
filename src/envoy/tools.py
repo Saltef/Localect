@@ -22,6 +22,9 @@ class Tools(Protocol):
     async def thread(self, contact_id: str) -> list[SourceSnippet]: ...
     async def mail_search(self, query: str, language: str | None,
                           contact_email: str) -> list[SourceSnippet]: ...
+    async def facts_search(self, query: str, language: str | None,
+                           contact_email: str) -> list[SourceSnippet]: ...
+    async def voice_examples(self, language: str | None, contact_email: str) -> list[dict]: ...
 
 
 def glossary_snippets(rows: list[dict]) -> list[SourceSnippet]:
@@ -60,6 +63,24 @@ def mail_snippets(rows: list[dict]) -> list[SourceSnippet]:
     return out
 
 
+def fact_snippets(rows: list[dict]) -> list[SourceSnippet]:
+    """A dated fact: "<topic>: <statement>", with who said it, when, its value
+    and topic key in meta so the Arbiter can compare facts on one topic."""
+    out = []
+    for r in rows:
+        who = "you" if r.get("said_by") == "you" else "they"
+        when = (r.get("said_on") or "")[:10]
+        said = f"{who} said" + (f" on {when}" if when else "")
+        if r.get("status") == "confirmed":
+            said += ", confirmed by you"
+        meta = {k: r.get(k) for k in ("topic", "topic_key", "value", "said_on", "said_by",
+                                      "party", "message_id", "status")}
+        meta["said"] = said
+        out.append(SourceSnippet(id=f"fc:{r['id']}", kind="fact",
+                                 text=f"{r['topic']}: {r['statement']}", meta=meta))
+    return out
+
+
 def thread_snippets(rows: list[dict]) -> list[SourceSnippet]:
     return [SourceSnippet(id=f"th:{r['id']}", kind="thread",
                           text=f"They wrote: {r['message']}\nWe replied: {r['final_text']}",
@@ -86,3 +107,9 @@ class DirectTools:
     async def mail_search(self, query, language, contact_email):
         return mail_snippets(memsearch.mail_search(self.con, self.embedder, query, language,
                                                    contact_email))
+
+    async def facts_search(self, query, language, contact_email):
+        return fact_snippets(db.facts_search(self.con, query, language, contact_email))
+
+    async def voice_examples(self, language, contact_email):
+        return db.voice_examples(self.con, language, contact_email)

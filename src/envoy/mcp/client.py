@@ -13,6 +13,7 @@ from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, get_default_environment, stdio_client
 
 from ..tools import (
+    fact_snippets,
     glossary_snippets,
     history_snippets,
     knowledge_snippets,
@@ -79,6 +80,14 @@ class MCPTools:
     async def mail_search(self, query, language, contact_email):
         return mail_snippets(await self._call("mail", "search_mail", query=query,
                                               language=language, contact_email=contact_email))
+
+    async def facts_search(self, query, language, contact_email):
+        return fact_snippets(await self._call("mail", "search_facts", query=query,
+                                              language=language, contact_email=contact_email))
+
+    async def voice_examples(self, language, contact_email):
+        return await self._call("mail", "voice_examples", language=language,
+                                contact_email=contact_email)
 
     async def list_tools(self) -> dict[str, list[str]]:
         out = {}

@@ -187,3 +187,22 @@ async def test_past_mail_is_a_source_and_the_newest_statement_wins(con, settings
     assert cited and all(sid.startswith("ml:") for sid in cited)
     assert strip_citations("as we said [ml:abc:0], 30 days") == "as we said, 30 days"
     assert r.status == Status.ready
+
+
+async def test_facts_that_disagree_put_the_reply_on_check_with_both_dates(con, settings):
+    """Two dated facts on one topic: the reply uses the newest and is marked
+    for a look, and the ledger says why."""
+    from envoy.memory.facts import topic_key
+
+    for value, day in (("14", "2025-09-01"), ("30", "2025-09-10")):
+        db.fact_add(con, topic="return window", topic_key=topic_key("return window"),
+                    statement=f"Our return window is {value} days from delivery.", value=value,
+                    said_on=f"{day}T10:00:00Z", said_by="you", party="layla@shop.example",
+                    language="en")
+    con.commit()
+    r = await _run(con, settings, "Hi, how long is the return window?")
+    assert "30 days" in r.final_text and "14 days" not in r.final_text
+    assert r.status == Status.check
+    (flag,) = [f for f in r.flags if f.kind == FlagKind.conflicting_sources]
+    assert "2025-09-10" in flag.reason and "2025-09-01" in flag.reason
+    assert any(sid.startswith("fc:") for e in r.ledger for sid in e.source_ids)

@@ -58,7 +58,7 @@ class LocaleProfile(BaseModel):
 
 class SourceSnippet(BaseModel):
     id: str
-    kind: str  # glossary | knowledge | history | thread | mail
+    kind: str  # glossary | knowledge | history | thread | mail | fact
     text: str
     meta: dict[str, Any] = Field(default_factory=dict)
 
@@ -132,6 +132,23 @@ class FlagKind(StrEnum):
     unsupported_claim = "unsupported_claim"
     missing_item = "missing_item"
     stage_failure = "stage_failure"
+    conflicting_sources = "conflicting_sources"  # two facts disagree; the newest was used
+    stale_source = "stale_source"  # the reply used an older fact that a newer one contradicts
+
+
+class ExtractedFact(BaseModel):
+    """One concrete thing a message states: a policy, price, date, deadline,
+    commitment. ``topic`` is a short English key so the same fact stated in
+    two languages can be compared; ``value`` is the number, date or amount
+    when there is one."""
+
+    topic: str
+    statement: str
+    value: str = ""
+
+
+class Extraction(BaseModel):
+    facts: list[ExtractedFact] = Field(default_factory=list)
 
 
 class Flag(BaseModel):

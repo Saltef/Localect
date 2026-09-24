@@ -16,6 +16,9 @@ Locale conventions:
 - sign-off: {{signoff}}
 - notes: {{notes}}
 
+How the sender writes, from their own past messages in this language. Match the register, warmth and phrasing; never copy the content, and never add or change a fact:
+{{voice}}
+
 Draft segments (id, text):
 {{draft}}
 

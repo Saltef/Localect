@@ -84,6 +84,8 @@ def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: l
                                   severity="block"))
         flags += number_flags(seg.id, seg.text, final, must_preserve)
 
+    flags += conflict_flags(draft, sources)
+
     # Deduplicate: same segment, kind, and span means the same finding.
     seen: set[tuple[str, str, str]] = set()
     unique: list[Flag] = []
@@ -112,5 +114,46 @@ def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: l
     return unique, status, ledger
 
 
+def conflict_flags(draft: Draft, sources: list[SourceSnippet]) -> list[Flag]:
+    """When retrieved facts on one topic disagree, the segment that cites one
+    of them is flagged: a warning if it cites the newest (the reader should
+    know an older statement exists), a block if it cites an older one (the
+    reply repeats something that was later changed). A human decides; the
+    Rewriter cannot fix a wrong fact without changing meaning."""
+    from ..memory.facts import value_key
+
+    by_topic: dict[str, list[SourceSnippet]] = {}
+    for s in sources:
+        if s.kind == "fact" and s.meta.get("value"):
+            by_topic.setdefault(str(s.meta.get("topic_key") or s.meta.get("topic")), []).append(s)
+    out: list[Flag] = []
+    for group in by_topic.values():
+        if len({value_key(str(f.meta["value"])) for f in group}) < 2:
+            continue
+        group.sort(key=lambda f: str(f.meta.get("said_on") or ""), reverse=True)
+        newest = group[0]
+        ids = {f.id: f for f in group}
+        summary = "; ".join(f"{f.meta['value']} ({f.meta.get('said')})" for f in group)
+        for seg in draft.segments:
+            cited = [ids[sid] for c in seg.claims for sid in c.source_ids if sid in ids]
+            if not cited:
+                continue
+            if all(f.id == newest.id for f in cited):
+                out.append(Flag(segment_id=seg.id, kind=FlagKind.conflicting_sources,
+                                span=str(newest.meta["value"]),
+                                reason=f"sources disagree on '{newest.meta['topic']}': {summary}; "
+                                       "the newest was used", severity="warn"))
+            else:
+                old = next(f for f in cited if f.id != newest.id)
+                out.append(Flag(segment_id=seg.id, kind=FlagKind.stale_source,
+                                span=str(old.meta["value"]),
+                                reason=f"'{old.meta['topic']}' was later changed: {summary}; "
+                                       f"this reply uses {old.meta['value']}", severity="block"))
+    return out
+
+
 def blocking(flags: list[Flag]) -> list[Flag]:
-    return [f for f in flags if f.severity == "block" and f.kind != FlagKind.unsupported_claim]
+    """Flags the Rewriter can act on. A missing source or a stale fact needs a
+    person, not a rewrite."""
+    return [f for f in flags if f.severity == "block"
+            and f.kind not in (FlagKind.unsupported_claim, FlagKind.stale_source)]
