@@ -122,6 +122,7 @@ envoy bench massive --data <MASSIVE dir>      # the Reader alone: language accur
 envoy bench flores --data <FLORES-200 dir>    # the Critic alone: chrF of its back-translation
 envoy study export --from heldout.json --out study/   # blind pairwise sheets for native readers
 envoy study score --sheets study/             # preference with CIs, Krippendorff's alpha, kappa
+envoy report *.json --out report.md           # one markdown report from any of the above
 ```
 
 Two sample sets ship with Envoy. The **demo** set is the seven messages in

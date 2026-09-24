@@ -261,12 +261,26 @@ through.
 
 None.
 
+## Gates and the report
+
+CI runs, on every push, `envoy eval --set heldout --perturb` and
+`envoy eval --set injection` on the stub and fails the build if any sample
+fails; the test suite additionally pins the deterministic perturbation
+detections at 100%. The combined markdown report is uploaded as a build
+artifact.
+
+`envoy report heldout.json injection.json massive.json flores.json
+study/report.json --out report.md` composes one markdown document from any
+of the JSON files the commands above write, with counts next to every
+percentage, so a table can be pasted here unchanged. `envoy eval --report
+x.md` writes the same for a single run.
+
 ## Reproduce
 
 ```bash
 pipx install --force git+https://github.com/Saltef/Envoy      # or: pip install -e .
 envoy check                                                   # confirm the model answers
-envoy eval --set heldout --perturb --out heldout.json
+envoy eval --set heldout --perturb --out heldout.json --report heldout.md
 envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --perturb --out compare.json
 envoy eval --set heldout --critic-model command-a-03-2025      # judge with a model other than the drafter
 
@@ -282,6 +296,9 @@ pip install camel-tools && camel_data -i dialectid             # Arabic
 envoy dialect train --language pt --data path/to/DSLCC/task1-train.txt
 envoy dialect train --language es --data path/to/DSLCC/task1-train.txt
 envoy dialect list
+
+# Everything into one markdown file to paste into this page:
+envoy report compare.json injection.json massive.json flores.json study/report.json --out report.md
 ```
 
 On Windows run the same commands in PowerShell or cmd. Output is UTF-8.

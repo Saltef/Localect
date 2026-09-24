@@ -284,7 +284,7 @@ def to_json(rows: list[RunScore], perturbations: list[PerturbScore] | None = Non
 
 def main_eval(settings: Settings, models: list[str] | None, indexes: list[int] | None,
               out: str | None, sample_set: str = "demo", perturb: bool = False,
-              critic_model: str | None = None) -> int:
+              critic_model: str | None = None, report: str | None = None) -> int:
     if sample_set not in SETS:
         print(f"unknown set {sample_set!r}; choose one of {', '.join(SETS)}")
         return 2
@@ -316,4 +316,11 @@ def main_eval(settings: Settings, models: list[str] | None, indexes: list[int] |
         with open(out, "w", encoding="utf-8") as f:
             f.write(to_json(rows, perturbations, alarms))
         print(f"\nWrote {out}")
+    if report:
+        from .report import render
+
+        doc = json.loads(to_json(rows, perturbations, alarms))
+        with open(report, "w", encoding="utf-8") as f:
+            f.write(render([doc], title=f"Envoy eval: {sample_set} set"))
+        print(f"Wrote {report}")
     return 0 if all(r.passed for r in rows) else 1

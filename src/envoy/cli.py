@@ -82,7 +82,7 @@ def _eval(args: argparse.Namespace) -> None:
             elif part:
                 indexes.append(int(part))
     raise SystemExit(main_eval(Settings.load(), models, indexes, args.out, args.set,
-                               args.perturb, args.critic_model))
+                               args.perturb, args.critic_model, args.report))
 
 
 def _dialect(args: argparse.Namespace) -> None:
@@ -174,6 +174,19 @@ def _bench(args: argparse.Namespace) -> None:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(doc, f, ensure_ascii=False, indent=1)
         print(f"\nWrote {args.out}")
+
+
+def _report(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from . import report
+
+    text = report.render(report.load_docs(args.files), title=args.title)
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"Wrote {args.out}")
+    else:
+        print(text)
 
 
 def _study(args: argparse.Namespace) -> None:
@@ -298,6 +311,7 @@ def main() -> None:
     ev.add_argument("--perturb", action="store_true",
                     help="also plant known faults in every run and score what the verifier catches")
     ev.add_argument("--out", help="write full results as JSON to this file")
+    ev.add_argument("--report", help="also write this run's tables as markdown to this file")
     ev.set_defaults(func=_eval)
 
     b = sub.add_parser("bench", help="score one stage against a public dataset: the Reader on "
@@ -310,6 +324,12 @@ def main() -> None:
     b.add_argument("--critic-model", dest="critic_model", help="flores: the model that judges")
     b.add_argument("--out", help="write full results as JSON to this file")
     b.set_defaults(func=_bench)
+
+    rp = sub.add_parser("report", help="one markdown report from eval, bench and study JSON")
+    rp.add_argument("files", nargs="+", help="JSON written by envoy eval/bench/study --out")
+    rp.add_argument("--out", help="markdown file to write (default: print)")
+    rp.add_argument("--title", default="Envoy evaluation report")
+    rp.set_defaults(func=_report)
 
     st = sub.add_parser("study", help="blind pairwise sheets for native readers, and their "
                                       "scores")
