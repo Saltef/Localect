@@ -50,6 +50,9 @@ a second read and by deterministic code before you see it.
   claims. A deterministic Arbiter re-checks what a model must never get
   wrong: numbers and ids in any digit script, do-not-translate terms,
   dropped segments.
+- **Drafts from what you actually said.** Import your past mail and Envoy
+  cites it like any other source, newest statement first, with who said it
+  and when. See [docs/MEMORY.md](docs/MEMORY.md).
 - **Measured, not claimed.** A held-out set no prompt was tuned on, planted
   faults the verifier must catch, an injection set, a dialect-identifier
   ablation, public-benchmark checks on single agents, and a blind human
@@ -96,6 +99,13 @@ Uses Cohere's own chat API with structured output; the key is stored in
 </td></tr>
 </table>
 
+Give it your past writing, so replies say what you have already told people:
+
+```bash
+envoy config --user-email you@example.com
+envoy import ~/Takeout/Mail/All\ mail.mbox      # or a folder of .eml files, or .md/.txt/.pdf
+```
+
 Prefer a container?
 
 ```bash
@@ -114,7 +124,7 @@ kept from grading its own author.
 ```mermaid
 flowchart LR
     IN([message]) --> R[Reader] --> D[Drafter] --> RW[Rewriter] --> C[Critic] --> A[Arbiter] --> OUT([you send])
-    MCP[("your glossary, knowledge,<br/>history, thread<br/>(MCP servers)")] -.-> D
+    MCP[("your glossary, knowledge,<br/>past mail, history, thread<br/>(MCP servers)")] -.-> D
     A -. "blocking flag:<br/>one revision" .-> RW
 ```
 
@@ -185,13 +195,14 @@ src/envoy/
   schemas.py      typed contracts for every agent and the Result
   conventions.py  greeting / sign-off enforcement, gender forms
   models/         openai_compat (Ollama, LM Studio, vLLM), cohere, stub, fake (tests)
-  mcp/            client + servers: glossary, knowledge, history, thread
+  mcp/            client + servers: glossary, knowledge, history, thread, mail
+  memory/         import of past mail (mbox, .eml) and documents; quote and signature cleaning
   locales/        twelve starter locale profiles (YAML)
   eval.py, perturb.py, evalset/, evalx/, study.py, report.py   the evaluation
   db.py, app.py, cli.py, demo.py
 ui/               React + Vite + Tailwind, built into src/envoy/static
 tests/            unit · agents · mcp · pipeline · api · e2e
-docs/             ARCHITECTURE.md · EVAL.md · DESIGN.md · RUBRIC.md
+docs/             ARCHITECTURE.md · EVAL.md · MEMORY.md · DESIGN.md · RUBRIC.md
 ```
 
 ## Development

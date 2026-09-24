@@ -225,12 +225,36 @@ def _study(args: argparse.Namespace) -> None:
 
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
-    for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_language"):
+    for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_email",
+              "user_language"):
         v = getattr(args, k, None)
         if v is not None:
             setattr(s, k, v)
     s.save()
     print(json.dumps(s.public(), indent=2))
+
+
+def _import(args: argparse.Namespace) -> None:
+    from .memory import import_paths
+
+    s = Settings.load()
+    con = db.connect(s.db_path)
+    mine = set(s.my_addresses) | {a.strip().lower() for a in (args.me or "").split(",")
+                                  if a.strip()}
+    if not mine:
+        print("Tip: pass --me you@example.com (or envoy config --user-email) so Envoy knows "
+              "which messages you wrote.")
+
+    def progress(path, report):
+        print(f"  {path}: {report.messages} message(s), {report.documents} document(s) so far",
+              flush=True)
+
+    report = import_paths(con, args.paths, mine, on_file=progress)
+    print(report.summary())
+    for line in report.skipped[:20]:
+        print(f"  skipped {line}")
+    counts = db.message_count(con)
+    print(f"Memory now holds {counts['messages']} message(s), {counts['mine']} written by you.")
 
 
 def _demo(args: argparse.Namespace) -> None:
@@ -298,6 +322,8 @@ def main() -> None:
     cfg.add_argument("--model")
     cfg.add_argument("--api-key", dest="api_key", help="for hosted OpenAI-compatible endpoints")
     cfg.add_argument("--user-name", dest="user_name")
+    cfg.add_argument("--user-email", dest="user_email",
+                     help="your address(es), comma-separated: marks the mail you wrote")
     cfg.add_argument("--user-language", dest="user_language")
     cfg.set_defaults(func=_config)
 
@@ -350,6 +376,12 @@ def main() -> None:
     dl.add_argument("--text", action="append", default=[],
                     help="check: text to classify (repeatable)")
     dl.set_defaults(func=_dialect)
+
+    im = sub.add_parser("import", help="import past mail (mbox, .eml) and documents (md, txt, "
+                                       "pdf) into Envoy's memory")
+    im.add_argument("paths", nargs="+", help="files or folders; folders are searched recursively")
+    im.add_argument("--me", help="your address(es), comma-separated, in addition to settings")
+    im.set_defaults(func=_import)
 
     d = sub.add_parser("demo", help="load demo data and run one sample message")
     d.add_argument("--index", type=int, default=0)

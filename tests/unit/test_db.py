@@ -43,3 +43,10 @@ def test_contacts_carry_a_gender_and_old_databases_are_migrated():
                       "INSERT INTO contacts VALUES ('c1', 'Layla', 'ar-LB', '')")
     db._migrate(old)
     assert dict(old.execute("SELECT * FROM contacts").fetchone())["gender"] == "unknown"
+
+
+def test_contacts_carry_an_email_and_are_found_by_it():
+    con = db.connect()
+    cid = db.contact_add(con, "Layla", "ar-LB", email="Layla@Shop.example")
+    assert db.contact_by_email(con, "layla@shop.example")["id"] == cid
+    assert db.contact_by_email(con, "") is None and db.contact_by_email(con, "x@y") is None

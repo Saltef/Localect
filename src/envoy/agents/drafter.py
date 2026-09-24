@@ -14,7 +14,9 @@ SYSTEM = ("You write grounded replies. You never state a fact, price, policy, or
 
 
 def _sources_block(sources: list[SourceSnippet]) -> str:
-    return "\n".join(f"- [{s.id}] ({s.kind}) {s.text}" for s in sources) or "- (none)"
+    return "\n".join(
+        f"- [{s.id}] ({s.kind}{', ' + s.meta['said'] if s.meta.get('said') else ''}) {s.text}"
+        for s in sources) or "- (none)"
 
 
 def _glossary_block(sources: list[SourceSnippet]) -> str:

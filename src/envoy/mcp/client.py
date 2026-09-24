@@ -11,7 +11,13 @@ from typing import Any
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, get_default_environment, stdio_client
 
-from ..tools import glossary_snippets, history_snippets, knowledge_snippets, thread_snippets
+from ..tools import (
+    glossary_snippets,
+    history_snippets,
+    knowledge_snippets,
+    mail_snippets,
+    thread_snippets,
+)
 from .servers import SERVERS
 
 
@@ -66,6 +72,10 @@ class MCPTools:
 
     async def thread(self, contact_id):
         return thread_snippets(await self._call("thread", "get_thread", contact_id=contact_id))
+
+    async def mail_search(self, query, language, contact_email):
+        return mail_snippets(await self._call("mail", "search_mail", query=query,
+                                              language=language, contact_email=contact_email))
 
     async def list_tools(self) -> dict[str, list[str]]:
         out = {}

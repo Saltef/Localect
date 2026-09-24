@@ -58,7 +58,7 @@ class LocaleProfile(BaseModel):
 
 class SourceSnippet(BaseModel):
     id: str
-    kind: str  # glossary | knowledge | history | thread
+    kind: str  # glossary | knowledge | history | thread | mail
     text: str
     meta: dict[str, Any] = Field(default_factory=dict)
 

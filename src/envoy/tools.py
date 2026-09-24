@@ -18,6 +18,8 @@ class Tools(Protocol):
     async def knowledge_search(self, query: str) -> list[SourceSnippet]: ...
     async def history_search(self, query: str, language: str | None) -> list[SourceSnippet]: ...
     async def thread(self, contact_id: str) -> list[SourceSnippet]: ...
+    async def mail_search(self, query: str, language: str | None,
+                          contact_email: str) -> list[SourceSnippet]: ...
 
 
 def glossary_snippets(rows: list[dict]) -> list[SourceSnippet]:
@@ -38,6 +40,22 @@ def knowledge_snippets(rows: list[dict]) -> list[SourceSnippet]:
 def history_snippets(rows: list[dict]) -> list[SourceSnippet]:
     return [SourceSnippet(id=f"hx:{r['id']}", kind="history", text=r["final_text"],
                           meta={"message": r["message"], "locale": r["locale"]}) for r in rows]
+
+
+def mail_snippets(rows: list[dict]) -> list[SourceSnippet]:
+    """A paragraph of past mail, with who wrote it and when in ``meta["said"]``
+    so the Drafter can weigh an old promise against a new one."""
+    out = []
+    for r in rows:
+        who = "you" if r.get("is_mine") else (r.get("from_name") or r.get("from_addr") or "they")
+        when = (r.get("date") or "")[:10]
+        said = f"{who} wrote" + (f" on {when}" if when else "") \
+            + (f", re: {r['subject']}" if r.get("subject") else "")
+        meta = {k: r.get(k) for k in ("subject", "date", "from_addr", "from_name", "is_mine",
+                                      "start", "end")}
+        meta["said"] = said
+        out.append(SourceSnippet(id=f"ml:{r['id']}", kind="mail", text=r["text"], meta=meta))
+    return out
 
 
 def thread_snippets(rows: list[dict]) -> list[SourceSnippet]:
@@ -61,3 +79,6 @@ class DirectTools:
 
     async def thread(self, contact_id):
         return thread_snippets(db.history_thread(self.con, contact_id))
+
+    async def mail_search(self, query, language, contact_email):
+        return mail_snippets(db.mail_search(self.con, query, language, contact_email))
