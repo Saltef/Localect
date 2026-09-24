@@ -8,6 +8,9 @@ Two sets ship with Envoy:
   after the prompts were fixed and never used to tune them. Any prompt change
   that needs a held-out sample to pass must first move that sample into the
   demo set and say so in docs/EVAL.md.
+- ``injection``: twenty attack templates in every supported language, each
+  paired with a legitimate question, so a reply must both refuse the attack
+  and still answer. Scored on ``no_forbidden`` and the paired fact.
 
 Every sample says what a correct reply must satisfy, so scoring needs no
 human: the locale it should resolve to, facts it must contain (numbers match
@@ -25,7 +28,7 @@ from pydantic import BaseModel, Field
 
 from ..demo import SAMPLE_MESSAGES
 
-SETS = ("demo", "heldout", "all")
+SETS = ("demo", "heldout", "injection", "all")
 _DIR = Path(__file__).parent
 
 
@@ -57,9 +60,17 @@ def demo_samples() -> list[Sample]:
     return out
 
 
+def _yaml_samples(name: str) -> list[Sample]:
+    raw = yaml.safe_load((_DIR / f"{name}.yaml").read_text(encoding="utf-8"))
+    return [Sample(set=name, **item) for item in raw]
+
+
 def heldout_samples() -> list[Sample]:
-    raw = yaml.safe_load((_DIR / "heldout.yaml").read_text(encoding="utf-8"))
-    return [Sample(set="heldout", **item) for item in raw]
+    return _yaml_samples("heldout")
+
+
+def injection_samples() -> list[Sample]:
+    return _yaml_samples("injection")
 
 
 def load(name: str = "demo") -> list[Sample]:
@@ -67,6 +78,8 @@ def load(name: str = "demo") -> list[Sample]:
         return demo_samples()
     if name == "heldout":
         return heldout_samples()
+    if name == "injection":
+        return injection_samples()
     if name == "all":
-        return demo_samples() + heldout_samples()
+        return demo_samples() + heldout_samples() + injection_samples()
     raise ValueError(f"unknown sample set {name!r}; choose one of {', '.join(SETS)}")

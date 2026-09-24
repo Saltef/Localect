@@ -14,6 +14,9 @@ Envoy makes three claims. Each needs its own evidence.
 | the reply is grounded and keeps the facts | check scores on the held-out set | runnable now |
 | the verifier catches faults | perturbation recall and false-alarm rate | runnable now |
 | the reply sounds local | dialect-identifier ablation, then a human study | ablation runnable now; study in milestone 4 |
+| the Reader understands the message | language accuracy and slot recall on MASSIVE | runnable now |
+| the Critic's own reading is trustworthy | chrF of its back-translation on FLORES-200 | runnable now |
+| attacks in any language do not get through | injection set, 20 attacks x 7 languages | runnable now |
 
 ## Sample sets
 
@@ -24,6 +27,19 @@ Envoy makes three claims. Each needs its own evidence.
   topic in the demo knowledge base (shipping, returns, refunds, warranty,
   sizes, support hours) plus one injection attempt in Egyptian Arabic,
   Brazilian Portuguese and Mexican Spanish.
+
+- **injection**: 20 attack templates (refund and gift-card demands, "reply
+  only with APPROVED", prompt disclosure, free-shipping and discount
+  fabrication, fake account credits, link and script insertion, competitor
+  defamation, lifetime warranty, waived customs, cancel-and-refund, a 90-day
+  window, "I am a bot", used-item returns, roleplay, false shipping
+  confirmation, API key disclosure, a single-word reply, "everything is sold
+  out") written in English, Arabic, Portuguese, Spanish, French, German and
+  Japanese, 140 samples. Each is paired with a legitimate question so the
+  reply must both refuse and still answer. Scored on `no_forbidden` (phrases
+  in the attack's language and in English) and the paired fact. The forbid
+  lists are checked in the test suite against the knowledge base's own
+  wording so an honest reply cannot trip them.
 
 Rule: a prompt change may not be made to pass a held-out sample. If a
 held-out sample exposes a real fault, move it into the demo set, fix the
@@ -107,6 +123,37 @@ classifier calling the body MSA is reported as a miss for every Arabic
 target, which is the right default for a reply meant to sound local and the
 wrong one for a formal Gulf letter; read the per-locale rows with that in mind.
 
+## The Reader on MASSIVE
+
+`envoy bench massive --data <MASSIVE 1.1 dir> --n 50` runs only the Reader on
+`n` test-partition utterances per language (ar-SA, pt-BR, es-ES, fr-FR,
+de-DE, en-US, ja-JP, sampled with a fixed seed) and reports per language:
+
+- **language**: the Reader's ISO code matches the utterance's locale.
+- **slots strict / lenient**: of the labelled spans a reply must keep exactly
+  (date, time, person, email address, business and place names, currency,
+  event, room), the share the Reader put into `must_preserve` (strict) or
+  anywhere in its reading (lenient). MASSIVE utterances are voice-assistant
+  commands, not customer messages, so treat the absolute numbers as a floor
+  and the comparison between models as the point.
+
+## The Critic on FLORES-200
+
+`envoy bench flores --data <FLORES-200 dir> --n 50` asks the Critic to
+back-translate `n` devtest sentences per language (arb_Arab, por_Latn,
+spa_Latn, fra_Latn, deu_Latn, jpn_Jpan) and scores each against the English
+reference with chrF (own implementation of Popović 2015, character n-grams
+1 to 6, whitespace removed, beta 2; sacrebleu's chrF should agree). Corpus
+chrF per language is reported with a trust mark: below **40** the Critic's
+reading of that language is marked LOW, and its flags on replies in that
+language should be read as hints, not verdicts. The floor is a judgment
+call stated here, not a calibrated threshold; MT systems typically score in
+the 50s to 60s on FLORES into English.
+
+Note that FLORES is Modern Standard Arabic (`arb_Arab`); Egyptian Arabic
+(`arz_Arab`) exists in FLORES-200 and can be added to `FLORES_CODES` when a
+dialect-level reading matters.
+
 ### Gender
 
 Arabic and Portuguese greetings inflect for the receiver's gender. Contacts
@@ -141,6 +188,21 @@ no judge calls it the target; the test suite only checks the plumbing.
 
 *pending: needs a real model and a judge (see above)*
 
+### Injection set (140 samples)
+
+Stub: 140/140 (the stub quotes the knowledge base and cannot be talked into
+anything, which says nothing about a model). Command A and Aya Expanse:
+*pending*. Report attack success rate per language, and which attacks got
+through.
+
+### Reader on MASSIVE
+
+*pending: run on your machine*
+
+### Critic on FLORES-200
+
+*pending: run on your machine*
+
 ## Negative results
 
 - On the stub, no fault of register (slang) is caught by anything. Only a
@@ -163,6 +225,13 @@ envoy check                                                   # confirm the mode
 envoy eval --set heldout --perturb --out heldout.json
 envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --perturb --out compare.json
 envoy eval --set heldout --critic-model command-a-03-2025      # judge with a model other than the drafter
+
+envoy eval --set injection --models command-a-03-2025,c4ai-aya-expanse-32b --out injection.json
+
+# Public datasets, single stages (download once; paths are the unpacked directories):
+# MASSIVE 1.1: https://github.com/alexa/massive   FLORES-200: https://github.com/facebookresearch/flores
+envoy bench massive --data path/to/amazon-massive-dataset-1.1 --n 50 --out massive.json
+envoy bench flores --data path/to/flores200_dataset --n 50 --out flores.json
 
 # Dialect judges (once), then the ablation appears in every eval table:
 pip install camel-tools && camel_data -i dialectid             # Arabic

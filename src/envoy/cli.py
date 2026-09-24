@@ -123,6 +123,59 @@ def _dialect(args: argparse.Namespace) -> None:
         print(f"{sc.predict(text) or '?'}\t{text}")
 
 
+def _bench(args: argparse.Namespace) -> None:
+    """Public-dataset benchmarks of single stages: the Reader on MASSIVE, the
+    Critic's back-translation on FLORES-200."""
+    from pathlib import Path
+
+    from .evalx import flores, massive
+
+    settings = Settings.load()
+    data = Path(args.data)
+    if not data.exists():
+        print(f"no such directory: {data}")
+        raise SystemExit(2)
+    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    languages = [x.strip() for x in args.languages.split(",") if x.strip()] \
+        if args.languages else None
+    if args.critic_model:
+        settings.role_models = {**settings.role_models, "critic": args.critic_model}
+    doc: dict = {}
+    if args.dataset == "massive":
+        def live(r):
+            state = "ERROR" if r.error else ("ok" if r.language_ok else "lang?")
+            print(f"  [{r.model}] {r.language} {r.id}: {state}, slots "
+                  f"{r.slots_lenient}/{r.slots} ({r.seconds}s)", flush=True)
+
+        print(f"Envoy bench massive  data={data}  n={args.n}/language  "
+              f"provider={settings.provider}")
+        rows = asyncio.run(massive.run_massive(settings, data, languages, args.n, models,
+                                               on_row=live))
+        if not rows:
+            print("no utterances found; expected data/<locale>.jsonl files from MASSIVE 1.1")
+            raise SystemExit(2)
+        print(massive.render_massive(rows))
+        doc = {"massive": massive.massive_to_dicts(rows)}
+    else:
+        def live_f(r):
+            state = "ERROR" if r.error else f"chrF {r.chrf}"
+            print(f"  [{r.model}] {r.language} #{r.index}: {state} ({r.seconds}s)", flush=True)
+
+        print(f"Envoy bench flores  data={data}  n={args.n}/language  "
+              f"provider={settings.provider}")
+        rows = asyncio.run(flores.run_flores(settings, data, languages, args.n, models,
+                                             on_row=live_f))
+        if not rows:
+            print("no sentences found; expected devtest/<code>.devtest files from FLORES-200")
+            raise SystemExit(2)
+        print(flores.render_flores(rows))
+        doc = {"flores": flores.flores_to_dicts(rows)}
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False, indent=1)
+        print(f"\nWrote {args.out}")
+
+
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
     for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_language"):
@@ -202,8 +255,8 @@ def main() -> None:
     cfg.set_defaults(func=_config)
 
     ev = sub.add_parser("eval", help="run a sample set through one or more models and score it")
-    ev.add_argument("--set", default="demo", choices=["demo", "heldout", "all"],
-                    help="demo (tuned on), heldout (never tuned on), or all")
+    ev.add_argument("--set", default="demo", choices=["demo", "heldout", "injection", "all"],
+                    help="demo (tuned on), heldout (never tuned on), injection (attacks), all")
     ev.add_argument("--models", help="comma-separated model names to compare (default: configured)")
     ev.add_argument("--critic-model", dest="critic_model",
                     help="judge with a different model than the one that drafts")
@@ -212,6 +265,17 @@ def main() -> None:
                     help="also plant known faults in every run and score what the verifier catches")
     ev.add_argument("--out", help="write full results as JSON to this file")
     ev.set_defaults(func=_eval)
+
+    b = sub.add_parser("bench", help="score one stage against a public dataset: the Reader on "
+                                     "MASSIVE, the Critic's back-translation on FLORES-200")
+    b.add_argument("dataset", choices=["massive", "flores"])
+    b.add_argument("--data", required=True, help="unpacked dataset directory")
+    b.add_argument("--n", type=int, default=50, help="sentences per language (default 50)")
+    b.add_argument("--languages", help="comma-separated ISO codes (default: all supported)")
+    b.add_argument("--models", help="comma-separated model names to compare")
+    b.add_argument("--critic-model", dest="critic_model", help="flores: the model that judges")
+    b.add_argument("--out", help="write full results as JSON to this file")
+    b.set_defaults(func=_bench)
 
     dl = sub.add_parser("dialect", help="train or query the dialect identifiers that score "
                                         "the Rewriter")

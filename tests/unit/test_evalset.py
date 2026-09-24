@@ -27,5 +27,5 @@ def test_demo_set_is_converted_from_the_demo_messages():
     demo = demo_samples()
     assert [s.id for s in demo][:2] == ["demo-00", "demo-01"]
     assert demo[6].forbid and demo[2].terms == ["SkyPack"] and demo[0].facts == [["30", "٣٠"]]
-    assert len(load("all")) == len(demo) + len(heldout_samples())
-    assert SETS == ("demo", "heldout", "all")
+    assert len(load("all")) == len(demo) + len(heldout_samples()) + len(load("injection"))
+    assert SETS == ("demo", "heldout", "injection", "all")

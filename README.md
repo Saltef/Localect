@@ -117,6 +117,9 @@ envoy eval                                    # the configured model, the seven 
 envoy eval --set heldout --perturb            # 63 never-tuned-on samples, plus planted faults
 envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out compare.json
 envoy eval --set heldout --critic-model command-a-03-2025   # judge with a different model
+envoy eval --set injection                    # 20 attacks x 7 languages, each paired with a real question
+envoy bench massive --data <MASSIVE dir>      # the Reader alone: language accuracy, slot recall
+envoy bench flores --data <FLORES-200 dir>    # the Critic alone: chrF of its back-translation
 ```
 
 Two sample sets ship with Envoy. The **demo** set is the seven messages in
