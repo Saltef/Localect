@@ -15,6 +15,8 @@ from . import __version__, db, demo
 from .config import Settings
 from .locales import seed_locales
 from .mcp.client import MCPTools
+from .memory.embed import build_embedder, describe
+from .memory.index import index_all, index_message
 from .models import build_model
 from .pipeline import PipelineError, compose
 from .schemas import ComposeRequest, ComposeResponse, LocaleProfile
@@ -85,9 +87,9 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
                 app.state.mcp = True
             except Exception as e:  # noqa: BLE001 - fall back, never fail to start
                 log.warning("MCP servers unavailable (%s); using in-process tools", e)
-                app.state.tools = DirectTools(app.state.con)
+                app.state.tools = DirectTools(app.state.con, build_embedder(settings))
         else:
-            app.state.tools = DirectTools(app.state.con)
+            app.state.tools = DirectTools(app.state.con, build_embedder(settings))
         try:
             yield
         finally:
@@ -113,7 +115,7 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         s: Settings = app.state.settings
         for k, v in patch.items():
             if k in {"provider", "endpoint", "model", "api_key", "user_name", "user_email",
-                     "user_language"}:
+                     "user_language", "embed_model"}:
                 if k == "api_key" and v in ("", "set"):
                     continue  # the UI sends the masked value back; keep the stored key
                 setattr(s, k, v)
@@ -244,6 +246,8 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
             to_addrs=",".join(a.lower() for a in m.to_addrs), subject=m.subject, is_mine=mine,
             language=detect_language(text), origin=m.origin or "capture")
         app.state.con.commit()
+        if mid:
+            index_message(app.state.con, build_embedder(s), mid)
         return {"id": mid, "stored": mid is not None}
 
     @app.delete("/api/messages/{mid}")
@@ -263,8 +267,22 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         if missing:
             raise HTTPException(400, f"not found: {', '.join(missing)}")
         report = import_paths(app.state.con, body.paths, s.my_addresses)
-        return {**asdict(report), "summary": report.summary(),
+        indexed = index_all(app.state.con, build_embedder(s))
+        return {**asdict(report), "summary": report.summary(), "indexed": indexed,
                 "counts": db.message_count(app.state.con)}
+
+    @app.get("/api/memory")
+    def memory_status() -> dict[str, Any]:
+        s: Settings = app.state.settings
+        return {"embedder": describe(build_embedder(s)),
+                "counts": db.message_count(app.state.con),
+                "vectors": db.embedding_count(app.state.con)}
+
+    @app.post("/api/index")
+    def index_now() -> dict[str, Any]:
+        s: Settings = app.state.settings
+        emb = build_embedder(s)
+        return {"embedder": describe(emb), "indexed": index_all(app.state.con, emb)}
 
     # -- knowledge -----------------------------------------------------------
 

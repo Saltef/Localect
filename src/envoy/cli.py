@@ -51,6 +51,9 @@ def _check(args: argparse.Namespace) -> None:
     print(f"provider : {s.provider}")
     print(f"endpoint : {s.endpoint}")
     print(f"model    : {s.model}")
+    from .memory.embed import build_embedder
+
+    print(f"memory   : embeddings by {build_embedder(s).name}")
     m = build_model(s)
     if hasattr(m, "check"):
         r = m.check()
@@ -226,7 +229,7 @@ def _study(args: argparse.Namespace) -> None:
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
     for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_email",
-              "user_language"):
+              "user_language", "embed_model"):
         v = getattr(args, k, None)
         if v is not None:
             setattr(s, k, v)
@@ -255,6 +258,31 @@ def _import(args: argparse.Namespace) -> None:
         print(f"  skipped {line}")
     counts = db.message_count(con)
     print(f"Memory now holds {counts['messages']} message(s), {counts['mine']} written by you.")
+    if not args.no_index:
+        _run_index(s, con)
+
+
+def _run_index(s: Settings, con) -> None:
+    from .memory.embed import build_embedder
+    from .memory.index import index_all
+    from .models.base import ModelError
+
+    emb = build_embedder(s)
+    print(f"Indexing with {emb.name} …", flush=True)
+    try:
+        done = index_all(con, emb, on_progress=lambda kind, n, total: print(
+            f"  {kind}: {n}/{total}", flush=True) if n == total or n % 256 == 0 else None)
+    except ModelError as e:
+        print(f"indexing failed: {e}")
+        print("Search still works on words alone; run `envoy index` once the model is reachable.")
+        return
+    print(f"Indexed {done['mail']} mail paragraph(s) and {done['knowledge']} knowledge "
+          f"paragraph(s); vectors stored: {db.embedding_count(con)}")
+
+
+def _index(args: argparse.Namespace) -> None:
+    s = Settings.load()
+    _run_index(s, db.connect(s.db_path))
 
 
 def _demo(args: argparse.Namespace) -> None:
@@ -324,6 +352,8 @@ def main() -> None:
     cfg.add_argument("--user-name", dest="user_name")
     cfg.add_argument("--user-email", dest="user_email",
                      help="your address(es), comma-separated: marks the mail you wrote")
+    cfg.add_argument("--embed-model", dest="embed_model",
+                     help="embedding model for memory search (see docs/MEMORY.md)")
     cfg.add_argument("--user-language", dest="user_language")
     cfg.set_defaults(func=_config)
 
@@ -381,7 +411,12 @@ def main() -> None:
                                        "pdf) into Envoy's memory")
     im.add_argument("paths", nargs="+", help="files or folders; folders are searched recursively")
     im.add_argument("--me", help="your address(es), comma-separated, in addition to settings")
+    im.add_argument("--no-index", dest="no_index", action="store_true",
+                    help="skip embedding after the import")
     im.set_defaults(func=_import)
+
+    ix = sub.add_parser("index", help="embed imported mail and knowledge for cross-lingual search")
+    ix.set_defaults(func=_index)
 
     d = sub.add_parser("demo", help="load demo data and run one sample message")
     d.add_argument("--index", type=int, default=0)

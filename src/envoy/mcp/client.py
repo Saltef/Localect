@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
@@ -38,7 +39,9 @@ class MCPTools:
     async def start(self) -> None:
         self._stack = AsyncExitStack()
         await self._stack.__aenter__()
-        env = {**get_default_environment(), "ENVOY_DB": self.db_path}
+        env = {**get_default_environment(),
+               **{k: v for k, v in os.environ.items() if k.startswith("ENVOY_")},
+               "ENVOY_DB": self.db_path}
         for name in SERVERS:
             params = StdioServerParameters(
                 command=sys.executable, args=["-m", f"envoy.mcp.servers.{name}"], env=env

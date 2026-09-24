@@ -32,6 +32,10 @@ class Settings:
     host: str = "127.0.0.1"
     port: int = 8765
     role_models: dict[str, str] = field(default_factory=dict)  # per-agent overrides
+    # Embedding model for memory search: "" picks the provider's default (Cohere:
+    # embed-multilingual-v3.0; otherwise the offline hashed embedder). For an
+    # OpenAI-compatible server, name a model it serves (e.g. bge-m3, nomic-embed-text).
+    embed_model: str = ""
 
     @property
     def db_path(self) -> Path:
@@ -56,6 +60,7 @@ class Settings:
         s.api_key = env.get("ENVOY_API_KEY", s.api_key)
         s.user_language = env.get("ENVOY_USER_LANGUAGE", s.user_language)
         s.user_email = env.get("ENVOY_USER_EMAIL", s.user_email)
+        s.embed_model = env.get("ENVOY_EMBED_MODEL", s.embed_model)
         s.host = env.get("ENVOY_HOST", s.host)
         s.port = int(env.get("ENVOY_PORT", s.port))
         return s
