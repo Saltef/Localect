@@ -1,0 +1,5 @@
+{"id": "1", "locale": "ar-SA", "partition": "test", "scenario": "alarm", "intent": "alarm_set", "utt": "نبهني الساعة سبعة صباحا يوم الاثنين", "annot_utt": "نبهني الساعة [time : سبعة صباحا] يوم [date : الاثنين]", "worker_id": "1"}
+{"id": "2", "locale": "ar-SA", "partition": "test", "scenario": "email", "intent": "email_sendemail", "utt": "أرسل بريدا إلى سارة بخصوص الاجتماع", "annot_utt": "أرسل بريدا إلى [person : سارة] بخصوص الاجتماع", "worker_id": "1"}
+{"id": "3", "locale": "ar-SA", "partition": "test", "scenario": "calendar", "intent": "calendar_set", "utt": "ضع موعدا مع خالد يوم الجمعة في الرياض", "annot_utt": "ضع موعدا مع [person : خالد] يوم [date : الجمعة] في [place_name : الرياض]", "worker_id": "1"}
+{"id": "4", "locale": "ar-SA", "partition": "train", "scenario": "weather", "intent": "weather_query", "utt": "كيف الطقس غدا", "annot_utt": "كيف الطقس [date : غدا]", "worker_id": "1"}
+{"id": "5", "locale": "ar-SA", "partition": "test", "scenario": "transport", "intent": "transport_ticket", "utt": "احجز تذكرة قطار إلى جدة الساعة الخامسة", "annot_utt": "احجز تذكرة قطار إلى [place_name : جدة] الساعة [time : الخامسة]", "worker_id": "1"}
