@@ -176,6 +176,40 @@ def _bench(args: argparse.Namespace) -> None:
         print(f"\nWrote {args.out}")
 
 
+def _study(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from . import study
+
+    if args.action == "export":
+        runs: list[dict] = []
+        for f in args.source or []:
+            doc = json.loads(Path(f).read_text(encoding="utf-8"))
+            runs += doc.get("runs", doc if isinstance(doc, list) else [])
+        if not runs:
+            print("nothing to export: pass --from eval.json (from 'envoy eval --out'), "
+                  "one or more times")
+            raise SystemExit(2)
+        items = study.build_items(runs, seed=args.seed)
+        if not items:
+            print("no comparable items: every draft equals its final, and only one model ran")
+            raise SystemExit(2)
+        paths = study.export(items, Path(args.out))
+        kinds = {}
+        for it in items:
+            kinds[it.kind] = kinds.get(it.kind, 0) + 1
+        print(f"{len(items)} blind items ({', '.join(f'{v} {k}' for k, v in kinds.items())}) "
+              f"across {len(paths) - 1} locale sheets in {args.out}")
+        print("Give raters the sheets and docs/RUBRIC.md; keep key.json to yourself.")
+        return
+    report = study.score(Path(args.sheets))
+    print(study.render_report(report))
+    if args.out:
+        Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=1),
+                                  encoding="utf-8")
+        print(f"\nWrote {args.out}")
+
+
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
     for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_language"):
@@ -276,6 +310,16 @@ def main() -> None:
     b.add_argument("--critic-model", dest="critic_model", help="flores: the model that judges")
     b.add_argument("--out", help="write full results as JSON to this file")
     b.set_defaults(func=_bench)
+
+    st = sub.add_parser("study", help="blind pairwise sheets for native readers, and their "
+                                      "scores")
+    st.add_argument("action", choices=["export", "score"])
+    st.add_argument("--from", dest="source", action="append",
+                    help="export: eval JSON from 'envoy eval --out' (repeatable)")
+    st.add_argument("--out", help="export: directory for the sheets; score: JSON report path")
+    st.add_argument("--seed", type=int, default=7, help="export: order and side randomization")
+    st.add_argument("--sheets", help="score: directory holding filled sheets and key.json")
+    st.set_defaults(func=_study)
 
     dl = sub.add_parser("dialect", help="train or query the dialect identifiers that score "
                                         "the Rewriter")

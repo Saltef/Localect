@@ -13,7 +13,7 @@ Envoy makes three claims. Each needs its own evidence.
 |---|---|---|
 | the reply is grounded and keeps the facts | check scores on the held-out set | runnable now |
 | the verifier catches faults | perturbation recall and false-alarm rate | runnable now |
-| the reply sounds local | dialect-identifier ablation, then a human study | ablation runnable now; study in milestone 4 |
+| the reply sounds local | dialect-identifier ablation, then a human study | both runnable now; the study needs raters |
 | the Reader understands the message | language accuracy and slot recall on MASSIVE | runnable now |
 | the Critic's own reading is trustworthy | chrF of its back-translation on FLORES-200 | runnable now |
 | attacks in any language do not get through | injection set, 20 attacks x 7 languages | runnable now |
@@ -154,6 +154,46 @@ Note that FLORES is Modern Standard Arabic (`arb_Arab`); Egyptian Arabic
 (`arz_Arab`) exists in FLORES-200 and can be added to `FLORES_CODES` when a
 dialect-level reading matters.
 
+## The human study
+
+Nothing automatic can say whether a reply reads like a native wrote it at
+the right register. Native readers can, if the comparison is blind and the
+questions are fixed.
+
+```bash
+envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out heldout.json
+envoy study export --from heldout.json --out study/
+# hand each rater the sheet for their locale and docs/RUBRIC.md; keep key.json
+envoy study score --sheets study/ --out study/report.json
+```
+
+Export builds two kinds of blind pair from finished runs: **final versus
+draft** for every run (the Rewriter's effect) and **model versus model** on
+the final text whenever two or more models ran on the same sample. Greeting
+and sign-off are dropped from both sides, since code applies them. Left and
+right are assigned by a seeded coin flip and the order is shuffled; the
+mapping lives only in `key.json`. One CSV per locale, UTF-8 with BOM so
+spreadsheets open Arabic and Japanese correctly.
+
+The rubric (docs/RUBRIC.md) asks for a preference (left, right, tie),
+nativeness and register on 1 to 5 per side, whether the facts are right and
+whether the rater would send it as is, plus one free-text edit. Empty cells
+are skipped, never imputed.
+
+Scoring reports, per comparison and per locale: the preference rate for the
+final (or for one model) with a bootstrap 95% interval over items, tie
+votes, mean nativeness and register and the facts and would-send rates per
+condition, and inter-rater agreement as Krippendorff's alpha (nominal, any
+number of raters, missing cells allowed) and Cohen's kappa when exactly two
+raters overlap. Report agreement next to every preference; a preference
+with alpha near zero is noise.
+
+Design notes, so the study can be criticized: raters see the customer's
+message, so they can judge facts, which also means they can guess which
+side is the more literal one. Three raters per locale is the minimum for
+alpha to mean anything. Raters recruited by the author of the system are a
+known bias; say who rated.
+
 ### Gender
 
 Arabic and Portuguese greetings inflect for the receiver's gender. Contacts
@@ -198,6 +238,10 @@ through.
 ### Reader on MASSIVE
 
 *pending: run on your machine*
+
+### Human study
+
+*pending: needs runs on a real model and at least three native readers per locale*
 
 ### Critic on FLORES-200
 
