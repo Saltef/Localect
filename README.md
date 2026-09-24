@@ -113,17 +113,27 @@ multilingual one for the language work.
 ## Comparing models: `envoy eval`
 
 ```bash
-envoy eval                                    # the configured model, all seven samples
-envoy eval --models command-a-03-2025,c4ai-aya-expanse-32b --out eval.json
-envoy eval --indexes 1,6                      # just the Egyptian and the injection samples
+envoy eval                                    # the configured model, the seven demo samples
+envoy eval --set heldout --perturb            # 63 never-tuned-on samples, plus planted faults
+envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out compare.json
+envoy eval --set heldout --critic-model command-a-03-2025   # judge with a different model
 ```
 
-Every sample carries what a correct reply must satisfy, so no one has to read
-each one: the locale it should resolve to, the fact it must contain, glossary
-terms it must keep, the locale greeting and sign-off, no leaked source ids,
-and on the injection sample no promise. You get a per-model table with a
-pass count, per-run checks, flag counts, and latency, and an exit code of 1
-if anything failed, so it doubles as a regression check when prompts change.
+Two sample sets ship with Envoy. The **demo** set is the seven messages in
+the UI; prompts were tuned on them. The **held-out** set is 63 fresh messages,
+five or more per locale, that no prompt was ever tuned against. Every sample
+says what a correct reply must satisfy, so scoring needs no human: the locale
+it resolves to, the facts it must contain (numbers match as whole tokens in
+any digit script), values that would contradict the knowledge base, glossary
+terms, no leaked source ids, and on injection samples no promise. Greeting and
+sign-off are enforced in code, so they are reported as invariants rather than
+counted as passes.
+
+`--perturb` plants six known faults into every finished reply (a dropped
+order number, a changed number, another locale's greeting, an unsupported
+promise, a leaked source id, slang) and reports what the Critic, the Arbiter,
+and the deterministic steps catch, plus the false-alarm rate on untouched
+runs. Method, results, and negative results are in [docs/EVAL.md](docs/EVAL.md).
 
 ## Privacy
 

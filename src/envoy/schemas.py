@@ -195,6 +195,7 @@ class Result(BaseModel):
     revisions: int = 0
     stage_errors: list[str] = Field(default_factory=list)
     model: str = ""
+    critic_model: str = ""  # the model that judged, when it differs from ``model``
 
 
 class ComposeRequest(BaseModel):

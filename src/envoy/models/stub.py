@@ -26,9 +26,12 @@ _CYRILLIC = re.compile(r"[Ѐ-ӿ]")
 
 _LANG_WORDS = {
     "es": {"gracias", "usted", "hola", "cuándo", "dónde", "envío", "reembolso", "quisiera",
-           "necesito", "pedido", "buenos", "días", "saludos", "también"},
+           "necesito", "pedido", "buenos", "días", "saludos", "también", "cuál", "cuánto",
+           "qué", "es", "cubre", "después", "todavía", "cierre", "tiene", "tienen"},
     "pt": {"obrigado", "obrigada", "você", "não", "olá", "quando", "onde", "envio",
-           "reembolso", "gostaria", "preciso", "pedido", "bom", "dia", "também"},
+           "reembolso", "gostaria", "preciso", "pedido", "bom", "dia", "também", "qual",
+           "é", "isso", "depois", "coberto", "coberta", "ainda", "boa", "tarde", "têm",
+           "encomenda"},
     "fr": {"bonjour", "merci", "commande", "vous", "je", "pour", "remboursement",
            "livraison", "quand", "où", "pourriez", "cordialement"},
     "de": {"hallo", "danke", "bestellung", "ich", "bitte", "und", "nicht",
@@ -39,14 +42,20 @@ _LANG_WORDS = {
 
 _REGION_WORDS = {
     "ar": [("ar-EG", {"ازيك", "إزيك", "عايز", "عايزة", "ايه", "إيه", "كده", "دلوقتي", "ازاي",
-                      "إزاي"}),
-           ("ar-SA", {"شلونك", "وش", "ابي", "أبي", "ابغى", "أبغى", "الحين", "زين", "حياك"}),
-           ("ar-LB", {"كيفك", "شو", "بدي", "هلق", "هلأ", "منيح", "ليش"})],
-    "pt": [("pt-PT", {"vós", "telemóvel", "autocarro", "pequeno-almoço", "estou a"}),
+                      "إزاي", "بتاع", "بتاعت", "كام", "لسه", "فين", "فندم"}),
+           ("ar-SA", {"شلونك", "شلونكم", "وش", "ابي", "أبي", "ابغى", "أبغى", "الحين", "زين",
+                      "حياك", "حياكم"}),
+           ("ar-LB", {"كيفك", "كيفكن", "شو", "بدي", "هلق", "هلأ", "منيح", "ليش", "عندكن",
+                      "قديش", "لسا", "هيك"})],
+    "pt": [("pt-PT", {"vós", "vosso", "vossa", "telemóvel", "autocarro", "pequeno-almoço",
+                      "estou a", "encomenda", "encomendei", "obrigado pela atenção",
+                      "portátil", "mais pequeno", "mais pequena"}),
            ("pt-BR", {"você", "vocês", "celular", "ônibus", "legal"})],
-    "es": [("es-ES", {"vosotros", "vale", "ordenador", "móvil", "coche"}),
+    "es": [("es-ES", {"vosotros", "vale", "ordenador", "móvil", "coche", "portátil", "os",
+                      "vuestro", "vuestra", "tenéis", "podéis", "enviáis", "sabéis"}),
            ("es-MX", {"ahorita", "platicar", "celular", "computadora", "órale", "mande"})],
-    "en": [("en-GB", {"colour", "favour", "cheers", "whilst", "postcode", "fortnight"}),
+    "en": [("en-GB", {"colour", "favour", "cheers", "whilst", "postcode", "fortnight",
+                      "rucksack"}),
            ("en-US", {"color", "favor", "zip", "gotten"})],
 }
 _DEFAULT_REGION = {"ar": "ar-EG", "pt": "pt-BR", "es": "es-MX", "en": "en-US",
@@ -129,8 +138,9 @@ class StubModel:
     def _reader(self, ctx: dict[str, Any]) -> dict[str, Any]:
         msg: str = ctx["message"]
         lang = detect_language(msg)
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?؟。])\s+", msg) if s.strip()]
-        asks = [s for s in sentences if s.endswith(("?", "؟")) and len(s.split()) > 2]
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?؟。？！])\s*", msg) if s.strip()]
+        asks = [s for s in sentences if s.endswith(("?", "؟", "？"))
+                and (len(s.split()) > 2 or _JAPANESE.search(s))]
         return {
             "language": lang,
             "language_name": {"ar": "Arabic", "es": "Spanish", "pt": "Portuguese", "fr": "French",
@@ -160,12 +170,16 @@ class StubModel:
         n = 2
         for ask in asks:
             terms = _tokens(ask)
-            best, best_score = None, 0
+            best, best_score = None, (0, 0)
             for k in knowledge:
                 # The section title is a strong hint of topic ("Returns and refunds").
-                title = str(k.get("meta", {}).get("title", ""))
-                s = score(_tokens(k["text"]), terms) + score(_tokens(title), terms)
-                if s > best_score:
+                # On a tie, the earlier paragraph of an entry wins: knowledge bases
+                # state the general rule first and the special cases after it.
+                meta = k.get("meta", {})
+                title = str(meta.get("title", ""))
+                s = (score(_tokens(k["text"]), terms) + score(_tokens(title), terms),
+                     -int(meta.get("start", 0) or 0))
+                if s[0] and s > best_score:
                     best, best_score = k, s
             if best:
                 segments.append({"id": f"s{n}", "text": best["text"],

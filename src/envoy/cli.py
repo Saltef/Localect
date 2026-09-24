@@ -75,9 +75,14 @@ def _eval(args: argparse.Namespace) -> None:
     if args.indexes:
         indexes = []
         for part in args.indexes.split(","):
-            a, _, b = part.partition("-")
-            indexes.extend(range(int(a), int(b or a) + 1))
-    raise SystemExit(main_eval(Settings.load(), models, indexes, args.out))
+            part = part.strip()
+            if "-" in part:
+                a, b = part.split("-", 1)
+                indexes.extend(range(int(a), int(b) + 1))
+            elif part:
+                indexes.append(int(part))
+    raise SystemExit(main_eval(Settings.load(), models, indexes, args.out, args.set,
+                               args.perturb, args.critic_model))
 
 
 def _config(args: argparse.Namespace) -> None:
@@ -158,9 +163,15 @@ def main() -> None:
     cfg.add_argument("--user-language", dest="user_language")
     cfg.set_defaults(func=_config)
 
-    ev = sub.add_parser("eval", help="run every sample through one or more models and score it")
+    ev = sub.add_parser("eval", help="run a sample set through one or more models and score it")
+    ev.add_argument("--set", default="demo", choices=["demo", "heldout", "all"],
+                    help="demo (tuned on), heldout (never tuned on), or all")
     ev.add_argument("--models", help="comma-separated model names to compare (default: configured)")
-    ev.add_argument("--indexes", help="which samples, e.g. 0-6 or 1,6 (default: all)")
+    ev.add_argument("--critic-model", dest="critic_model",
+                    help="judge with a different model than the one that drafts")
+    ev.add_argument("--indexes", help="which samples of the set, e.g. 0-6 or 1,6 (default: all)")
+    ev.add_argument("--perturb", action="store_true",
+                    help="also plant known faults in every run and score what the verifier catches")
     ev.add_argument("--out", help="write full results as JSON to this file")
     ev.set_defaults(func=_eval)
 

@@ -67,7 +67,20 @@ def test_warn_only_gives_check_and_dedupes_with_critic():
     flags, status, _ = arbiter.check(_draft(), _rw("Your order ships soon."),
                                      _cq("x", [warn, dup]), ["#4521"], [])
     assert status == Status.escalate
-    assert sum(1 for f in flags if f.kind == FlagKind.drifted) == 1
+    blocking = [f for f in flags if f.kind == FlagKind.drifted and f.severity == "block"]
+    assert len(blocking) == 1  # the Critic's duplicate of the Arbiter's own finding is dropped
     flags, status, _ = arbiter.check(_draft(), _rw(_draft().segments[0].text),
                                      _cq("x", [warn]), [], [])
     assert status == Status.check
+
+
+def test_numbers_dropped_or_invented_by_the_rewrite_are_warned_about():
+    from envoy.agents.arbiter import number_flags
+
+    flags = number_flags("s2", "Returns within 30 days; refund in 5 business days. Order #4521.",
+                         "Returns within 45 days; refund in ٥ business days. Order #4521.",
+                         ["#4521"])
+    assert [(f.kind.value, f.span, f.severity) for f in flags] == [
+        ("drifted", "30", "warn"), ("unsupported_claim", "45", "warn")]
+    # Reformatting a date is not a drift.
+    assert number_flags("s1", "Delivered on 2024-05-01.", "Delivered on 01/05/2024.", []) == []

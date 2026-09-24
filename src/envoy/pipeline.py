@@ -57,11 +57,51 @@ def resolve_locale(con, req: ComposeRequest, reading) -> tuple[LocaleProfile, st
     return (p or _fallback_locale(reading.language)), contact_name
 
 
+def critic_model_for(settings: Settings, model: ChatModel) -> ChatModel:
+    """The Critic may run on a different model than the Drafter (``role_models``),
+    so a reply is not judged by the model that wrote it."""
+    name = settings.role_models.get("critic", "")
+    if name and hasattr(model, "with_model") and name != getattr(model, "model", None):
+        return model.with_model(name)
+    return model
+
+
+def polish(rw: Rewrite, locale: LocaleProfile, contact_name: str, user_name: str) -> Rewrite:
+    """What the pipeline does to every rewrite before anyone judges it: strip
+    leaked source ids and apply the locale's own greeting and sign-off."""
+    for seg in rw.segments:
+        seg.text = strip_citations(seg.text)
+    enforce(rw.segments, locale, contact_name, user_name, has_claims=lambda s: False)
+    return rw
+
+
+async def verify(critic_model: ChatModel, d, rw: Rewrite, locale: LocaleProfile, sources,
+                 must_preserve: list[str], user_language_name: str, contact_name: str,
+                 user_name: str, stage_errors: list[str]):
+    """Critic, then Arbiter. Returns (critique, flags, status, ledger). A Critic
+    failure becomes a warning flag rather than a verdict."""
+    try:
+        cq = await critic.critique(critic_model, d, rw, locale, sources, must_preserve,
+                                   user_language_name, contact_name, user_name)
+        cq = quiet_critic(cq, {s.id: s.text for s in rw.segments}, locale, contact_name,
+                          user_name)
+    except StageError as e:
+        stage_errors.append(str(e))
+        cq = Critique(back_segments=[], flags=[Flag(
+            segment_id=rw.segments[0].id if rw.segments else "s1",
+            kind=FlagKind.stage_failure,
+            reason="the Critic could not verify this reply; read it yourself before sending",
+            severity="warn")])
+    flags, status, ledger = arbiter.check(d, rw, cq, must_preserve, sources)
+    return cq, flags, status, ledger
+
+
 async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
                   tools: Tools, con) -> Result:
     user_language = req.user_language or settings.user_language
     user_language_name = LANG_NAMES.get(user_language, user_language)
     stage_errors: list[str] = []
+    judge = critic_model_for(settings, model)
 
     try:
         reading = await reader.read(model, req.message, user_language_name)
@@ -91,39 +131,23 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     async def _rewrite(flags: list[Flag] | None) -> Rewrite:
         try:
             rw_ = await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags)
-            for seg in rw_.segments:
-                seg.text = strip_citations(seg.text)
-            enforce(rw_.segments, locale, contact_name, settings.user_name,
-                    has_claims=lambda s: False)
-            return rw_
+            return polish(rw_, locale, contact_name, settings.user_name)
         except StageError as e:
             stage_errors.append(str(e))
             return Rewrite(segments=[RewrittenSegment(id=s.id, text=s.text) for s in d.segments])
 
-    async def _critique(rw: Rewrite) -> Critique:
-        try:
-            cq_ = await critic.critique(model, d, rw, locale, sources, reading.must_preserve,
-                                        user_language_name, contact_name, settings.user_name)
-            return quiet_critic(cq_, {s.id: s.text for s in rw.segments}, locale,
-                                contact_name, settings.user_name)
-        except StageError as e:
-            stage_errors.append(str(e))
-            return Critique(back_segments=[], flags=[Flag(
-                segment_id=rw.segments[0].id if rw.segments else "s1",
-                kind=FlagKind.stage_failure,
-                reason="the Critic could not verify this reply; read it yourself before sending",
-                severity="warn")])
+    async def _verify(rw: Rewrite):
+        return await verify(judge, d, rw, locale, sources, reading.must_preserve,
+                            user_language_name, contact_name, settings.user_name, stage_errors)
 
     rw = await _rewrite(None)
-    cq = await _critique(rw)
-    flags, status, ledger = arbiter.check(d, rw, cq, reading.must_preserve, sources)
+    cq, flags, status, ledger = await _verify(rw)
     revisions = 0
 
     fixable = arbiter.blocking(flags)
     if fixable and not stage_errors:
         rw = await _rewrite(fixable)
-        cq = await _critique(rw)
-        flags, status, ledger = arbiter.check(d, rw, cq, reading.must_preserve, sources)
+        cq, flags, status, ledger = await _verify(rw)
         revisions = 1
 
     if stage_errors and status == Status.ready:
@@ -135,6 +159,7 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
         back_translation=cq.back_translation(), status=status, flags=flags,
         suggestions=cq.suggestions, ledger=ledger,
         revisions=revisions, stage_errors=stage_errors, model=model.name,
+        critic_model=judge.name if judge is not model else "",
     )
     db.history_add(con, result.model_dump_json(), result.id, result.created_at, req.message,
                    locale.locale, status.value, result.final_text, req.contact_id or "")

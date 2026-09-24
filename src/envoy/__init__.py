@@ -1,3 +1,3 @@
 """Envoy: reply to anyone in their language, and sound like a local."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
