@@ -1,0 +1,44 @@
+# Envoy behind Caddy with automatic HTTPS. Set ENVOY_DOMAIN and ENVOY_OWNER_PASSWORD
+# in a .env file next to this compose file, then: docker compose up -d
+services:
+  envoy:
+    build: .
+    restart: unless-stopped
+    environment:
+      ENVOY_HOST: 0.0.0.0
+      ENVOY_PORT: 8765
+      ENVOY_DATA_DIR: /data
+      ENVOY_TRUST_PROXY: "1"
+      ENVOY_OWNER_PASSWORD: ${ENVOY_OWNER_PASSWORD:?set ENVOY_OWNER_PASSWORD in .env}
+      ENVOY_PUBLIC_MODE: ${ENVOY_PUBLIC_MODE:-off}      # off | demo
+      ENVOY_PUBLIC_MODEL: ${ENVOY_PUBLIC_MODEL:-stub}   # stub | configured
+      ENVOY_PUBLIC_HOURLY: ${ENVOY_PUBLIC_HOURLY:-20}
+      ENVOY_PUBLIC_DAILY: ${ENVOY_PUBLIC_DAILY:-300}
+      ENVOY_PROVIDER: ${ENVOY_PROVIDER:-stub}           # cohere | openai | stub
+      ENVOY_MODEL: ${ENVOY_MODEL:-command-a-03-2025}
+      ENVOY_API_KEY: ${ENVOY_API_KEY:-}
+      ENVOY_ENDPOINT: ${ENVOY_ENDPOINT:-http://host.docker.internal:11434/v1}
+    volumes:
+      - envoy-data:/data
+    expose:
+      - "8765"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ENVOY_DOMAIN: ${ENVOY_DOMAIN:?set ENVOY_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - envoy
+
+volumes:
+  envoy-data:
+  caddy-data:
+  caddy-config:

@@ -9,12 +9,12 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, db, demo
-from .config import Settings
+from . import __version__, auth, db, demo
+from .config import Settings, data_dir
 from .locales import seed_locales
 from .mcp.client import MCPTools
 from .memory.embed import build_embedder, describe
@@ -42,6 +42,10 @@ class ContactIn(BaseModel):
     notes: str = ""
     gender: str = "unknown"  # unknown | female | male; picks the gendered greeting where needed
     email: str = ""  # ties the contact to imported mail
+
+
+class LoginIn(BaseModel):
+    password: str
 
 
 class ImportIn(BaseModel):
@@ -95,6 +99,18 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         seed_locales(app.state.con)
         app.state.model = model or build_model(settings)
         app.state.mcp = False
+        app.state.secret = auth.server_secret(data_dir())
+        app.state.limit = auth.RateLimit(settings.public_hourly, settings.public_daily)
+        # Visitors never touch the owner's database: the demo lives in memory.
+        app.state.demo_con = None
+        if settings.public_mode == "demo":
+            dcon = db.connect()
+            seed_locales(dcon)
+            demo.seed_demo(dcon)
+            app.state.demo_con = dcon
+            app.state.demo_model = (app.state.model if settings.public_model == "configured"
+                                    else build_model(Settings(provider="stub",
+                                                              user_name=settings.user_name)))
         if tools is not None:
             app.state.tools = tools
         elif use_mcp and con is None:
@@ -127,22 +143,76 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         allow_headers=["Authorization", "Content-Type"],
     )
 
+    def _is_owner(request: Request) -> bool:
+        """The owner: no password set (a laptop), a valid session cookie, or the
+        extension's token."""
+        s: Settings = app.state.settings
+        if not s.auth_required:
+            return True
+        if auth.session_valid(app.state.secret, request.cookies.get(auth.COOKIE)):
+            return True
+        bearer = request.headers.get("authorization", "")
+        return bool(s.extension_token) and bearer == f"Bearer {s.extension_token}"
+
+    def _client_ip(request: Request) -> str:
+        if app.state.settings.trust_proxy:
+            fwd = request.headers.get("x-forwarded-for", "")
+            if fwd:
+                return fwd.split(",")[0].strip()
+        return request.client.host if request.client else "?"
+
+    # Paths anyone may call (to find out they must sign in, and to do so), and
+    # the ones a visitor may use in public demo mode. Everything else is the owner's.
+    ALWAYS = {"/api/health", "/api/login", "/api/logout"}
+    DEMO_PATHS = ALWAYS | {"/api/compose", "/api/demo/messages", "/api/locales"}
+
     @app.middleware("http")
-    async def origin_guard(request: Request, call_next):
+    async def guard(request: Request, call_next):
+        path = request.url.path
         origin = request.headers.get("origin", "")
-        if origin and request.method != "OPTIONS" and request.url.path.startswith("/api/"):
-            own = origin.rstrip("/") == f"{request.url.scheme}://{request.headers.get('host', '')}"
-            if not own:
+        if origin and request.method != "OPTIONS" and path.startswith("/api/"):
+            # A browser request must come from the app's own page (same host,
+            # whatever scheme the proxy in front terminates) or the paired extension.
+            own_host = origin.split("://", 1)[-1].rstrip("/") == request.headers.get("host", "")
+            if not own_host:
                 if not is_extension_origin(origin):
                     return JSONResponse({"detail": "this origin may not call Envoy"}, 403)
                 token = app.state.settings.extension_token
-                auth = request.headers.get("authorization", "")
-                if not token or auth != f"Bearer {token}":
+                bearer = request.headers.get("authorization", "")
+                if not token or bearer != f"Bearer {token}":
                     return JSONResponse({"detail": "pair the extension: paste the token from "
                                                    "Envoy's Settings page"}, 401)
-                if request.url.path.startswith("/api/extension/token"):
+                if path.startswith("/api/extension/token"):
                     return JSONResponse({"detail": "not for the extension"}, 403)
+        if path.startswith("/api/") and request.method != "OPTIONS":
+            owner = _is_owner(request)
+            request.state.owner = owner
+            allowed = DEMO_PATHS if app.state.settings.public_mode == "demo" else ALWAYS
+            if not owner and path not in allowed:
+                return JSONResponse({"detail": "sign in"}, 401)
         return await call_next(request)
+
+    # -- login ---------------------------------------------------------------
+
+    @app.post("/api/login")
+    def login(body: LoginIn, request: Request, response: Response) -> dict[str, Any]:
+        s: Settings = app.state.settings
+        if not s.auth_required:
+            return {"ok": True, "owner": True}
+        if not app.state.limit.take("login:" + _client_ip(request)):
+            raise HTTPException(429, "too many attempts; try later")
+        if not auth.check_password(body.password, s.owner_password_hash):
+            raise HTTPException(401, "wrong password")
+        secure = s.trust_proxy and request.headers.get("x-forwarded-proto", "") == "https"
+        response.set_cookie(auth.COOKIE, auth.issue_session(app.state.secret), httponly=True,
+                            samesite="lax", secure=secure, max_age=auth.SESSION_DAYS * 86400,
+                            path="/")
+        return {"ok": True, "owner": True}
+
+    @app.post("/api/logout")
+    def logout(response: Response) -> dict[str, bool]:
+        response.delete_cookie(auth.COOKIE, path="/")
+        return {"ok": True}
 
     # -- health & settings ---------------------------------------------------
 
@@ -168,10 +238,23 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         return {"token": s.ensure_extension_token()}
 
     @app.get("/api/health")
-    def health() -> dict[str, Any]:
+    def health(request: Request) -> dict[str, Any]:
         s: Settings = app.state.settings
-        return {"ok": True, "version": __version__, "provider": s.provider,
-                "model": app.state.model.name, "mcp": app.state.mcp}
+        owner = getattr(request.state, "owner", True)
+        out = {"ok": True, "version": __version__, "provider": s.provider,
+               "model": app.state.model.name, "mcp": app.state.mcp,
+               "auth_required": s.auth_required, "owner": owner,
+               "public_mode": s.public_mode}
+        if not owner:
+            # A stranger learns nothing about the owner's model; a demo visitor
+            # learns what the demo runs on and how many tries remain.
+            out.update({"provider": "", "model": "", "mcp": False})
+            if s.public_mode == "demo":
+                hourly, daily = app.state.limit.remaining(_client_ip(request))
+                out.update({"provider": app.state.demo_model.name.split(":")[0],
+                            "model": app.state.demo_model.name,
+                            "tries_left": min(hourly, daily)})
+        return out
 
     @app.get("/api/settings")
     def get_settings() -> dict[str, Any]:
@@ -220,14 +303,28 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
     # -- compose -------------------------------------------------------------
 
     @app.post("/api/compose", response_model=ComposeResponse)
-    async def api_compose(req: ComposeRequest) -> ComposeResponse:
+    async def api_compose(req: ComposeRequest, request: Request) -> ComposeResponse:
         if not req.message.strip():
             raise HTTPException(400, "message is empty")
+        if len(req.message) > 20000:
+            raise HTTPException(413, "message too long")
+        if getattr(request.state, "owner", True):
+            con, tools, model = app.state.con, app.state.tools, _model_for(req)
+        else:
+            # A visitor: the demo store only, the public model, capped, nothing kept.
+            if not app.state.limit.take(_client_ip(request)):
+                raise HTTPException(429, "the public demo has reached its limit; try later")
+            con = app.state.demo_con
+            tools = DirectTools(con, build_embedder(Settings(provider="stub")))
+            model = app.state.demo_model
+            req = ComposeRequest(message=req.message, locale=req.locale)
         try:
-            result = await compose(req, settings=app.state.settings, model=_model_for(req),
-                                   tools=app.state.tools, con=app.state.con)
+            result = await compose(req, settings=app.state.settings, model=model, tools=tools,
+                                   con=con)
         except PipelineError as e:
             raise HTTPException(502, str(e)) from e
+        if con is app.state.demo_con:
+            db.history_delete(con, result.id)
         return ComposeResponse(result=result)
 
     # -- glossary ------------------------------------------------------------

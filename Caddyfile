@@ -1,0 +1,9 @@
+# Automatic HTTPS for Envoy. Caddy obtains and renews the certificate for
+# ENVOY_DOMAIN and forwards everything to the app with the client's address.
+{$ENVOY_DOMAIN} {
+    encode gzip
+    reverse_proxy envoy:8765 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-For {remote_host}
+    }
+}

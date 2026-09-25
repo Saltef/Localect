@@ -40,6 +40,11 @@ def _serve(args: argparse.Namespace) -> None:
     if not args.no_browser:
         threading.Thread(target=_open_when_ready, args=(url,), daemon=True).start()
     print(f"Envoy {__version__} at {url}  (provider: {settings.provider}, data: {data_dir()})")
+    if settings.auth_required:
+        print(f"login    : required (owner password set); public mode: {settings.public_mode}")
+    elif settings.host not in ("127.0.0.1", "localhost"):
+        print("warning  : listening beyond localhost with no owner password. Set one with "
+              "`envoy config --owner-password` or ENVOY_OWNER_PASSWORD before exposing this.")
     uvicorn.run(create_app(settings), host=host, port=port, log_level="warning")
 
 
@@ -248,10 +253,14 @@ def _study(args: argparse.Namespace) -> None:
 def _config(args: argparse.Namespace) -> None:
     s = Settings.load()
     for k in ("provider", "endpoint", "model", "api_key", "user_name", "user_email",
-              "user_language", "embed_model"):
+              "user_language", "embed_model", "public_mode", "public_model"):
         v = getattr(args, k, None)
         if v is not None:
             setattr(s, k, v)
+    if getattr(args, "owner_password", None) is not None:
+        from .auth import hash_password
+
+        s.owner_password_hash = hash_password(args.owner_password) if args.owner_password else ""
     s.save()
     print(json.dumps(s.public(), indent=2))
 
@@ -394,6 +403,12 @@ def main() -> None:
                      help="your address(es), comma-separated: marks the mail you wrote")
     cfg.add_argument("--embed-model", dest="embed_model",
                      help="embedding model for memory search (see docs/MEMORY.md)")
+    cfg.add_argument("--owner-password", dest="owner_password",
+                     help="require a login for the web UI and API (hosting); '' removes it")
+    cfg.add_argument("--public-mode", dest="public_mode", choices=["off", "demo"],
+                     help="demo: visitors may try Compose on the demo store, capped")
+    cfg.add_argument("--public-model", dest="public_model", choices=["stub", "configured"],
+                     help="what visitors' replies run on (default stub)")
     cfg.add_argument("--user-language", dest="user_language")
     cfg.set_defaults(func=_config)
 

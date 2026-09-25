@@ -551,6 +551,11 @@ def history_add(con, result_json: str, rid: str, created_at: str, message: str,
     con.commit()
 
 
+def history_delete(con, rid: str) -> None:
+    con.execute("DELETE FROM history WHERE id=?", (rid,))
+    con.commit()
+
+
 def history_thread(con, contact_id: str, limit: int = 5) -> list[dict[str, Any]]:
     """Recent exchanges with one contact, oldest first."""
     rows = con.execute(
