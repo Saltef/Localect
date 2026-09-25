@@ -211,6 +211,76 @@ PUT    /api/settings          {"memory_capture": false}   pause; true resumes
   prompt, the same as knowledge-base snippets today.
 - Every stored message can be listed and deleted.
 
+## What the research says, and what Envoy took from it
+
+Four pieces were read against this design in September 2026. Full texts of
+the arXiv papers were not reachable from the build container; the notes rest
+on their abstracts, the authors' stated results, Karpathy's own gist, and
+secondary write-ups, and say so where it matters.
+
+**Ingest-time semantic compilation** ("RAG Deserves an Index", Wild,
+Takahashi and Uraki, [arXiv:2608.20845](https://arxiv.org/abs/2608.20845)).
+Compile the corpus once, at write time, into two coupled layers: embeddings
+maintained incrementally, and atomic claims each carrying its verbatim source
+span, author and location, validated mechanically at compile time. On 500
+interview transcripts, compiled claims as the retrieval payload gave 85.2%
+correct answers from about 2.2k reader tokens against 72.5% from 16.3k for
+the best chunking. This is the shape Envoy's memory already has: facts are
+compiled at import with who, when and the source message, and vectors are
+maintained per paragraph as messages arrive. Two things were missing and one
+was taken: facts are now **validated against their source** at extraction
+(a statement whose wording is not in the message is dropped and counted,
+which removes a model's paraphrases and inventions before they can be
+cited); and the paper's stronger claim, that claims alone beat claims plus
+chunks, is a measurable ablation for `envoy bench memory`, listed below.
+
+**The LLM wiki** (Karpathy's gist, and the Medium piece "RAG is dead"). Raw
+sources, LLM-written markdown pages, a schema; ingest rewrites the pages a
+source touches, query loads an index into context, lint finds
+contradictions and stale claims. Karpathy states it "works surprisingly well
+at moderate scale (~100 sources, ~hundreds of pages)" and the gist is
+"intentionally abstract". For a mailbox of thousands of messages in seven
+languages with facts that change, LLM-maintained prose pages as the source
+of truth would cost a rewrite of many pages per message and lose provenance
+silently, which the thread's own contributors warn about. What Envoy keeps
+from it is the reviewable, compounding artifact: the facts table is the
+wiki, kept by code rather than prose, with the conflict check as the lint
+and the Memory page as the index. A deterministic per-topic timeline
+("return window: 30 days since 2025-09-10, was 14 days from 2025-06-02")
+rendered from facts, not written by a model, is the one wiki-like view worth
+adding. The "valid time versus belief time" distinction from that thread is
+already the split between `said_on` and `created_at`.
+
+**Noēsis** (Cogotti, [arXiv:2609.07663](https://arxiv.org/abs/2609.07663),
+patent pending). For small local models, the failure on factual queries is
+confabulation rather than retrieval: they invent numbers and dates with the
+evidence in context. The remedy is deterministic-first: precomputed facts
+rendered verbatim, cross-source alignment resolved before generation, and a
+two-tier context, a skeleton of facts and structure with no prose, then
+verbatim passages only when the model asks for them. Reported: a 2B model
+at parity with a 35B on factual integrity, structured retrieval +11.4 points
+over flat RAG at 2B, prompts 26% smaller. This is the most relevant of the
+four for Envoy's local path (an 8B model through Ollama). Envoy already
+renders facts verbatim with dates and judges deterministically after
+generation (the Arbiter); the idea to test is **facts first, paragraphs only
+when no fact covers an ask**, which shrinks the Drafter's prompt and gives a
+small model fewer places to confabulate. It is an ablation for the bench,
+not a rewrite. The specific mechanisms are the subject of a patent
+application; Envoy uses the general principle, which is also the ISC
+paper's.
+
+**AlgoRAG** (Adhikari, [arXiv:2609.14572](https://arxiv.org/abs/2609.14572)).
+A domain RAG for teaching complexity theory: notation-aware retrieval,
+pedagogical reranking, 179 exam questions. Not applicable to mail; its one
+transferable habit, a curated held-out question set per domain, is what
+`mailbox.yaml` already is.
+
+Decisions: no replacement of the retrieval design; provenance validation
+added now; two ablations queued for the real-model bench run (facts-only
+versus facts plus paragraphs; skeleton-first context for the local model);
+a per-topic timeline view queued for the Memory page. A reranker remains
+conditional on the same run.
+
 ## Rules for the work
 
 The same rules as the evaluation: one pull request per milestone, real

@@ -316,8 +316,8 @@ def _extract(args: argparse.Namespace) -> None:
                                       f"{n} fact(s)", flush=True))
     counts = db.fact_count(con)
     print(f"{report.messages} message(s) read, {report.facts} fact(s) stored, "
-          f"{report.failed} failed. Memory holds {counts['facts']} fact(s) "
-          f"({counts['confirmed']} confirmed).")
+          f"{report.unverified} dropped as not in the message, {report.failed} failed. "
+          f"Memory holds {counts['facts']} fact(s) ({counts['confirmed']} confirmed).")
 
 
 def _index(args: argparse.Namespace) -> None:
