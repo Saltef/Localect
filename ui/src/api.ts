@@ -90,7 +90,10 @@ export type MemoryStatus = {
   unextracted: number;
   conflicts: Fact[][];
 };
-export type Health = { ok: boolean; version: string; provider: string; model: string; mcp: boolean };
+export type Health = {
+  ok: boolean; version: string; provider: string; model: string; mcp: boolean;
+  auth_required: boolean; owner: boolean; public_mode: "off" | "demo"; tries_left?: number;
+};
 export type GlossaryItem = {
   id: string;
   term: string;
@@ -131,6 +134,8 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 
 export const api = {
   health: () => req<Health>("GET", "/api/health"),
+  login: (password: string) => req<{ ok: boolean }>("POST", "/api/login", { password }),
+  logout: () => req<{ ok: boolean }>("POST", "/api/logout"),
   settings: () => req<Settings>("GET", "/api/settings"),
   saveSettings: (p: Partial<Settings>) => req<Settings>("PUT", "/api/settings", p),
   checkSettings: () =>

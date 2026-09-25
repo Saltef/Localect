@@ -58,6 +58,9 @@ a second read and by deterministic code before you see it.
   faults the verifier must catch, an injection set, a dialect-identifier
   ablation, public-benchmark checks on single agents, and a blind human
   study. Numbers and negative results are in [docs/EVAL.md](docs/EVAL.md).
+- **Yours, online too.** Host it behind HTTPS with an owner login and,
+  if you like, a public demo that runs on sample data and never sees your
+  mail. See [docs/HOSTING.md](docs/HOSTING.md).
 - **You send.** Envoy never sends anything. You copy the reply.
 
 ## Quick start
@@ -111,11 +114,14 @@ Reply from Gmail, Outlook or WhatsApp Web, and let Envoy remember what you
 send: load the `extension/` folder as an unpacked extension and pair it with
 the token from Settings. See [docs/EXTENSION.md](docs/EXTENSION.md).
 
-Prefer a container?
+Prefer a container, or want it online?
 
 ```bash
 docker build -t envoy .
 docker run -p 8765:8765 -v envoy-data:/data envoy   # talks to Ollama on the host
+
+cp .env.example .env && docker compose up -d --build  # hosted: HTTPS via Caddy, owner login,
+                                                     # optional public demo; see docs/HOSTING.md
 ```
 
 Once **Check connection** succeeds, the model field becomes a dropdown of
@@ -210,7 +216,7 @@ src/envoy/
 ui/               React + Vite + Tailwind, built into src/envoy/static
 extension/        Chrome/Edge extension: side-panel Compose, capture on send (no build step)
 tests/            unit · agents · mcp · pipeline · api · e2e
-docs/             ARCHITECTURE.md · EVAL.md · MEMORY.md · EXTENSION.md · DESIGN.md · RUBRIC.md
+docs/             ARCHITECTURE.md · EVAL.md · MEMORY.md · EXTENSION.md · HOSTING.md · DESIGN.md · RUBRIC.md
 ```
 
 ## Development
@@ -235,9 +241,8 @@ produce, keep the negative results.
   one-command install, twelve locales, MCP-backed grounding, the evaluation.
 - **Next:** results tables filled from real-model runs; outbound, one message
   localized to many regions with the same Critic; more locales.
-- **Later:** hosting with an owner login and a public demo mode, email and
-  chat connectors as MCP servers with a Send action, a native desktop
-  wrapper, community-contributed locale profiles.
+- **Later:** email and chat connectors as MCP servers with a Send action, a
+  native desktop wrapper, community-contributed locale profiles.
 
 ## License
 

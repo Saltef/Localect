@@ -40,6 +40,18 @@ class Settings:
     # The browser extension proves it is yours with this token (Authorization: Bearer).
     # Generated on first start; shown in Settings; never sent anywhere else.
     extension_token: str = ""
+    # Hosting. owner_password_hash: set with `envoy config --owner-password`; when set,
+    # the web UI and API need a login (the extension token also counts). public_mode:
+    # "off" (default) or "demo": visitors get Compose on the demo store, isolated from
+    # the owner's data, capped per IP per hour and per day, on public_model ("stub" or
+    # "configured": the owner's model and key). trust_proxy: honour X-Forwarded-* from
+    # the reverse proxy in front.
+    owner_password_hash: str = ""
+    public_mode: str = "off"
+    public_model: str = "stub"
+    public_hourly: int = 20
+    public_daily: int = 300
+    trust_proxy: bool = False
 
     @property
     def db_path(self) -> Path:
@@ -65,6 +77,15 @@ class Settings:
         s.user_language = env.get("ENVOY_USER_LANGUAGE", s.user_language)
         s.user_email = env.get("ENVOY_USER_EMAIL", s.user_email)
         s.embed_model = env.get("ENVOY_EMBED_MODEL", s.embed_model)
+        if env.get("ENVOY_OWNER_PASSWORD"):
+            from .auth import hash_password
+
+            s.owner_password_hash = hash_password(env["ENVOY_OWNER_PASSWORD"])
+        s.public_mode = env.get("ENVOY_PUBLIC_MODE", s.public_mode)
+        s.public_model = env.get("ENVOY_PUBLIC_MODEL", s.public_model)
+        s.public_hourly = int(env.get("ENVOY_PUBLIC_HOURLY", s.public_hourly))
+        s.public_daily = int(env.get("ENVOY_PUBLIC_DAILY", s.public_daily))
+        s.trust_proxy = env.get("ENVOY_TRUST_PROXY", str(s.trust_proxy)).lower() in ("1", "true")
         s.host = env.get("ENVOY_HOST", s.host)
         s.port = int(env.get("ENVOY_PORT", s.port))
         return s
@@ -81,7 +102,12 @@ class Settings:
         d = asdict(self)
         d["api_key"] = "set" if self.api_key else ""
         d["extension_token"] = "set" if self.extension_token else ""
+        d["owner_password_hash"] = "set" if self.owner_password_hash else ""
         return d
+
+    @property
+    def auth_required(self) -> bool:
+        return bool(self.owner_password_hash)
 
     def ensure_extension_token(self) -> str:
         if not self.extension_token:

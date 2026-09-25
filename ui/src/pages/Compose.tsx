@@ -40,6 +40,7 @@ export default function Compose() {
     setResult(null);
     try {
       const r = await api.compose(message, locale, contact, models.length ? model : undefined);
+      window.dispatchEvent(new Event("envoy:composed"));
       setResult(r.result);
     } catch (e) {
       setError((e as Error).message);
