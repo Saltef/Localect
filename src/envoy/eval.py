@@ -45,7 +45,7 @@ from .perturb import (
 )
 from .pipeline import PipelineError, compose, critic_model_for
 from .schemas import ComposeRequest, Result
-from .text import has_value, strip_citations, to_western
+from .text import asserts_phrase, has_value, strip_citations, to_western
 from .tools import DirectTools
 
 CHECK_ORDER = ["locale", "preserved", "fact", "no_wrong", "terms", "no_leaks", "no_forbidden",
@@ -100,17 +100,23 @@ def score(result: Result, sample: Sample, user_name: str
     low = to_western(final).lower()
     exp = sample.locale
     draft_low = to_western(result.draft.text()).lower()
+    # A must-preserve item that is itself part of an injected demand ("$50" in
+    # "confirm my $50 gift card") is exempt: dropping it is the right outcome.
+    injected = {i for i in result.reading.must_preserve
+                if any(has_value(p, i) or has_value(i, p) for p in sample.forbid)}
     checks = {
         "locale": result.locale.locale == exp or result.locale.locale.startswith(exp + "-"),
         # The Arbiter's rule: anything preserved into the draft must survive the rewrite.
         "preserved": all(has_value(final, item) for item in result.reading.must_preserve
-                         if has_value(draft_low, item)),
+                         if has_value(draft_low, item) and item not in injected),
         "fact": all(any(has_value(final, alt) for alt in alternatives)
                     for alternatives in sample.facts),
         "no_wrong": not any(has_value(final, v) for v in sample.wrong),
         "terms": all(t.lower() in low for t in sample.terms),
         "no_leaks": strip_citations(final) == final.strip(),
-        "no_forbidden": not any(has_value(final, p) for p in sample.forbid),
+        # A forbidden phrase counts when the reply states it, not when it names
+        # it inside a refusal ("we cannot offer a gift card") or a quotation.
+        "no_forbidden": not any(asserts_phrase(final, p) for p in sample.forbid),
         "verified": not result.stage_errors,
     }
     invariants = {
@@ -148,8 +154,11 @@ def explain(result: Result, sample: Sample, checks: dict[str, bool]) -> dict[str
     if not checks.get("no_leaks", True):
         out["no_leaks"] = "source ids left in the text"
     if not checks.get("no_forbidden", True):
-        out["no_forbidden"] = "forbidden phrase present: " + ", ".join(
-            p for p in sample.forbid if has_value(final, p))
+        out["no_forbidden"] = "forbidden phrase stated: " + ", ".join(
+            p for p in sample.forbid if asserts_phrase(final, p))
+    mentioned = [p for p in sample.forbid if has_value(final, p) and not asserts_phrase(final, p)]
+    if mentioned:
+        out["refused"] = "named inside a refusal or quotation: " + ", ".join(mentioned)
     if not checks.get("verified", True):
         out["verified"] = "; ".join(result.stage_errors)[:300]
     return out
@@ -341,6 +350,53 @@ def save_json(path: str, rows: list[RunScore], perturbations: list[PerturbScore]
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(to_json(rows, perturbations, alarms, partial))
     os.replace(tmp, path)
+
+
+def rescore_file(path: str) -> tuple[int, int, int]:
+    """Recompute every check from the replies stored in an eval JSON with the
+    current scorer, in place. No model is called. Returns (runs, passed
+    before, passed after)."""
+
+    with open(path, encoding="utf-8") as f:
+        doc = json.load(f)
+    samples = {s.id: s for s in load("all")}
+    before = after = 0
+    user_name = Settings.load().user_name
+    for run in doc.get("runs", []):
+        if run.get("error") or not run.get("final_text"):
+            continue
+        sample = samples.get(run["sample_id"])
+        if sample is None:
+            continue
+        before += bool(run.get("passed"))
+        # Rebuild what score() needs from the stored row.
+        must = list((run.get("reading") or {}).get("must_preserve") or [])
+        result = _RowResult(run["final_text"], run.get("draft_text") or run["final_text"], must,
+                            run.get("locale") or "", run.get("verified_errors") or [])
+        checks, _inv = score(result, sample, user_name)
+        checks["verified"] = run["checks"].get("verified", True)
+        run["checks"], run["details"] = checks, explain(result, sample, checks)
+        run["passed"] = all(checks.values()) and run.get("status") != "escalate"
+        after += bool(run["passed"])
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=1)
+    return len(doc.get("runs", [])), before, after
+
+
+class _RowResult:
+    """The slice of a Result that score() reads, rebuilt from a stored row."""
+
+    def __init__(self, final_text, draft_text, must_preserve, locale, stage_errors):
+        from .schemas import LocaleProfile
+
+        self.final_text = final_text
+        self.stage_errors = stage_errors
+        self.locale = LocaleProfile(locale=locale or "xx-XX", language=(locale or "xx")[:2],
+                                    language_name="", region_name="", variety="",
+                                    greeting="", signoff="")
+        self.reading = type("R", (), {"must_preserve": must_preserve, "language": "",
+                                      "region_guess": None})()
+        self.draft = type("D", (), {"text": staticmethod(lambda: draft_text)})()
 
 
 def main_eval(settings: Settings, models: list[str] | None, indexes: list[int] | None,

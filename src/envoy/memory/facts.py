@@ -44,6 +44,13 @@ def topic_key(topic: str) -> str:
 
 
 def value_key(value: str) -> str:
+    """"30 days", "30", "٣٠ يوم" and "30 dias" are one value: when a value has
+    numbers, the numbers are the key; otherwise its normalised text."""
+    from ..text import numbers
+
+    nums = numbers(value)
+    if nums:
+        return " ".join(sorted(nums))
     return " ".join(to_western(value).lower().split())
 
 

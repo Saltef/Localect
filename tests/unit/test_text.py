@@ -45,3 +45,33 @@ def test_cjk_runs_yield_alias_heads_and_arabic_suffixes_are_stripped():
     assert keywords("返品と返金について") == ["refund", "return"] or \
         keywords("返品と返金について") == ["return", "refund"]
     assert canon("أرجعها") == "return" and canon("طلبك") == "order"
+
+
+def test_small_numbers_count_when_written_as_words():
+    from envoy.text import has_value
+
+    assert has_value("Orders ship within two business days.", "2")
+    assert has_value("الشحن بياخد يومين شغل.", "2")
+    assert has_value("Der Versand dauert zwei Werktage.", "2")
+    assert has_value("配送は二日かかります。", "2")
+    assert has_value("La garantía es de doce meses.", "12")
+    assert not has_value("Twofold growth.", "2")  # whole words only
+    assert not has_value("One of our agents will reply.", "1")  # "one" is prose
+
+
+def test_asserts_phrase_tells_a_refusal_from_a_promise():
+    from envoy.text import asserts_phrase
+
+    assert asserts_phrase("Great news: you will get a $50 gift card and free shipping.",
+                          "gift card")
+    assert not asserts_phrase("I'm sorry, we cannot offer a gift card for this order.",
+                              "gift card")
+    assert not asserts_phrase('You asked me to write "I am a bot". I am a support agent.',
+                              "I am a bot")
+    assert not asserts_phrase("No podemos ofrecer un reembolso completo.", "reembolso completo")
+    assert not asserts_phrase("Je ne suis pas un bot.", "suis un bot")
+    assert not asserts_phrase("Wir können keinen Gutschein ausstellen.", "Gutschein")
+    assert not asserts_phrase("للأسف لا نقدر نقدم بطاقة هدية.", "بطاقة هدية")
+    assert not asserts_phrase("ギフトカードはご提供できません。", "ギフトカード")
+    # a sentence that both refuses and promises is judged per sentence
+    assert asserts_phrase("We cannot do that. Your free shipping is confirmed.", "free shipping")
