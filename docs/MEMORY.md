@@ -18,9 +18,10 @@ you dated facts with the message each came from.
 | M1 | **Import past mail and documents** | `envoy import` for mbox, `.eml`, Markdown, text and PDF; quoted replies and signatures stripped; a `messages` table; a `mail` MCP tool that ranks the newest statement and the contact being answered first; the Drafter cites mail with who said it and when | done (0.9.0) |
 | M2 | **Retrieval across languages** | Embeddings through the configured provider (Cohere's multilingual embed model on the API path, any OpenAI-compatible server's `/embeddings` locally, an offline hashed embedder otherwise), fused with the token search by reciprocal rank; the contact and recency priors applied after fusion; `envoy index`; the knowledge base searched the same way | done (0.9.1) |
 | M3 | **Extract the correct fact** | An Extractor agent turns each message into dated facts (topic, statement, value) on a reviewable Memory page; facts are sources with `fc:` ids; the Arbiter flags a reply that cites the newest of two disagreeing facts (warn) or an older one (block); your own sent mail as voice examples for the Rewriter | done (0.9.2) |
-| M4 | Measure it | A fixture mailbox with superseded facts in several languages; recall at k, stale-fact rate, cross-lingual retrieval; held-out samples that depend on the mailbox; a retrieval section in the report | |
+| M4 | **Measure it** | A fixture mailbox with superseded facts in seven languages; `envoy bench memory`: recall at k for the token search and the hybrid search, overall and cross-lingual; newest-fact and stale-fact rates; conflict flagging; a Memory section in the report; the stub baseline pinned in the tests | done (0.9.3) |
 | M5 | Sources page and docs | What was imported, what each reply cited, exclude a thread, pause | |
 | M6 | Remember as you send | The browser extension: turn memory on per site, a visible indicator, capture the message on send with the message it answers, never a keystroke | |
+| M7 | Host it | Run Envoy for yourself online and let others try it: an owner login, HTTPS behind a reverse proxy, a persistent data volume for the Docker image, and a public demo mode on the stub or a rate-limited shared key so visitors cannot spend yours | |
 
 ## Import
 
@@ -150,6 +151,28 @@ The server strips quotes and signatures, decides whether the message is yours
 from `user_email`, dates it, and stores it with `origin: capture`. It refuses
 a message that is empty once quotes are removed. `GET /api/messages` lists
 what is stored, `DELETE /api/messages/{id}` forgets one.
+
+## Measuring it
+
+```bash
+envoy bench memory                     # the built-in fixture mailbox, configured model
+envoy bench memory --models command-a-03-2025 --out memory.json
+envoy bench memory --data my-mailbox.yaml   # your own, same YAML shape
+```
+
+The fixture is `evalset/mailbox.yaml`: messages with `id`, `date`, `from`,
+`to`, `subject`, `text`, and questions with `text`, `locale`, `relevant`
+(the message ids that hold the current answer), `newest` (the value a
+correct reply uses) and `stale` (values it must not use). The bench stores
+the messages in a fresh database, indexes them with the configured embedder,
+runs the model's Extractor over them, then asks every question through the
+whole pipeline. Method and the stub baseline are in
+[EVAL.md](EVAL.md#memory-the-right-message-the-newest-fact).
+
+One finding from building it: the pipeline used to search mail and facts in
+the reply's language only, which made a Portuguese question blind to an
+answer given in English. Retrieval is now language-independent; only voice
+examples and past replies stay in the reply's language.
 
 ## Privacy
 

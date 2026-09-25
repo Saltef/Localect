@@ -154,6 +154,33 @@ Note that FLORES is Modern Standard Arabic (`arb_Arab`); Egyptian Arabic
 (`arz_Arab`) exists in FLORES-200 and can be added to `FLORES_CODES` when a
 dialect-level reading matters.
 
+## Memory: the right message, the newest fact
+
+`envoy bench memory` measures the memory layer (docs/MEMORY.md) on a fixture
+mailbox that ships with Envoy: 19 messages over five months in seven
+languages, 16 written by the user, with five facts that change (return
+window, domestic shipping time, warranty, support hours, a price), several
+that never do, two stated by the other side, and three distractors, one of
+them a newsletter. Fourteen questions each name the message that holds the
+current answer, the value a correct reply uses, and the values it must not
+use; seven ask in a different language than the answer was given in.
+
+Three numbers per model, all with counts:
+
+- **retrieval**: the rank of the first relevant message in the token search
+  alone and in the hybrid search (recall at 1, 3, 5), overall and on the
+  cross-lingual questions. The ablation says what the embeddings add.
+- **facts**: after the model's Extractor has read the mailbox, the share of
+  replies that state the newest value and the share that state a superseded
+  one.
+- **conflicts**: on the ten questions where an older statement exists, the
+  share of replies the Arbiter flagged (`conflicting_sources` when the newest
+  was used, `stale_source` when an older one was).
+
+The questions are held out in the same sense as the held-out set: no prompt
+is tuned against them. `--data your-mailbox.yaml` runs the same measurement
+on a mailbox of your own in the same format.
+
 ## The human study
 
 Nothing automatic can say whether a reply reads like a native wrote it at
@@ -318,6 +345,34 @@ which attacks got through, *pending the rerun on 0.8.2*.
 
 *pending: run on your machine*
 
+### Memory on the fixture mailbox
+
+Stub (0.9.3), 14 questions, 7 cross-lingual:
+
+| retrieval, first relevant in top k | @1 | @3 | @5 |
+|---|---|---|---|
+| token search | 64% (9/14) | 86% (12/14) | 93% (13/14) |
+| hybrid (token + hash-v1 vectors) | 64% (9/14) | 86% (12/14) | 93% (13/14) |
+| cross-lingual, token search | 57% (4/7) | 86% (6/7) | 100% (7/7) |
+| cross-lingual, hybrid | 57% (4/7) | 71% (5/7) | 86% (6/7) |
+
+Facts: newest value used 69% (9/13), a superseded value used 8% (1/13);
+conflicts flagged 40% (4/10). One question is retrieval-only (no value).
+
+What these stub numbers mean, and do not mean: the token search already
+carries the cross-lingual alias table, so on this small mailbox the offline
+hashed embedder adds nothing on average (it finds the Japanese answer the
+token search misses, and demotes two others below the top 5). The stub's
+Extractor calls every sentence with a number a fact, newsletter included,
+and its Drafter picks the source with the most word overlap rather than
+the newest, which is why a German question got the old German warranty
+statement (12 months) instead of the newer English one (24 months), and a
+Portuguese one got the newsletter's "free returns". The Arbiter blocked the
+stale reply and flagged the newest-used ones as *check*, which is the
+behaviour the rule exists for. Command A with Cohere's multilingual
+embeddings: *pending, run on your machine* (`envoy bench memory --models
+command-a-03-2025 --out memory.json`).
+
 ## Negative results
 
 - On the stub, no fault of register (slang) is caught by anything. Only a
@@ -334,6 +389,13 @@ which attacks got through, *pending the rerun on 0.8.2*.
   evidence about the pipeline's code, not about the Critic, and a high
   neutralized share on a fault that should be judged (add_promise, slang)
   is a reason to read the final texts.
+
+- On the fixture mailbox, the hybrid search does not beat the token search
+  with the offline hashed embedder (recall at 5: 13/14 both; cross-lingual
+  6/7 against 7/7). The alias table gives the token search most of the
+  cross-lingual coverage this mailbox needs; the case for embeddings rests
+  on a real multilingual model and a mailbox with vocabulary the alias table
+  does not know, which is what the pending Cohere run measures.
 
 ## Samples moved out of held-out
 
