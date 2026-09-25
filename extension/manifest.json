@@ -1,0 +1,75 @@
+{
+  "manifest_version": 3,
+  "name": "Envoy",
+  "description": "Reply to anyone in their language, and sound like a local. Remembers what you send, with your say-so, into your own local Envoy.",
+  "version": "0.10.0",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Envoy",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "panel/panel.html"
+  },
+  "options_page": "options/options.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "content/core.js",
+        "content/gmail.js",
+        "content/indicator.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://outlook.live.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*"
+      ],
+      "js": [
+        "content/core.js",
+        "content/outlook.js",
+        "content/indicator.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "content/core.js",
+        "content/whatsapp.js",
+        "content/indicator.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

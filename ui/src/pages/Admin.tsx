@@ -177,6 +177,7 @@ export function SettingsPage() {
   const [models, setModels] = useState<string[]>([]);
   const [demo, setDemo] = useState("");
   const [saved, setSaved] = useState(false);
+  const [token, setToken] = useState(""); const [tokenCopied, setTokenCopied] = useState(false);
   useEffect(() => { api.settings().then(setS); api.models().then((m) => setModels(m.models)).catch(() => {}); }, []);
   if (!s) return null;
   const save = async () => { const out = await api.saveSettings(s); setS(out); setSaved(true); setTimeout(() => setSaved(false), 1500); };
@@ -187,6 +188,9 @@ export function SettingsPage() {
     setCheck(r.ok ? (r.has_model ? `Connected. Model available.${r.note ? " " + r.note : ""}` : `Endpoint reachable, but "${saved.model}" is not listed. Pick one below.`) : `Cannot reach the endpoint: ${r.error}`);
   };
   const loadDemo = async () => { const r = await api.loadDemo(); setDemo(r.knowledge ? `Loaded ${r.knowledge} documents, ${r.glossary} glossary terms, ${r.contacts} contacts.` : "Demo data is already loaded."); };
+  const showToken = async () => { const r = await api.extensionToken(); setToken(r.token); };
+  const copyToken = async () => { const t = token || (await api.extensionToken()).token; setToken(t); await navigator.clipboard.writeText(t); setTokenCopied(true); setTimeout(() => setTokenCopied(false), 1500); };
+  const resetToken = async () => { const r = await api.resetExtensionToken(); setToken(r.token); };
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card title="Model">
@@ -224,6 +228,16 @@ export function SettingsPage() {
             <Field label="Your language" hint="Glosses and back-translations are shown in this language"><select className={inputCls} value={s.user_language} onChange={(e) => setS({ ...s, user_language: e.target.value })}>{["en", "ar", "es", "pt", "fr", "de", "ja"].map((l) => <option key={l}>{l}</option>)}</select></Field>
             <Button onClick={save}>{saved ? "Saved" : "Save"}</Button>
           </div>
+        </Card>
+        <Card title="Browser extension">
+          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">The Envoy extension composes replies from Gmail, Outlook and WhatsApp Web and remembers what you send, with your say-so. Pair it once with this token; it only ever talks to this Envoy on this machine.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800" data-testid="extension-token">{token || "••••••••••••••••••••••••"}</code>
+            {!token && <Button kind="ghost" onClick={showToken}>Show</Button>}
+            <Button kind="ghost" onClick={copyToken}>{tokenCopied ? "Copied" : "Copy"}</Button>
+            <Button kind="ghost" onClick={resetToken}>New token</Button>
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">Load the <code>extension/</code> folder as an unpacked extension in Chrome or Edge, open its options, paste the token. See docs/EXTENSION.md.</p>
         </Card>
         <Card title="Demo data">
           <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">Load a fabricated small store (glossary, policies, contacts) to try Envoy immediately.</p>

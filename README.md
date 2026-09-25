@@ -107,6 +107,10 @@ envoy config --user-email you@example.com
 envoy import ~/Takeout/Mail/All\ mail.mbox      # or a folder of .eml files, or .md/.txt/.pdf
 ```
 
+Reply from Gmail, Outlook or WhatsApp Web, and let Envoy remember what you
+send: load the `extension/` folder as an unpacked extension and pair it with
+the token from Settings. See [docs/EXTENSION.md](docs/EXTENSION.md).
+
 Prefer a container?
 
 ```bash
@@ -204,8 +208,9 @@ src/envoy/
   eval.py, perturb.py, evalset/, evalx/, study.py, report.py   the evaluation
   db.py, app.py, cli.py, demo.py
 ui/               React + Vite + Tailwind, built into src/envoy/static
+extension/        Chrome/Edge extension: side-panel Compose, capture on send (no build step)
 tests/            unit · agents · mcp · pipeline · api · e2e
-docs/             ARCHITECTURE.md · EVAL.md · MEMORY.md · DESIGN.md · RUBRIC.md
+docs/             ARCHITECTURE.md · EVAL.md · MEMORY.md · EXTENSION.md · DESIGN.md · RUBRIC.md
 ```
 
 ## Development
@@ -230,8 +235,9 @@ produce, keep the negative results.
   one-command install, twelve locales, MCP-backed grounding, the evaluation.
 - **Next:** results tables filled from real-model runs; outbound, one message
   localized to many regions with the same Critic; more locales.
-- **Later:** email and chat connectors as MCP servers with a Send action, a
-  native desktop wrapper, community-contributed locale profiles.
+- **Later:** hosting with an owner login and a public demo mode, email and
+  chat connectors as MCP servers with a Send action, a native desktop
+  wrapper, community-contributed locale profiles.
 
 ## License
 

@@ -37,6 +37,9 @@ class Settings:
     # OpenAI-compatible server, name a model it serves (e.g. bge-m3, nomic-embed-text).
     embed_model: str = ""
     memory_capture: bool = True  # False pauses capture: POST /api/messages stores nothing
+    # The browser extension proves it is yours with this token (Authorization: Bearer).
+    # Generated on first start; shown in Settings; never sent anywhere else.
+    extension_token: str = ""
 
     @property
     def db_path(self) -> Path:
@@ -77,4 +80,13 @@ class Settings:
     def public(self) -> dict:
         d = asdict(self)
         d["api_key"] = "set" if self.api_key else ""
+        d["extension_token"] = "set" if self.extension_token else ""
         return d
+
+    def ensure_extension_token(self) -> str:
+        if not self.extension_token:
+            import secrets
+
+            self.extension_token = secrets.token_urlsafe(24)
+            self.save()
+        return self.extension_token

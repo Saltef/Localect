@@ -12,7 +12,8 @@ numbers live in [EVAL.md](EVAL.md).
 ```mermaid
 flowchart LR
     subgraph Browser
-        UI["React UI<br/>Compose · Glossary · Knowledge<br/>Contacts · History · Settings"]
+        UI["React UI<br/>Compose · Memory · Glossary · Knowledge<br/>Contacts · History · Settings"]
+        EXT["Extension<br/>side-panel Compose · capture on send<br/>(Gmail, Outlook, WhatsApp Web)"]
     end
 
     subgraph "envoy (one Python process)"
@@ -37,6 +38,7 @@ flowchart LR
     end
 
     UI -->|JSON| API --> PIPE
+    EXT -->|JSON + pairing token| API
     PIPE --> CONV
     PIPE --> MCPC --> G & K & H & T & ML --> DB
     API --> DB
