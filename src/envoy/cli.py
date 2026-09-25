@@ -300,6 +300,13 @@ def _rescore(args: argparse.Namespace) -> None:
         print(f"{path}: {n} runs, passed {before} → {after} with the current scorer")
 
 
+def _explain(args: argparse.Namespace) -> None:
+    from .eval import explain_file
+
+    for path in args.files:
+        print(explain_file(path, failed_only=not args.all, width=args.width))
+
+
 def _report(args: argparse.Namespace) -> None:
     from pathlib import Path
 
@@ -562,6 +569,13 @@ def main() -> None:
                                         "model calls")
     rs.add_argument("files", nargs="+")
     rs.set_defaults(func=_rescore)
+
+    ex2 = sub.add_parser("explain", help="print each failed run of an eval JSON with its reasons, "
+                                         "flags, what the Reader saw, and the reply text")
+    ex2.add_argument("files", nargs="+")
+    ex2.add_argument("--all", action="store_true", help="passed runs too")
+    ex2.add_argument("--width", type=int, default=600, help="characters of reply to show")
+    ex2.set_defaults(func=_explain)
 
     rp = sub.add_parser("report", help="one markdown report from eval, bench and study JSON")
     rp.add_argument("files", nargs="+", help="JSON written by envoy eval/bench/study --out")

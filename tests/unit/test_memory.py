@@ -166,3 +166,10 @@ def test_raw_rfc822_files_without_an_extension_import_like_eml():
     (pair,) = find_pairs(con)
     assert pair.incoming["from_addr"] == "sara.shackleton@enron.com" and pair.reply["is_mine"]
     assert (FIX / "ignore.bin").exists() and import_paths(con, [FIX / "ignore.bin"]).skipped
+
+
+def test_import_names_paths_that_do_not_exist():
+    con = db.connect()
+    r = import_paths(con, ["no/such/folder", FIX / "warranty.eml"])
+    assert r.messages == 1 and r.skipped == ["no/such/folder: not found (paths are relative to "
+                                             "the current folder)"]

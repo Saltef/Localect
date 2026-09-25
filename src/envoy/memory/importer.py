@@ -115,7 +115,11 @@ def import_paths(con, paths: Iterable[str | Path], my_addresses: Iterable[str] =
     ``my_addresses`` marks which messages the user wrote."""
     mine = {a.strip().lower() for a in my_addresses if a.strip()}
     report = ImportReport()
-    for path in _files(Path(p) for p in paths):
+    given = [Path(p) for p in paths]
+    for p in given:
+        if not p.exists():
+            report.skipped.append(f"{p}: not found (paths are relative to the current folder)")
+    for path in _files(p for p in given if p.exists()):
         suffix = path.suffix.lower()
         try:
             if _is_mbox(path):
