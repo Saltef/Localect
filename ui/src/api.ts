@@ -66,6 +66,7 @@ export type Settings = {
   user_language: string;
   embed_model: string;
   memory_capture: boolean;
+  extension_token: string;  // "set" or ""; the value itself comes from extensionToken()
 };
 export type Exclusion = { id: string; kind: "thread" | "address"; value: string; messages: number };
 export type Fact = {
@@ -172,6 +173,8 @@ export const api = {
   facts: (q = "", status = "") => req<Fact[]>("GET", `/api/facts?q=${encodeURIComponent(q)}&status=${status}`),
   patchFact: (id: string, p: Partial<Pick<Fact, "status" | "statement" | "value" | "topic">>) => req<Fact>("PUT", `/api/facts/${id}`, p),
   delFact: (id: string) => req<{ ok: boolean }>("DELETE", `/api/facts/${id}`),
+  extensionToken: () => req<{ token: string }>("GET", "/api/extension/token"),
+  resetExtensionToken: () => req<{ token: string }>("POST", "/api/extension/token"),
   loadDemo: () => req<{ glossary: number; knowledge: number; contacts: number }>("POST", "/api/demo"),
   samples: () => req<Sample[]>("GET", "/api/demo/messages"),
 };

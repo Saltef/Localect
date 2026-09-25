@@ -1,0 +1,28 @@
+:root { color-scheme: light dark; --bg: #fafafa; --fg: #18181b; --muted: #71717a; --card: #fff; --line: #e4e4e7; --accent: #4f46e5; }
+@media (prefers-color-scheme: dark) { :root { --bg: #09090b; --fg: #fafafa; --muted: #a1a1aa; --card: #18181b; --line: #27272a; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 system-ui, sans-serif; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--card); }
+.brand { display: flex; align-items: center; gap: 8px; }
+.logo { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 700; }
+.sub { font-size: 11px; color: var(--muted); }
+header a { color: var(--muted); text-decoration: none; font-size: 16px; }
+main { padding: 12px; }
+label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+textarea { width: 100%; min-height: 110px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); font: inherit; resize: vertical; }
+.row { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+button { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 4px; }
+pre { white-space: pre-wrap; margin: 0; padding: 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); font: inherit; }
+.muted { color: var(--muted); }
+.small { font-size: 11px; margin-top: 8px; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #dcfce7; color: #166534; }
+.badge.check { background: #fef3c7; color: #92400e; }
+.badge.escalate { background: #fee2e2; color: #991b1b; }
+.badge.zinc { background: var(--line); color: var(--fg); }
+.flag { padding: 6px 8px; border-radius: 8px; margin-top: 6px; background: #fef3c7; color: #92400e; font-size: 12px; }
+.flag.block { background: #fee2e2; color: #991b1b; }
+.error { color: #b91c1c; }

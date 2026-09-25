@@ -174,3 +174,40 @@ def test_exclusions_and_capture_pause(settings):
         c.put("/api/settings", json={"memory_capture": True})
         assert c.post("/api/messages", json={"text": "Live again.", "from_addr": "x@y"}).json()[
             "stored"]
+
+
+def test_origin_guard_and_extension_pairing(settings, tmp_path, monkeypatch):
+    monkeypatch.setenv("ENVOY_DATA_DIR", str(tmp_path))
+    with _client(settings)[0] as c:
+        # no Origin (CLI, curl, tests): unaffected
+        assert c.get("/api/health").status_code == 200
+        # the app's own page
+        own = {"Origin": "http://testserver"}
+        assert c.get("/api/health", headers=own).status_code == 200
+        # a random web page reaching localhost: refused
+        r = c.post("/api/messages", json={"text": "x"}, headers={"Origin": "https://evil.example"})
+        assert r.status_code == 403
+        # an extension without the token: told to pair; with it: allowed, CORS headers present
+        ext = {"Origin": "chrome-extension://abcdefghijklmnop"}
+        assert c.get("/api/extension/status", headers=ext).status_code == 401
+        token = c.get("/api/extension/token", headers=own).json()["token"]
+        assert len(token) >= 30 and c.get("/api/settings").json()["extension_token"] == "set"
+        r = c.get("/api/extension/status", headers={**ext, "Authorization": f"Bearer {token}"})
+        assert r.status_code == 200 and r.json()["capture"] is True
+        assert r.headers.get("access-control-allow-origin") == ext["Origin"]
+        # the extension may never read or reset the token itself
+        assert c.get("/api/extension/token", headers={**ext, "Authorization": f"Bearer {token}"}
+                     ).status_code == 403
+        # preflight passes
+        pre = c.options("/api/messages", headers={
+            **ext, "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization"})
+        assert pre.status_code == 200
+        # reset gives a new token; the old one stops working; settings PUT cannot set it
+        new = c.post("/api/extension/token", headers=own).json()["token"]
+        assert new != token
+        assert c.get("/api/extension/status", headers={**ext, "Authorization": f"Bearer {token}"}
+                     ).status_code == 401
+        c.put("/api/settings", json={"extension_token": "hacked"})
+        assert c.get("/api/extension/status", headers={**ext, "Authorization": "Bearer hacked"}
+                     ).status_code == 401

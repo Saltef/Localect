@@ -7,7 +7,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -78,6 +80,10 @@ class KnowledgeIn(BaseModel):
     text: str
 
 
+def is_extension_origin(origin: str) -> bool:
+    return origin.startswith(("chrome-extension://", "moz-extension://", "safari-web-extension://"))
+
+
 def create_app(settings: Settings | None = None, con=None, model=None, tools=None,
                use_mcp: bool = True) -> FastAPI:
     settings = settings or Settings.load()
@@ -110,7 +116,56 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
 
     app = FastAPI(title="Envoy", version=__version__, lifespan=lifespan)
 
+    # Who may call the API from a browser. Envoy listens on localhost, and any
+    # web page can make a request to localhost, so a request that carries an
+    # Origin must be the app's own page or the paired extension. Requests with
+    # no Origin (the CLI, curl, the tests) are unaffected.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^(chrome|moz|safari-web)-extension://.*$",
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+    @app.middleware("http")
+    async def origin_guard(request: Request, call_next):
+        origin = request.headers.get("origin", "")
+        if origin and request.method != "OPTIONS" and request.url.path.startswith("/api/"):
+            own = origin.rstrip("/") == f"{request.url.scheme}://{request.headers.get('host', '')}"
+            if not own:
+                if not is_extension_origin(origin):
+                    return JSONResponse({"detail": "this origin may not call Envoy"}, 403)
+                token = app.state.settings.extension_token
+                auth = request.headers.get("authorization", "")
+                if not token or auth != f"Bearer {token}":
+                    return JSONResponse({"detail": "pair the extension: paste the token from "
+                                                   "Envoy's Settings page"}, 401)
+                if request.url.path.startswith("/api/extension/token"):
+                    return JSONResponse({"detail": "not for the extension"}, 403)
+        return await call_next(request)
+
     # -- health & settings ---------------------------------------------------
+
+    @app.get("/api/extension/status")
+    def extension_status() -> dict[str, Any]:
+        """What the extension shows in its indicator: is memory capturing, and who
+        the user is (to mark their own messages)."""
+        s: Settings = app.state.settings
+        return {"ok": True, "version": __version__, "capture": s.memory_capture,
+                "user_email": s.user_email, "user_name": s.user_name,
+                "counts": db.message_count(app.state.con)}
+
+    @app.get("/api/extension/token")
+    def extension_token() -> dict[str, str]:
+        """The pairing token, for the Settings page only (the origin guard keeps
+        extension origins out of this path)."""
+        return {"token": app.state.settings.ensure_extension_token()}
+
+    @app.post("/api/extension/token")
+    def extension_token_reset() -> dict[str, str]:
+        s: Settings = app.state.settings
+        s.extension_token = ""
+        return {"token": s.ensure_extension_token()}
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
@@ -127,7 +182,7 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         s: Settings = app.state.settings
         for k, v in patch.items():
             if k in {"provider", "endpoint", "model", "api_key", "user_name", "user_email",
-                     "user_language", "embed_model", "memory_capture"}:
+                     "user_language", "embed_model", "memory_capture"}:  # never the token
                 if k == "api_key" and v in ("", "set"):
                     continue  # the UI sends the masked value back; keep the stored key
                 setattr(s, k, v)

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Envoy</title>
+  <link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="logo">E</span><div><b>Envoy</b><div class="sub" id="status">connecting…</div></div></div>
+    <a href="#" id="open-options" title="Extension options">⚙</a>
+  </header>
+  <main>
+    <label for="message">Message you received</label>
+    <textarea id="message" placeholder="Paste a message in any language, or select text on the page and choose “Reply with Envoy”."></textarea>
+    <div class="row">
+      <button id="compose" class="primary">Compose reply</button>
+      <span id="busy" class="muted" hidden>Reading, drafting, rewriting, checking…</span>
+    </div>
+    <section id="result" hidden>
+      <div class="badges"><span id="state" class="badge"></span><span id="locale" class="badge zinc"></span></div>
+      <h3>Reply</h3>
+      <pre id="reply"></pre>
+      <div class="row">
+        <button id="copy">Copy</button>
+        <button id="insert" title="Put the reply into the page's compose box">Insert into page</button>
+      </div>
+      <h3>What they said</h3>
+      <p id="gloss" class="muted"></p>
+      <h3>Back-translation</h3>
+      <pre id="back" class="muted"></pre>
+      <div id="flags"></div>
+      <div id="sources" class="muted small"></div>
+    </section>
+    <p id="error" class="error" hidden></p>
+  </main>
+  <script src="panel.js"></script>
+</body>
+</html>
