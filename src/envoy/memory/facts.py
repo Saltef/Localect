@@ -7,6 +7,7 @@ knows the words. Values are compared after digit-script normalisation."""
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -16,6 +17,26 @@ from ..agents.stage import StageError
 from ..models.base import ChatModel
 from ..text import to_western, tokens
 from .parse import now_iso
+
+
+def _norm(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s]", " ", to_western(text).lower()).split())
+
+
+def verify_provenance(statement: str, text: str) -> bool:
+    """Is the statement really in the message? A fact whose wording cannot be
+    found in its source is a model's paraphrase or invention and is not
+    stored. Exact after normalising case, punctuation and digit script; else
+    every content word of the statement must occur in the message (a model
+    that trims a clause still passes; one that adds a number does not)."""
+    st, src = _norm(statement), _norm(text)
+    if not st:
+        return False
+    if st in src:
+        return True
+    words = [w for w in st.split() if len(w) > 2 or w.isdigit()]
+    have = set(src.split())
+    return bool(words) and all(w in have for w in words)
 
 
 def topic_key(topic: str) -> str:
@@ -31,10 +52,13 @@ class ExtractReport:
     messages: int = 0
     facts: int = 0
     failed: int = 0
+    unverified: int = 0  # statements the model gave that are not in the message
 
 
-async def extract_message(con, model: ChatModel, m: dict) -> int:
-    """Run the Extractor on one stored message; store its facts; mark it."""
+async def extract_message(con, model: ChatModel, m: dict,
+                          report: ExtractReport | None = None) -> int:
+    """Run the Extractor on one stored message; store the facts whose wording
+    is verifiably in the message; mark it read."""
     who = "you" if m["is_mine"] else (m["from_name"] or m["from_addr"] or "them")
     ex = await extract(model, m["text"], who=who, when=(m["date"] or "")[:10],
                        subject=m["subject"])
@@ -42,6 +66,10 @@ async def extract_message(con, model: ChatModel, m: dict) -> int:
     party = (m["to_addrs"].split(",")[0] if m["is_mine"] else m["from_addr"]) or ""
     n = 0
     for f in ex.facts:
+        if not verify_provenance(f.statement, m["text"]):
+            if report is not None:
+                report.unverified += 1
+            continue
         db.fact_add(con, topic=f.topic, topic_key=topic_key(f.topic), statement=f.statement,
                     value=f.value, said_on=m["date"], said_by="you" if m["is_mine"] else "them",
                     party=party, message_id=m["id"], language=m["language"],
@@ -57,7 +85,7 @@ async def extract_pending(con, model: ChatModel, limit: int = 1000,
     report = ExtractReport()
     for m in db.messages_unextracted(con, limit):
         try:
-            n = await extract_message(con, model, m)
+            n = await extract_message(con, model, m, report)
         except StageError:
             report.failed += 1
             continue

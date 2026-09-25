@@ -100,3 +100,32 @@ def test_voice_examples_prefer_the_contact_and_the_language():
     long = db.message_add(con, text="word " * 300, is_mine=True, date="2030-01-01T00:00:00Z",
                           language="en")
     assert long and db.voice_examples(con, "en", limit=1)[0]["text"].endswith(" …")
+
+
+def test_facts_must_be_verifiably_in_the_message():
+    from envoy.memory.facts import verify_provenance
+
+    text = "Hi Layla,\n\nOur return window is 14 days from delivery. Items must be unused.\n\nBest"
+    assert verify_provenance("Our return window is 14 days from delivery.", text)
+    assert verify_provenance("our return window is 14 days from delivery", text)  # case, punct
+    assert verify_provenance("Return window is 14 days from delivery", text)  # trimmed clause
+    assert verify_provenance("مدة الإرجاع ٣٠ يوم", "أهلاً، مدة الإرجاع 30 يوم من الاستلام.")
+    assert not verify_provenance("Our return window is 30 days from delivery.", text)  # number
+    assert not verify_provenance("Free shipping on every order.", text)  # invented
+    assert not verify_provenance("", text)
+
+
+async def test_extraction_drops_invented_facts_and_counts_them():
+    from envoy.memory.facts import ExtractReport, extract_message
+    from envoy.models.base import FakeModel
+
+    con = db.connect()
+    mid = db.message_add(con, text="The warranty is 12 months.", date="2025-01-01T00:00:00Z",
+                         from_addr="safea@example.com", is_mine=True, language="en")
+    model = FakeModel(['{"facts": [{"topic": "warranty length", "statement": "The warranty is '
+                       '12 months.", "value": "12 months"}, {"topic": "warranty length", '
+                       '"statement": "The warranty is 24 months.", "value": "24 months"}]}'])
+    report = ExtractReport()
+    assert await extract_message(con, model, db.message_get(con, mid), report) == 1
+    assert report.unverified == 1
+    assert [f["value"] for f in db.fact_list(con)] == ["12 months"]
