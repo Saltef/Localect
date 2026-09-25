@@ -88,9 +88,10 @@ def thread_snippets(rows: list[dict]) -> list[SourceSnippet]:
 
 
 class DirectTools:
-    def __init__(self, con, embedder: Embedder | None = None) -> None:
+    def __init__(self, con, embedder: Embedder | None = None, before: str = "") -> None:
         self.con = con
         self.embedder = embedder or HashEmbedder()
+        self.before = before  # replay: memory sees only what predates this ISO date
 
     async def glossary_lookup(self, text, language):
         return glossary_snippets(db.glossary_lookup(self.con, text, language))
@@ -106,10 +107,11 @@ class DirectTools:
 
     async def mail_search(self, query, language, contact_email):
         return mail_snippets(memsearch.mail_search(self.con, self.embedder, query, language,
-                                                   contact_email))
+                                                   contact_email, before=self.before))
 
     async def facts_search(self, query, language, contact_email):
-        return fact_snippets(db.facts_search(self.con, query, language, contact_email))
+        return fact_snippets(db.facts_search(self.con, query, language, contact_email,
+                                             before=self.before))
 
     async def voice_examples(self, language, contact_email):
-        return db.voice_examples(self.con, language, contact_email)
+        return db.voice_examples(self.con, language, contact_email, before=self.before)

@@ -300,13 +300,13 @@ def message_mark_extracted(con, mid: str, when: str) -> None:
 
 
 def voice_examples(con, language: str | None, contact_email: str = "", limit: int = 3,
-                   max_chars: int = 400) -> list[dict[str, Any]]:
+                   max_chars: int = 400, before: str = "") -> list[dict[str, Any]]:
     """The user's own recent messages in this language, to this contact when
     there are any: how they write, for the Rewriter to match."""
     contact_email = (contact_email or "").strip().lower()
     rows = [dict(r) for r in con.execute(
         "SELECT id, date, to_addrs, subject, text, language FROM messages WHERE is_mine=1 "
-        "AND excluded=0 ORDER BY date DESC LIMIT 200")]
+        "AND excluded=0 AND (?='' OR date<?) ORDER BY date DESC LIMIT 200", (before, before))]
     if language:
         rows = [r for r in rows if not r["language"] or r["language"].startswith(language)]
     rows.sort(key=lambda r: (bool(contact_email) and contact_email in r["to_addrs"], r["date"]),
@@ -384,7 +384,7 @@ def facts_for_message(con, mid: str) -> list[dict[str, Any]]:
 
 
 def facts_search(con, query: str, language: str | None = None, party: str = "",
-                 limit: int = 6) -> list[dict[str, Any]]:
+                 limit: int = 6, before: str = "") -> list[dict[str, Any]]:
     """Facts whose topic or statement overlaps the query, rejected ones
     excluded, ranked by overlap, then the party being answered, then
     confirmed over automatic, then newest. Facts carry their topic key so the
@@ -395,6 +395,8 @@ def facts_search(con, query: str, language: str | None = None, party: str = "",
     party = (party or "").strip().lower()
     scored = []
     for r in con.execute(_LIVE_FACTS):
+        if before and r["said_on"] >= before:
+            continue  # replay: only what was known at the time
         score = _score(_tokens(r["topic"] + " " + r["statement"]), terms)
         if not score:
             continue
@@ -483,7 +485,7 @@ def exclusion_delete(con, xid: str) -> None:
 
 
 def mail_search(con, query: str, language: str | None = None, contact_email: str = "",
-                limit: int = 5) -> list[dict[str, Any]]:
+                limit: int = 5, before: str = "") -> list[dict[str, Any]]:
     """Paragraphs of past mail with overlapping vocabulary. Newer wins a tie,
     and mail to or from the contact being answered ranks above the rest, so
     the fact that reaches the Drafter is the latest thing said to this
@@ -495,6 +497,8 @@ def mail_search(con, query: str, language: str | None = None, contact_email: str
     scored: list[tuple[tuple[int, int, str], dict[str, Any]]] = []
     for r in con.execute("SELECT * FROM messages WHERE excluded=0"):
         if language and r["language"] and not r["language"].startswith(language):
+            continue
+        if before and r["date"] >= before:
             continue
         with_contact = bool(contact_email) and (
             r["from_addr"] == contact_email or contact_email in r["to_addrs"])

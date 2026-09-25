@@ -281,6 +281,13 @@ versus facts plus paragraphs; skeleton-first context for the local model);
 a per-topic timeline view queued for the Memory page. A reranker remains
 conditional on the same run.
 
+## Testing it on your own mail
+
+`envoy replay` replays your inbox: for each real exchange, Envoy answers the
+incoming message with memory cut off at that date and is scored against the
+reply you actually sent (see [EVAL.md](EVAL.md#replay-your-own-inbox-the-test-on-actual-data)).
+`envoy fullrun` runs it together with every other suite into one report.
+
 ## Rules for the work
 
 The same rules as the evaluation: one pull request per milestone, real
