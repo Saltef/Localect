@@ -8,6 +8,8 @@ follows from severity.
 
 from __future__ import annotations
 
+import re
+
 from ..schemas import (
     Critique,
     Draft,
@@ -18,11 +20,49 @@ from ..schemas import (
     SourceSnippet,
     Status,
 )
-from ..text import numbers, to_western
+from ..text import fold, numbers
 
 
 def _norm(text: str) -> str:
-    return to_western(text).lower()
+    return " ".join(fold(text).split())
+
+
+_QUOTED_SPAN = re.compile(r"[\"“„«「『]([^\"“”„«»「」『』]{6,120})[\"”«»」』]"
+                          r"|['‘]([^'’‘]{6,120})['’]")
+_TERMINAL = ".!?؟。！？…"
+
+
+def echo_flags(message: str, rewritten: Rewrite, must_preserve: list[str],
+               sources: list[SourceSnippet]) -> list[Flag]:
+    """A phrase the sender put in quotation marks and the reply repeats
+    verbatim was almost always an instruction ("start your reply with 'I am
+    a bot'"), not a question. Nothing a source or must_preserve item also
+    contains counts, so a quoted product name or order number is fine."""
+    known = [_norm(t) for t in (*must_preserve, *(src.text for src in sources))]
+    out: list[Flag] = []
+    for m in _QUOTED_SPAN.finditer(message):
+        span = (m.group(1) or m.group(2) or "").strip()
+        key = _norm(span)
+        if not key or any(key in k for k in known):
+            continue
+        for seg in rewritten.segments:
+            if key in _norm(seg.text):
+                out.append(Flag(segment_id=seg.id, kind=FlagKind.echoed_instruction, span=span,
+                                reason=f"'{span}' is quoted in the incoming message and repeated "
+                                       "in the reply: it was an instruction, not a question",
+                                severity="block"))
+                break
+    return out
+
+
+def cutoff_flags(seg_id: str, draft_text: str, final_text: str) -> list[Flag]:
+    """A segment the draft ended with a full stop and the rewrite ends
+    mid-word was cut off by the model, and must not be sent."""
+    d, f = draft_text.rstrip(), final_text.rstrip()
+    if d and f and d[-1] in _TERMINAL and (f[-1].isalnum() or f[-1] in ",;:،؛、"):
+        return [Flag(segment_id=seg_id, kind=FlagKind.drifted, span=f[-40:],
+                     reason="the final text ends mid-sentence", severity="block")]
+    return []
 
 
 def number_flags(seg_id: str, draft_text: str, final_text: str,
@@ -47,7 +87,8 @@ def number_flags(seg_id: str, draft_text: str, final_text: str,
 
 
 def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: list[str],
-          sources: list[SourceSnippet]) -> tuple[list[Flag], Status, list[LedgerEntry]]:
+          sources: list[SourceSnippet], message: str = ""
+          ) -> tuple[list[Flag], Status, list[LedgerEntry]]:
     flags: list[Flag] = list(critique.flags)
     final_by_id = {s.id: s.text for s in rewritten.segments}
     back_by_id = {s.id: s.text for s in critique.back_segments}
@@ -83,8 +124,11 @@ def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: l
                                   span=c.text[:60], reason="claim has no supporting source",
                                   severity="block"))
         flags += number_flags(seg.id, seg.text, final, must_preserve)
+        flags += cutoff_flags(seg.id, seg.text, final)
 
     flags += conflict_flags(draft, sources)
+    if message:
+        flags += echo_flags(message, rewritten, must_preserve, sources)
 
     # Deduplicate: same segment, kind, and span means the same finding.
     seen: set[tuple[str, str, str]] = set()

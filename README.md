@@ -185,7 +185,7 @@ envoy report *.json --out report.md         # one markdown report from any of th
 | Does the Rewriter make it local? | A dialect identifier (CAMeL Tools for Arabic, a shipped n-gram classifier for Portuguese and Spanish) classifies the Drafter's body and the Rewriter's body; the gap is the Rewriter's work |
 | How good is each agent alone? | The Reader on MASSIVE, the Critic's back-translation on FLORES-200 |
 | Does it sound native? | A blind pairwise study with native readers, scored with confidence intervals and inter-rater agreement |
-| Can it be tricked? | 140 injection samples; the Drafter cannot ground a claim the sources do not support, and the Arbiter blocks unsourced claims |
+| Can it be tricked? | 140 injection samples; the Drafter cannot ground a claim the sources do not support, the Arbiter blocks unsourced claims and any phrase the message quoted and the reply repeated |
 | Does memory find the right thing? | A fixture mailbox with facts that change over time, in seven languages: retrieval recall with and without embeddings, newest-fact and stale-fact rates, and whether disagreeing facts were flagged |
 | How does it do on my actual mail? | `envoy replay` composes replies to your real incoming messages with memory cut off at their date and scores them against the replies you actually sent: language, the numbers you stated, chrF |
 

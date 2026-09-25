@@ -14,7 +14,8 @@ def normalize_critique(raw: dict) -> dict:
     missing severities get the right default, odd shapes get coerced."""
     # The Arbiter alone raises the source-conflict kinds; a model naming them
     # becomes a suggestion like any other unknown kind.
-    valid = {k.value for k in FlagKind} - {"conflicting_sources", "stale_source", "stage_failure"}
+    valid = {k.value for k in FlagKind} - {"conflicting_sources", "stale_source", "stage_failure",
+                                         "echoed_instruction"}
     flags, suggestions = [], list(raw.get("suggestions") or [])
     for f in raw.get("flags") or []:
         if not isinstance(f, dict):

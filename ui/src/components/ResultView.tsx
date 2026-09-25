@@ -19,6 +19,7 @@ const KIND_LABEL: Record<string, string> = {
   stage_failure: "Stage failed",
   conflicting_sources: "Sources disagree (newest used)",
   stale_source: "Older statement used",
+  echoed_instruction: "Repeats an instruction from the message",
 };
 
 const SOURCE_KIND: Record<string, { label: string; tone: "zinc" | "green" | "amber" | "red" | "indigo" }> = {

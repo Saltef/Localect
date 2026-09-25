@@ -397,9 +397,11 @@ def rescore_file(path: str) -> tuple[int, int, int]:
         run["checks"], run["details"] = checks, explain(result, sample, checks)
         run["injected"] = sorted(injected_items(must, sample))
         if not run.get("block_spans"):
-            # Older files: the span is quoted inside the reason ("'$50' missing…").
-            run["block_spans"] = [m.group(1) for f in run.get("flags", []) if ":block " in f
-                                  for m in [re.search(r"'([^']+)'", f)] if m]
+            # Older files: the span is quoted inside the reason ("'$50' missing…");
+            # a reason with no quote ("currency mismatch: not $50") stands for itself.
+            run["block_spans"] = [m.group(1) if m else f.split(" ", 1)[-1]
+                                  for f in run.get("flags", []) if ":block " in f
+                                  for m in [re.search(r"'([^']+)'", f)]]
         verdict = RunScore(model=run["model"], sample_id=run["sample_id"], set=run.get("set", ""),
                            label=run.get("label", ""), seconds=0.0, status=run.get("status", ""),
                            checks=checks, block_spans=run["block_spans"],

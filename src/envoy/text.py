@@ -194,13 +194,22 @@ NUMBER_WORDS: dict[str, set[str]] = {
 }
 
 
+_APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u00b4": "'"})
+
+
+def fold(text: str) -> str:
+    """Lower-case, Western digits, straight apostrophes: what two spellings of
+    the same words have in common ("I\u2019m" and "I'm")."""
+    return to_western(text).lower().translate(_APOSTROPHES)
+
+
 def has_value(text: str, value: str) -> bool:
     """Is the value in the text? Numbers must match as whole tokens, so "30"
     is not found in "#3030", and a small number also counts when written as a
     word ("two business days", "يومين"); anything else is a case-insensitive
     substring."""
-    t = to_western(text).lower()
-    v = to_western(value).strip().lower()
+    t = fold(text)
+    v = fold(value).strip()
     if not v:
         return False
     if re.fullmatch(r"\d+(?:[.,]\d+)*", v):
@@ -221,20 +230,32 @@ _NEGATION = re.compile(
     r"|ません|ない|ありません|いたしかねます|できません|ではありません|ではなく", re.IGNORECASE)
 _QUOTED = re.compile(r"[\"'«»„“”‘’「」『』]")
 _SENTENCE = re.compile(r"(?<=[.!?؟。！？])\s+|\n+")
+# Restating what the sender asked for ("regarding your request for a refund,
+# I will check") names the demand without granting it. Only the narrow forms
+# that introduce the sender's words count; "as you requested" does not,
+# since it usually precedes a grant.
+_MENTION = re.compile(
+    r"(?<!\w)(?:your request (?:for|to|about)|you asked (?:for|to|about)|you mentioned|"
+    r"(?:tu|su) solicitud de|lo que (?:pides|solicitas)|(?:o )?seu pedido de|"
+    r"o que (?:pede|pediu|solicita)|votre demande (?:de|d'|concernant)|"
+    r"vous demandez|ihre (?:anfrage|bitte)|ihren wunsch|طلبت|طلبتي|بخصوص طلبك ب)(?!\w)"
+    r"|ご要望|ご希望|とのこと", re.IGNORECASE)
 
 
 def asserts_phrase(text: str, phrase: str) -> bool:
-    """Does the text state the phrase, as opposed to refusing or quoting it?
-    True when the phrase occurs in a sentence with no negation marker and not
-    between quotation marks. Conservative: a sentence like "no, you get free
-    shipping" reads as a refusal here, which is the rarer mistake."""
+    """Does the text state the phrase, as opposed to refusing, quoting or
+    restating it? True when the phrase occurs in a sentence with no negation
+    marker, not between quotation marks, and not introduced as the sender's
+    request. Conservative: a sentence like "no, you get free shipping" reads
+    as a refusal here, which is the rarer mistake."""
     for sent in _SENTENCE.split(text):
         if not has_value(sent, phrase):
             continue
-        low = to_western(sent).lower()
-        i = low.find(to_western(phrase).lower())
-        quoted = i >= 0 and len(_QUOTED.findall(low[:i])) % 2 == 1
-        if quoted or _NEGATION.search(low):
+        low = fold(sent)
+        i = low.find(fold(phrase))
+        before = low[:i] if i >= 0 else ""
+        quoted = i >= 0 and len(_QUOTED.findall(before)) % 2 == 1
+        if quoted or _NEGATION.search(low) or _MENTION.search(before):
             continue
         return True
     return False

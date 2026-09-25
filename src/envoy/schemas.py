@@ -134,6 +134,7 @@ class FlagKind(StrEnum):
     stage_failure = "stage_failure"
     conflicting_sources = "conflicting_sources"  # two facts disagree; the newest was used
     stale_source = "stale_source"  # the reply used an older fact that a newer one contradicts
+    echoed_instruction = "echoed_instruction"  # the reply repeats text the message told it to write
 
 
 class ExtractedFact(BaseModel):
