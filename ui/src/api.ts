@@ -65,19 +65,25 @@ export type Settings = {
   user_email: string;
   user_language: string;
   embed_model: string;
+  memory_capture: boolean;
 };
+export type Exclusion = { id: string; kind: "thread" | "address"; value: string; messages: number };
 export type Fact = {
   id: string; topic: string; topic_key: string; statement: string; value: string;
   said_on: string; said_by: "you" | "them"; party: string; message_id: string;
   language: string; status: "auto" | "confirmed" | "rejected";
 };
 export type MessageItem = {
-  id: string; date: string; from_addr: string; from_name: string; to_addrs: string;
+  id: string; date: string; from_addr: string; from_name: string; to_addrs: string; thread_id: string;
   subject: string; preview: string; size: number; is_mine: number; language: string; origin: string;
+  excluded: number;
 };
+export type MessageDetail = MessageItem & { text: string; facts: Fact[] };
 export type MemoryStatus = {
   embedder: { name: string; offline: boolean };
-  counts: { messages: number; mine: number };
+  capture: boolean;
+  exclusions: number;
+  counts: { messages: number; mine: number; excluded: number };
   vectors: Record<string, number>;
   facts: { facts: number; auto: number; confirmed: number; rejected: number };
   unextracted: number;
@@ -156,7 +162,11 @@ export const api = {
   historyGet: (id: string) => req<Result>("GET", `/api/history/${id}`),
   memory: () => req<MemoryStatus>("GET", "/api/memory"),
   messages: (q = "") => req<{ counts: { messages: number; mine: number }; messages: MessageItem[] }>("GET", `/api/messages?q=${encodeURIComponent(q)}`),
+  message: (id: string) => req<MessageDetail>("GET", `/api/messages/${id}`),
   delMessage: (id: string) => req<{ ok: boolean }>("DELETE", `/api/messages/${id}`),
+  exclusions: () => req<Exclusion[]>("GET", "/api/exclusions"),
+  addExclusion: (kind: "thread" | "address", value: string) => req<{ id: string }>("POST", "/api/exclusions", { kind, value }),
+  delExclusion: (id: string) => req<{ ok: boolean }>("DELETE", `/api/exclusions/${id}`),
   importPaths: (paths: string[]) => req<{ summary: string; skipped: string[] }>("POST", "/api/import", { paths }),
   extract: () => req<{ messages: number; facts: number; failed: number }>("POST", "/api/extract"),
   facts: (q = "", status = "") => req<Fact[]>("GET", `/api/facts?q=${encodeURIComponent(q)}&status=${status}`),

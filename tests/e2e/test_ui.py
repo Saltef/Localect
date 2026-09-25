@@ -94,6 +94,7 @@ def test_memory_page_imports_reads_facts_and_settles_a_conflict(server):
         page.get_by_test_id("memory-note").wait_for()
         assert "5 message(s) stored (3 written by you)" in page.get_by_test_id(
             "memory-note").inner_text()
+        page.get_by_test_id("message-row").first.wait_for()
         assert page.get_by_test_id("message-row").count() == 5
         page.get_by_role("button", name=re.compile(r"Read \d+ message")).click()
         page.get_by_text("fact(s) found").wait_for()
@@ -106,4 +107,36 @@ def test_memory_page_imports_reads_facts_and_settles_a_conflict(server):
         page.get_by_test_id("memory-search").fill("zz-nothing")
         page.get_by_test_id("memory-search").fill("")
         page.wait_for_function("!document.body.innerText.includes('disagreeing facts')")
+        # a reply drawn from memory shows where each claim came from
+        page.get_by_test_id("nav-compose").click()
+        # a question only the imported mail can answer (the demo knowledge base cannot)
+        page.get_by_test_id("message").fill("الشحن للإسكندرية بياخد قد إيه؟")
+        page.get_by_role("button", name="Compose reply").click()
+        page.get_by_test_id("result").wait_for(timeout=60000)
+        # the panel must label every cited source by kind and, for memory, by who said it when
+        labels = {"knowledge": "knowledge base", "mail": "your mail", "fact": "remembered fact",
+                  "glossary": "glossary", "history": "past reply", "thread": "this thread"}
+        with urllib.request.urlopen(f"{server}/api/history") as r:
+            latest = json.loads(r.read())[0]["id"]
+        with urllib.request.urlopen(f"{server}/api/history/{latest}") as r:
+            res = json.loads(r.read())
+        by_id = {x["id"]: x for x in res["sources"]}
+        cited = [by_id[i] for e in res["ledger"] for i in e["source_ids"]]
+        assert cited, "the stub always cites something for a shipping question"
+        panel = page.get_by_test_id("sources").inner_text()
+        summary = page.get_by_test_id("cited-summary").inner_text()
+        for src in cited:
+            assert labels[src["kind"]] in panel and f"from {labels[src['kind']]}" in summary
+            if src["kind"] in ("mail", "fact"):
+                assert src["meta"]["said"] in panel
+        # open a message, exclude its thread, see it greyed out and listed; then pause capture
+        page.get_by_test_id("nav-memory").click()
+        page.get_by_text("Re: Return window").first.click()
+        page.get_by_test_id("message-text").wait_for()
+        page.get_by_role("button", name="Exclude this thread").click()
+        page.get_by_test_id("exclusion-row").wait_for()
+        assert page.get_by_text("excluded", exact=True).count() >= 1
+        page.get_by_test_id("capture-toggle").click()
+        page.get_by_text("capture paused").wait_for()
+        page.screenshot(path=str(SHOTS / "memory.png"))
         browser.close()

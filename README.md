@@ -51,9 +51,9 @@ a second read and by deterministic code before you see it.
   wrong: numbers and ids in any digit script, do-not-translate terms,
   dropped segments.
 - **Drafts from what you actually said.** Import your past mail and Envoy
-  reads it into dated facts you can review, cites them like any other
-  source, warns when two of them disagree, and writes in your own voice.
-  See [docs/MEMORY.md](docs/MEMORY.md).
+  reads it into dated facts you can review, cites them with who said what
+  when, warns when two of them disagree, writes in your own voice, and keeps
+  out any thread or person you exclude. See [docs/MEMORY.md](docs/MEMORY.md).
 - **Measured, not claimed.** A held-out set no prompt was tuned on, planted
   faults the verifier must catch, an injection set, a dialect-identifier
   ablation, public-benchmark checks on single agents, and a blind human

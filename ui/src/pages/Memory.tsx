@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Check, Trash2, X } from "lucide-react";
-import { api, type Fact, type MemoryStatus, type MessageItem } from "../api";
+import { Check, EyeOff, Trash2, X } from "lucide-react";
+import { api, type Exclusion, type Fact, type MemoryStatus, type MessageDetail, type MessageItem } from "../api";
 import { Badge, Button, Card, Empty, Field, inputCls } from "../components/ui";
 
 const day = (iso: string) => (iso || "").slice(0, 10);
@@ -9,6 +9,8 @@ export default function MemoryPage() {
   const [status, setStatus] = useState<MemoryStatus | null>(null);
   const [facts, setFacts] = useState<Fact[]>([]);
   const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [exclusions, setExclusions] = useState<Exclusion[]>([]);
+  const [open, setOpen] = useState<MessageDetail | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("");
   const [paths, setPaths] = useState("");
@@ -19,7 +21,11 @@ export default function MemoryPage() {
     api.memory().then(setStatus).catch(() => setStatus(null));
     api.facts(q, filter).then(setFacts).catch(() => setFacts([]));
     api.messages(q).then((m) => setMessages(m.messages)).catch(() => setMessages([]));
+    api.exclusions().then(setExclusions).catch(() => setExclusions([]));
   };
+  const toggleCapture = () => status && api.saveSettings({ memory_capture: !status.capture }).then(load);
+  const exclude = (kind: "thread" | "address", value: string) => api.addExclusion(kind, value).then(() => { setOpen(null); load(); });
+  const openMessage = (id: string) => api.message(id).then(setOpen);
   useEffect(() => { load(); }, [q, filter]);
 
   const run = async (what: string, fn: () => Promise<string>) => {
@@ -44,7 +50,8 @@ export default function MemoryPage() {
     <div className="space-y-4">
       {status && (
         <div className="flex flex-wrap gap-2 text-sm">
-          <Badge>{status.counts.messages} messages · {status.counts.mine} by you</Badge>
+          <Badge>{status.counts.messages} messages · {status.counts.mine} by you{status.counts.excluded ? ` · ${status.counts.excluded} excluded` : ""}</Badge>
+          <button onClick={toggleCapture} data-testid="capture-toggle" className="inline-flex"><Badge tone={status.capture ? "green" : "amber"}>{status.capture ? "● remembering new messages" : "❚❚ capture paused"}</Badge></button>
           <Badge>{status.facts.facts} facts · {status.facts.confirmed} confirmed</Badge>
           <Badge tone={status.embedder.offline ? "amber" : "green"}>search: {status.embedder.name}</Badge>
           {status.unextracted > 0 && <Badge tone="amber">{status.unextracted} message(s) not yet read for facts</Badge>}
@@ -109,10 +116,10 @@ export default function MemoryPage() {
             {messages.length ? (
               <ul className="divide-y divide-zinc-100 text-sm dark:divide-zinc-800">
                 {messages.map((m) => (
-                  <li key={m.id} className="flex items-start gap-3 py-2" data-testid="message-row">
+                  <li key={m.id} className={`flex items-start gap-3 py-2 ${m.excluded ? "opacity-50" : ""}`} data-testid="message-row">
                     <span className="w-24 shrink-0 text-xs text-zinc-500">{day(m.date)}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2"><b className="truncate">{m.subject || "(no subject)"}</b>{m.is_mine ? <Badge tone="indigo">you</Badge> : <span className="text-xs text-zinc-500">{m.from_name || m.from_addr}</span>}{m.origin === "capture" && <Badge tone="amber">captured</Badge>}</span>
+                    <span className="min-w-0 flex-1 cursor-pointer" onClick={() => openMessage(m.id)}>
+                      <span className="flex flex-wrap items-center gap-2"><b className="truncate">{m.subject || "(no subject)"}</b>{m.is_mine ? <Badge tone="indigo">you</Badge> : <span className="text-xs text-zinc-500">{m.from_name || m.from_addr}</span>}{m.origin === "capture" && <Badge tone="amber">captured</Badge>}{m.excluded ? <Badge tone="red">excluded</Badge> : null}</span>
                       <span className="block truncate text-zinc-500">{m.preview}</span>
                     </span>
                     <Button kind="danger" onClick={() => api.delMessage(m.id).then(load)}><Trash2 className="h-4 w-4" /></Button>
@@ -121,6 +128,21 @@ export default function MemoryPage() {
               </ul>
             ) : <Empty>Nothing imported yet.</Empty>}
           </Card>
+          {open && (
+            <Card title={open.subject || "(no subject)"} action={<Button kind="ghost" onClick={() => setOpen(null)}><X className="h-4 w-4" /></Button>}>
+              <div className="mb-2 text-xs text-zinc-500">{day(open.date)} · {open.is_mine ? "you" : open.from_name || open.from_addr} → {open.to_addrs || "—"}{open.excluded ? " · excluded from memory" : ""}</div>
+              <pre className="whitespace-pre-wrap rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800/60" data-testid="message-text">{open.text}</pre>
+              {open.facts.length > 0 && (
+                <ul className="mt-3 space-y-1 text-sm">
+                  {open.facts.map((f) => <li key={f.id}><Badge tone={tone(f.status)}>{f.value || "—"}</Badge> <span className="font-medium">{f.topic}</span> <span className="text-zinc-500">{f.statement}</span></li>)}
+                </ul>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {open.thread_id && <Button kind="ghost" onClick={() => exclude("thread", open.thread_id)}><EyeOff className="h-4 w-4" /> Exclude this thread</Button>}
+                <Button kind="ghost" onClick={() => exclude("address", open.is_mine ? (open.to_addrs.split(",")[0] || "") : open.from_addr)} disabled={!(open.is_mine ? open.to_addrs : open.from_addr)}><EyeOff className="h-4 w-4" /> Exclude {open.is_mine ? open.to_addrs.split(",")[0] : open.from_addr}</Button>
+              </div>
+            </Card>
+          )}
         </div>
         <div className="min-w-0 space-y-4">
           <Card title="Import past mail">
@@ -134,6 +156,15 @@ export default function MemoryPage() {
           <Card title="Read mail for facts">
             <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">Turns each message into dated facts (policies, prices, deadlines) you can confirm or reject. One model call per message.</p>
             <Button kind="ghost" onClick={doExtract} disabled={busy !== "" || !status || status.unextracted === 0} data-testid="extract">{busy === "extract" ? "Reading…" : `Read ${status?.unextracted ?? 0} message(s)`}</Button>
+          </Card>
+          <Card title="Excluded from memory">
+            {exclusions.length ? (
+              <ul className="space-y-1 text-sm">
+                {exclusions.map((x) => (
+                  <li key={x.id} className="flex items-center gap-2" data-testid="exclusion-row"><Badge>{x.kind}</Badge><span className="min-w-0 flex-1 truncate">{x.value}</span><span className="text-xs text-zinc-500">{x.messages} msg</span><Button kind="danger" onClick={() => api.delExclusion(x.id).then(load)}><Trash2 className="h-4 w-4" /></Button></li>
+                ))}
+              </ul>
+            ) : <p className="text-sm text-zinc-500">Open a message to exclude its thread or the other person. Excluded mail is never searched, read for facts, or used as a voice example.</p>}
           </Card>
           {note && <p className="text-sm text-zinc-600 dark:text-zinc-400" data-testid="memory-note">{note}</p>}
           <p className="text-xs text-zinc-500">Everything here stays on this machine. Only the paragraphs retrieved for one reply are sent to the model you configured.</p>
