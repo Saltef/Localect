@@ -291,6 +291,15 @@ def _fullrun(args: argparse.Namespace) -> None:
     print(f"\nWrote {out / 'report.md'} and {len(written)} JSON file(s). Paste report.md back.")
 
 
+def _rescore(args: argparse.Namespace) -> None:
+    """Re-score stored replies with the current checks; no model calls."""
+    from .eval import rescore_file
+
+    for path in args.files:
+        n, before, after = rescore_file(path)
+        print(f"{path}: {n} runs, passed {before} → {after} with the current scorer")
+
+
 def _report(args: argparse.Namespace) -> None:
     from pathlib import Path
 
@@ -547,6 +556,12 @@ def main() -> None:
     fr.add_argument("--critic-model", dest="critic_model", help="judge with a different model")
     fr.add_argument("--n", type=int, default=30, help="exchanges to replay in a full run")
     fr.set_defaults(func=_fullrun)
+
+    rs = sub.add_parser("rescore", help="recompute the checks of eval JSON files from the "
+                                        "replies they store, with the current scorer; no "
+                                        "model calls")
+    rs.add_argument("files", nargs="+")
+    rs.set_defaults(func=_rescore)
 
     rp = sub.add_parser("report", help="one markdown report from eval, bench and study JSON")
     rp.add_argument("files", nargs="+", help="JSON written by envoy eval/bench/study --out")

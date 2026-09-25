@@ -22,7 +22,9 @@ def test_topic_and_value_keys_fold_languages_and_digit_scripts():
     assert "return" in topic_key("prazo de devolução").split()
     assert topic_key("devolução") == topic_key("return")
     assert topic_key("") == "" and topic_key("zzqx") == "zzqx"
-    assert value_key("٣٠ أيام") == value_key("30 أيام") and value_key(" 30  days") == "30 days"
+    # a value with numbers is keyed by them, so the same fact in two languages compares equal
+    assert value_key("٣٠ أيام") == value_key("30 days") == value_key("30") == "30"
+    assert value_key("9:00 a 17:00") == "0 17 9" and value_key("free") == "free"
 
 
 def test_normalize_extraction_drops_empty_statements_and_defaults():

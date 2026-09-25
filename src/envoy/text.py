@@ -176,16 +176,68 @@ def numbers(text: str) -> set[str]:
     return out
 
 
+# Small numbers written as words, in the languages Envoy ships, plus the Arabic
+# dual ("يومين" is "two days" with no numeral anywhere). "1" is left out: "one",
+# "un" and "a" are everywhere in prose.
+NUMBER_WORDS: dict[str, set[str]] = {
+    "2": {"two", "dos", "dois", "duas", "deux", "zwei", "اثنين", "اثنان", "اثنتين", "يومين",
+          "يومان", "أسبوعين", "أسبوعان", "شهرين", "شهران", "سنتين", "سنتان", "二", "2つ", "二日"},
+    "3": {"three", "tres", "três", "trois", "drei", "ثلاثة", "ثلاث", "三"},
+    "4": {"four", "cuatro", "quatro", "quatre", "vier", "أربعة", "أربع", "四"},
+    "5": {"five", "cinco", "cinq", "fünf", "خمسة", "خمس", "五"},
+    "6": {"six", "seis", "sechs", "ستة", "ست", "六"},
+    "7": {"seven", "siete", "sete", "sept", "sieben", "سبعة", "سبع", "七"},
+    "8": {"eight", "ocho", "oito", "huit", "acht", "ثمانية", "ثماني", "八"},
+    "9": {"nine", "nueve", "nove", "neuf", "neun", "تسعة", "تسع", "九"},
+    "10": {"ten", "diez", "dez", "dix", "zehn", "عشرة", "عشر", "十"},
+    "12": {"twelve", "doce", "doze", "douze", "zwölf", "اثني عشر", "اثنا عشر", "十二"},
+}
+
+
 def has_value(text: str, value: str) -> bool:
     """Is the value in the text? Numbers must match as whole tokens, so "30"
-    is not found in "#3030"; anything else is a case-insensitive substring."""
+    is not found in "#3030", and a small number also counts when written as a
+    word ("two business days", "يومين"); anything else is a case-insensitive
+    substring."""
     t = to_western(text).lower()
     v = to_western(value).strip().lower()
     if not v:
         return False
     if re.fullmatch(r"\d+(?:[.,]\d+)*", v):
-        return re.search(rf"(?<!\d)(?<!\d[.,]){re.escape(v)}(?![.,]?\d)", t) is not None
+        if re.search(rf"(?<!\d)(?<!\d[.,]){re.escape(v)}(?![.,]?\d)", t):
+            return True
+        return any(re.search(rf"(?<!\w){re.escape(w)}(?!\w)", t) if not _CJK.search(w) else w in t
+                   for w in NUMBER_WORDS.get(v, ()))
     return v in t
+
+
+# Negation and quotation: a forbidden phrase inside a sentence that denies it,
+# or inside quotation marks, is a refusal that names the thing, not a promise.
+_NEGATION = re.compile(
+    r"(?<!\w)(?:not|no|never|cannot|can't|won't|don't|doesn't|isn't|aren't|unable|"
+    r"nunca|ni|jamás|tampoco|não|nem|ne|pas|jamais|aucun|aucune|nicht|kein|keine|"
+    r"keinen|nie|niemals|لا|لن|لم|ليس|ليست|غير|مش|ما|ولا)(?!\w)|n't\b"
+    # Japanese has no word spaces, so its markers match anywhere.
+    r"|ません|ない|ありません|いたしかねます|できません|ではありません|ではなく", re.IGNORECASE)
+_QUOTED = re.compile(r"[\"'«»„“”‘’「」『』]")
+_SENTENCE = re.compile(r"(?<=[.!?؟。！？])\s+|\n+")
+
+
+def asserts_phrase(text: str, phrase: str) -> bool:
+    """Does the text state the phrase, as opposed to refusing or quoting it?
+    True when the phrase occurs in a sentence with no negation marker and not
+    between quotation marks. Conservative: a sentence like "no, you get free
+    shipping" reads as a refusal here, which is the rarer mistake."""
+    for sent in _SENTENCE.split(text):
+        if not has_value(sent, phrase):
+            continue
+        low = to_western(sent).lower()
+        i = low.find(to_western(phrase).lower())
+        quoted = i >= 0 and len(_QUOTED.findall(low[:i])) % 2 == 1
+        if quoted or _NEGATION.search(low):
+            continue
+        return True
+    return False
 
 
 _CITATION = re.compile(r"\s*\[?\b(?:kb|gl|hx|th|ml|fc):[A-Za-z0-9_:\-]+\]?")

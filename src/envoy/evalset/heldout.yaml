@@ -27,7 +27,7 @@
   label: "Egyptian Arabic: warranty"
   locale: ar-EG
   text: "الضمان بتاع SkyPack كام شهر؟ والسوستة باظت بعد شهرين، ده مغطى في الضمان؟"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: ar-EG-05
@@ -67,7 +67,7 @@
   label: "Gulf Arabic: warranty"
   locale: ar-SA
   text: "الحين الضمان كم شهر على SkyPack؟ وإذا انقطع الحزام من كثر الاستخدام، يشمله الضمان؟"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: ar-SA-05
@@ -134,7 +134,7 @@
   label: "Brazilian Portuguese: warranty"
   locale: pt-BR
   text: "Qual é a garantia da SkyPack? O zíper quebrou depois de 3 meses de uso, isso está coberto?"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: pt-BR-05
@@ -174,7 +174,7 @@
   label: "European Portuguese: warranty"
   locale: pt-PT
   text: "Boa tarde, qual é a garantia da vossa SkyPack? A fivela partiu-se ao fim de dois meses. Está coberta pela garantia?"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: pt-PT-05
@@ -208,7 +208,7 @@
   label: "Mexican Spanish: warranty"
   locale: es-MX
   text: "Hola, ¿qué garantía tiene la SkyPack? Se rompió el cierre a los 3 meses de uso, ¿eso lo cubre la garantía?"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: es-MX-05
@@ -248,7 +248,7 @@
   label: "Castilian Spanish: warranty"
   locale: es-ES
   text: "Hola, ¿qué garantía tiene la SkyPack? Se me ha roto la cremallera a los 3 meses, ¿lo cubrís vosotros? Gracias."
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: es-ES-05
@@ -282,7 +282,7 @@
   label: "French: warranty"
   locale: fr-FR
   text: "Bonjour, quelle est la garantie du SkyPack ? La fermeture éclair a lâché après 3 mois, est-ce couvert par la garantie ? Merci."
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: fr-FR-05
@@ -316,7 +316,7 @@
   label: "German: warranty"
   locale: de-DE
   text: "Hallo, welche Garantie hat der SkyPack? Der Reißverschluss ist nach 3 Monaten kaputt, ist das von der Garantie abgedeckt? Danke."
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: de-DE-05
@@ -350,7 +350,7 @@
   label: "British English: warranty"
   locale: en-GB
   text: "What's the warranty on the SkyPack? The zip failed after 3 months whilst on holiday. Is that covered under warranty?"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: en-GB-05
@@ -384,7 +384,7 @@
   label: "American English: warranty"
   locale: en-US
   text: "What's the warranty on the SkyPack? The zipper broke after 3 months. Is that covered under the warranty?"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: en-US-05
@@ -418,7 +418,7 @@
   label: "Japanese: warranty"
   locale: ja-JP
   text: "SkyPack の保証期間は何か月ですか？3か月でファスナーが壊れたのですが、保証の対象になりますか？"
-  facts: [["12"]]
+  facts: [["12", "twelve", "one year", "a year", "1 year", "un año", "um ano", "un an", "ein Jahr", "einem Jahr", "سنة", "عام", "1年", "一年", "１年"]]
   wrong: ["6", "24"]
   terms: ["SkyPack"]
 - id: ja-JP-05

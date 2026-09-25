@@ -145,10 +145,16 @@ def conflict_flags(draft: Draft, sources: list[SourceSnippet]) -> list[Flag]:
                                        "the newest was used", severity="warn"))
             else:
                 old = next(f for f in cited if f.id != newest.id)
+                # The same topic said to two different people may legitimately
+                # differ (delivery to Japan vs domestic); that is a warning. The
+                # same person, or a general statement, is a block.
+                same_party = (not old.meta.get("party") or not newest.meta.get("party")
+                              or old.meta.get("party") == newest.meta.get("party"))
                 out.append(Flag(segment_id=seg.id, kind=FlagKind.stale_source,
                                 span=str(old.meta["value"]),
                                 reason=f"'{old.meta['topic']}' was later changed: {summary}; "
-                                       f"this reply uses {old.meta['value']}", severity="block"))
+                                       f"this reply uses {old.meta['value']}",
+                                severity="block" if same_party else "warn"))
     return out
 
 
