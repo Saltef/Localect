@@ -150,3 +150,19 @@ def test_exclusions_hide_threads_and_addresses_from_every_search():
         db.exclusion_add(con, "banana", "x")
     with pytest.raises(ValueError):
         db.exclusion_add(con, "address", "  ")
+
+
+def test_raw_rfc822_files_without_an_extension_import_like_eml():
+    """Maildir exports and the Enron corpus store one raw message per file with
+    no extension; the importer must read them, and the replay must pair them."""
+    from envoy.evalx.replay import find_pairs
+
+    con = db.connect()
+    r = import_paths(con, [FIX.parent / "enron-style"], my_addresses=["mark.taylor@enron.com"])
+    assert (r.files, r.messages, r.mine, r.skipped) == (2, 2, 1, [])
+    sent = next(m for m in db.message_list(con) if m["is_mine"])
+    assert sent["subject"] == "RE: ISDA with Bank X" and sent["date"] == "2001-09-12T21:22:00Z"
+    assert "Original Message" not in db.message_get(con, sent["id"])["text"]
+    (pair,) = find_pairs(con)
+    assert pair.incoming["from_addr"] == "sara.shackleton@enron.com" and pair.reply["is_mine"]
+    assert (FIX / "ignore.bin").exists() and import_paths(con, [FIX / "ignore.bin"]).skipped
