@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -49,6 +50,26 @@ def _is_mbox(path: Path) -> bool:
             return f.read(5) == b"From "
     except OSError:
         return False
+
+
+_HEADER = re.compile(rb"^(Message-ID|From|Date|Subject|To|Received|Return-Path|X-[A-Za-z-]+):",
+                     re.IGNORECASE)
+
+
+def _is_rfc822(path: Path) -> bool:
+    """A raw message file with no extension, as maildir exports and the Enron
+    corpus store them (the file starts with header lines)."""
+    if path.suffix and path.suffix.lower() != ".eml":
+        return path.suffix.lower() == ".eml"
+    try:
+        with open(path, "rb") as f:
+            head = f.read(2048)
+    except OSError:
+        return False
+    if head.startswith(b"From "):
+        return False  # mbox
+    lines = head.split(b"\n")[:5]
+    return sum(1 for ln in lines if _HEADER.match(ln)) >= 2
 
 
 def _pdf_text(path: Path) -> str:
@@ -100,7 +121,7 @@ def import_paths(con, paths: Iterable[str | Path], my_addresses: Iterable[str] =
             if _is_mbox(path):
                 for m in iter_mbox(path):
                     store_message(con, m, mine, report=report)
-            elif suffix == ".eml":
+            elif suffix == ".eml" or (not suffix and _is_rfc822(path)):
                 for m in iter_eml(path):
                     store_message(con, m, mine, report=report)
             elif suffix in DOC_SUFFIXES:

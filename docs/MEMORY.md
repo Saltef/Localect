@@ -44,7 +44,8 @@ date in UTC, the subject, the thread, and a guessed language. Attachments are
 not stored. HTML-only mail is rendered to text with quoted blocks dropped.
 
 PDF import needs `pip install pypdf` (or `pipx inject envoy-ai pypdf`); the
-other formats need nothing.
+other formats need nothing. Folders of raw messages with no extension, as
+maildir exports and the Enron corpus store them, are read like `.eml`.
 
 ## Search across languages
 
@@ -287,6 +288,8 @@ conditional on the same run.
 incoming message with memory cut off at that date and is scored against the
 reply you actually sent (see [EVAL.md](EVAL.md#replay-your-own-inbox-the-test-on-actual-data)).
 `envoy fullrun` runs it together with every other suite into one report.
+Without mail of your own, the Enron corpus is real mail from real people;
+EVAL.md has the three commands.
 
 ## Rules for the work
 

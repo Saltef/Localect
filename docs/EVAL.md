@@ -212,6 +212,30 @@ it is the pipeline against what you actually did, read exchange by
 exchange, and the JSON keeps all three texts (incoming, yours, Envoy's) so a
 low chrF can be judged by eye.
 
+### No mail of your own yet: replay the Enron corpus
+
+The Enron email corpus is about half a million real messages from 150
+people, released in the course of a public investigation and available for
+free (the maintained copy is at
+https://www.cs.cmu.edu/~enron/, a 400 MB tar). Each person's folders hold
+raw messages, one per file with no extension, which `envoy import` reads as
+is. Pick one mailbox, tell Envoy whose it is, and replay it:
+
+```bash
+envoy config --user-email mark.taylor@enron.com
+envoy import maildir/taylor-m/inbox maildir/taylor-m/sent maildir/taylor-m/_sent_mail --extract
+envoy replay --n 30 --out replay.json
+```
+
+Mailboxes with many replied-to threads: `taylor-m` (legal), `dasovich-j`
+(regulatory affairs, long threads), `kaminski-v` (a research group),
+`shackleton-s` (contracts). Each is a few thousand messages; import takes a
+minute, extraction one model call per message (use `--no-index` and skip
+`--extract` for a retrieval-only look). It is English-only, from 2000 to
+2002, and corporate, so it tests memory, the pairing, and the Arbiter on
+real threads, not the multilingual Rewriter. Nothing in the Enron mail is
+tuned on, and it is never shipped with Envoy.
+
 ## One command for everything: `envoy fullrun`
 
 ```bash
