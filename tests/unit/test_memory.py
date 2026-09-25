@@ -1,11 +1,18 @@
 """Importing past mail: parsing, cleaning, storage, search."""
 
+import asyncio
 from pathlib import Path
+
+import pytest
 
 from envoy import db
 from envoy.memory import import_paths
 from envoy.memory.clean import clean_body, html_to_text, strip_quotes, strip_signature
+from envoy.memory.embed import HashEmbedder
+from envoy.memory.facts import extract_pending
 from envoy.memory.parse import iter_eml, iter_mbox
+from envoy.memory.search import mail_search as hybrid
+from envoy.models.stub import StubModel
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
 
@@ -71,7 +78,7 @@ def test_import_is_idempotent_marks_mine_and_adds_documents():
     assert (r.files, r.messages, r.mine, r.duplicates, r.empty, r.documents) == (3, 6, 4, 1, 1, 1)
     assert r.skipped == [str(FIX / "ignore.bin")]
     assert "6 message(s) stored (4 written by you)" in r.summary()
-    assert db.message_count(con) == {"messages": 6, "mine": 4}
+    assert db.message_count(con) == {"messages": 6, "mine": 4, "excluded": 0}
     again = import_paths(con, [FIX / "sample.mbox"], my_addresses=["safea@example.com"])
     assert again.messages == 0 and again.duplicates == 6  # 5 unique + the repeated m3
     assert db.message_count(con)["messages"] == 6
@@ -109,3 +116,37 @@ def test_message_list_get_delete():
     assert db.message_get(con, m["id"])["text"].startswith("Hi Jo")
     db.message_delete(con, m["id"])
     assert db.message_count(con)["messages"] == 0
+
+
+def test_exclusions_hide_threads_and_addresses_from_every_search():
+    con = db.connect()
+    import_paths(con, [FIX], my_addresses=["safea@example.com"])
+    asyncio.run(extract_pending(con, StubModel()))
+    assert db.facts_search(con, "return window")
+    # exclude the return-window thread: its messages leave search, facts, voice and extraction
+    xid = db.exclusion_add(con, "thread", "m1@example.com", "2026-01-01T00:00:00Z")
+    assert db.message_count(con)["excluded"] == 2
+    assert all("14 days" not in h["text"] for h in db.mail_search(con, "return window"))
+    assert any("30 days" in h["text"] for h in db.mail_search(con, "return window"))  # other thread
+    assert all("14 days" not in h["text"] for h in hybrid(con, HashEmbedder(), "return window"))
+    assert all("14" != f["value"] for f in db.facts_search(con, "return window"))
+    assert all(not v["text"].startswith("Hi Layla,\n\nOur return") for v in
+               db.voice_examples(con, "en"))
+    (rule,) = db.exclusion_list(con)
+    assert rule["kind"] == "thread" and rule["messages"] == 2 and rule["id"] == xid
+    assert db.exclusion_add(con, "thread", "m1@example.com") == xid  # idempotent
+    # an address rule catches senders and recipients, and applies to new messages too
+    db.exclusion_add(con, "address", "Omar@Example.org")
+    assert db.message_count(con)["excluded"] == 4
+    mid = db.message_add(con, text="Later note to Omar with 9 items.",
+                         from_addr="safea@example.com", to_addrs="omar@example.org",
+                         date="2026-02-01T00:00:00Z")
+    assert db.message_get(con, mid)["excluded"] == 1 and db.messages_unextracted(con) == []
+    # removing a rule brings the messages back
+    db.exclusion_delete(con, xid)
+    assert db.message_count(con)["excluded"] == 3
+    assert any("14 days" in h["text"] for h in db.mail_search(con, "return window"))
+    with pytest.raises(ValueError):
+        db.exclusion_add(con, "banana", "x")
+    with pytest.raises(ValueError):
+        db.exclusion_add(con, "address", "  ")

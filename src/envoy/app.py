@@ -46,6 +46,11 @@ class ImportIn(BaseModel):
     paths: list[str]
 
 
+class ExclusionIn(BaseModel):
+    kind: str  # thread | address
+    value: str
+
+
 class FactPatch(BaseModel):
     status: str | None = None  # auto | confirmed | rejected
     statement: str | None = None
@@ -122,7 +127,7 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         s: Settings = app.state.settings
         for k, v in patch.items():
             if k in {"provider", "endpoint", "model", "api_key", "user_name", "user_email",
-                     "user_language", "embed_model"}:
+                     "user_language", "embed_model", "memory_capture"}:
                 if k == "api_key" and v in ("", "set"):
                     continue  # the UI sends the masked value back; keep the stored key
                 setattr(s, k, v)
@@ -234,7 +239,26 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         m = db.message_get(app.state.con, mid)
         if not m:
             raise HTTPException(404, "no such message")
-        return m
+        return {**m, "facts": db.facts_for_message(app.state.con, mid)}
+
+    @app.get("/api/exclusions")
+    def exclusions() -> list[dict[str, Any]]:
+        return db.exclusion_list(app.state.con)
+
+    @app.post("/api/exclusions")
+    def exclusion_add(x: ExclusionIn) -> dict[str, Any]:
+        from .memory.parse import now_iso
+
+        try:
+            xid = db.exclusion_add(app.state.con, x.kind, x.value, now_iso())
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        return {"id": xid, "counts": db.message_count(app.state.con)}
+
+    @app.delete("/api/exclusions/{xid}")
+    def exclusion_delete(xid: str) -> dict[str, Any]:
+        db.exclusion_delete(app.state.con, xid)
+        return {"ok": True, "counts": db.message_count(app.state.con)}
 
     @app.post("/api/messages")
     async def message_add(m: MessageIn) -> dict[str, Any]:
@@ -243,6 +267,8 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
         from .models.stub import detect_language
 
         s: Settings = app.state.settings
+        if not s.memory_capture:
+            return {"id": None, "stored": False, "facts": 0, "reason": "capture is paused"}
         text = clean_body(m.text)
         if not text:
             raise HTTPException(400, "the message has no text once quotes are removed")
@@ -293,6 +319,8 @@ def create_app(settings: Settings | None = None, con=None, model=None, tools=Non
     def memory_status() -> dict[str, Any]:
         s: Settings = app.state.settings
         return {"embedder": describe(build_embedder(s)),
+                "capture": s.memory_capture,
+                "exclusions": len(db.exclusion_list(app.state.con)),
                 "counts": db.message_count(app.state.con),
                 "vectors": db.embedding_count(app.state.con),
                 "facts": db.fact_count(app.state.con),

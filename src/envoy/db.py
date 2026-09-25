@@ -39,10 +39,15 @@ CREATE TABLE IF NOT EXISTS messages (
   from_name TEXT NOT NULL DEFAULT '', to_addrs TEXT NOT NULL DEFAULT '',
   subject TEXT NOT NULL DEFAULT '', text TEXT NOT NULL, is_mine INTEGER NOT NULL DEFAULT 0,
   language TEXT NOT NULL DEFAULT '', origin TEXT NOT NULL DEFAULT 'import',
-  source TEXT NOT NULL DEFAULT '', extracted_at TEXT NOT NULL DEFAULT ''
+  source TEXT NOT NULL DEFAULT '', extracted_at TEXT NOT NULL DEFAULT '',
+  excluded INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX IF NOT EXISTS messages_external ON messages(external_id)
   WHERE external_id <> '';
+CREATE TABLE IF NOT EXISTS exclusions (
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL, value TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT '',
+  UNIQUE (kind, value)
+);
 CREATE TABLE IF NOT EXISTS facts (
   id TEXT PRIMARY KEY, topic TEXT NOT NULL, topic_key TEXT NOT NULL, statement TEXT NOT NULL,
   value TEXT NOT NULL DEFAULT '', said_on TEXT NOT NULL DEFAULT '',
@@ -79,6 +84,8 @@ def _migrate(con: sqlite3.Connection) -> None:
     cols = {r["name"] for r in con.execute("PRAGMA table_info(messages)")}
     if cols and "extracted_at" not in cols:
         con.execute("ALTER TABLE messages ADD COLUMN extracted_at TEXT NOT NULL DEFAULT ''")
+    if cols and "excluded" not in cols:
+        con.execute("ALTER TABLE messages ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")
     cols = {r["name"] for r in con.execute("PRAGMA table_info(contacts)")}
     if "email" not in cols:
         con.execute("ALTER TABLE contacts ADD COLUMN email TEXT NOT NULL DEFAULT ''")
@@ -246,12 +253,13 @@ def message_add(con, *, text: str, external_id: str = "", thread_id: str = "", d
     """Store one message. Returns its id, or None when the same message (by
     Message-ID) is already stored, so an export can be imported twice."""
     mid = _uid()
+    excluded = is_excluded(con, thread_id, from_addr, to_addrs)
     cur = con.execute(
         "INSERT OR IGNORE INTO messages (id, external_id, thread_id, date, from_addr, from_name, "
-        "to_addrs, subject, text, is_mine, language, origin, source) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "to_addrs, subject, text, is_mine, language, origin, source, excluded) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (mid, external_id, thread_id, date, from_addr.lower(), from_name, to_addrs.lower(),
-         subject, text, int(is_mine), language, origin, source))
+         subject, text, int(is_mine), language, origin, source, int(excluded)))
     return mid if cur.rowcount else None
 
 
@@ -259,7 +267,8 @@ def message_list(con, limit: int = 200, query: str = "") -> list[dict[str, Any]]
     rows = con.execute(
         "SELECT id, external_id, thread_id, date, from_addr, from_name, to_addrs, subject, "
         "substr(text, 1, 240) AS preview, length(text) AS size, is_mine, language, origin, "
-        "source FROM messages ORDER BY date DESC LIMIT ?", (limit * 4 if query else limit,))
+        "source, excluded FROM messages ORDER BY date DESC LIMIT ?",
+        (limit * 4 if query else limit,))
     out = [dict(r) for r in rows]
     if query:
         q = query.lower()
@@ -282,7 +291,8 @@ def message_delete(con, mid: str) -> None:
 
 def messages_unextracted(con, limit: int = 1000) -> list[dict[str, Any]]:
     return [dict(r) for r in con.execute(
-        "SELECT * FROM messages WHERE extracted_at='' ORDER BY date LIMIT ?", (limit,))]
+        "SELECT * FROM messages WHERE extracted_at='' AND excluded=0 ORDER BY date LIMIT ?",
+        (limit,))]
 
 
 def message_mark_extracted(con, mid: str, when: str) -> None:
@@ -296,7 +306,7 @@ def voice_examples(con, language: str | None, contact_email: str = "", limit: in
     contact_email = (contact_email or "").strip().lower()
     rows = [dict(r) for r in con.execute(
         "SELECT id, date, to_addrs, subject, text, language FROM messages WHERE is_mine=1 "
-        "ORDER BY date DESC LIMIT 200")]
+        "AND excluded=0 ORDER BY date DESC LIMIT 200")]
     if language:
         rows = [r for r in rows if not r["language"] or r["language"].startswith(language)]
     rows.sort(key=lambda r: (bool(contact_email) and contact_email in r["to_addrs"], r["date"]),
@@ -363,6 +373,16 @@ def fact_count(con) -> dict[str, int]:
     return out
 
 
+# Facts that may be used: not rejected, and not from an excluded message.
+_LIVE_FACTS = ("SELECT * FROM facts WHERE status<>'rejected' AND message_id NOT IN "
+               "(SELECT id FROM messages WHERE excluded=1)")
+
+
+def facts_for_message(con, mid: str) -> list[dict[str, Any]]:
+    return [dict(r) for r in con.execute("SELECT * FROM facts WHERE message_id=? ORDER BY said_on",
+                                         (mid,))]
+
+
 def facts_search(con, query: str, language: str | None = None, party: str = "",
                  limit: int = 6) -> list[dict[str, Any]]:
     """Facts whose topic or statement overlaps the query, rejected ones
@@ -374,7 +394,7 @@ def facts_search(con, query: str, language: str | None = None, party: str = "",
         return []
     party = (party or "").strip().lower()
     scored = []
-    for r in con.execute("SELECT * FROM facts WHERE status<>'rejected'"):
+    for r in con.execute(_LIVE_FACTS):
         score = _score(_tokens(r["topic"] + " " + r["statement"]), terms)
         if not score:
             continue
@@ -387,7 +407,7 @@ def facts_search(con, query: str, language: str | None = None, party: str = "",
 def facts_conflicts(con, party: str = "") -> list[list[dict[str, Any]]]:
     """Groups of facts on the same topic with different values."""
     groups: dict[str, list[dict[str, Any]]] = {}
-    for r in con.execute("SELECT * FROM facts WHERE status<>'rejected' ORDER BY said_on DESC"):
+    for r in con.execute(_LIVE_FACTS + " ORDER BY said_on DESC"):
         if party and r["party"] and r["party"] != party.lower():
             continue
         if r["value"]:
@@ -396,9 +416,70 @@ def facts_conflicts(con, party: str = "") -> list[list[dict[str, Any]]]:
 
 
 def message_count(con) -> dict[str, int]:
-    r = con.execute("SELECT count(*) AS n, coalesce(sum(is_mine), 0) AS mine FROM messages"
+    r = con.execute("SELECT count(*) AS n, coalesce(sum(is_mine), 0) AS mine, "
+                    "coalesce(sum(excluded), 0) AS excluded FROM messages").fetchone()
+    return {"messages": r["n"], "mine": r["mine"], "excluded": r["excluded"]}
+
+
+# --- exclusions: threads and addresses memory must not use ---------------------
+
+
+def is_excluded(con, thread_id: str, from_addr: str, to_addrs: str) -> bool:
+    rules = [(r["kind"], r["value"]) for r in con.execute("SELECT kind, value FROM exclusions")]
+    if not rules:
+        return False
+    addrs = {a.strip().lower() for a in (to_addrs or "").split(",") if a.strip()}
+    addrs.add((from_addr or "").strip().lower())
+    for kind, value in rules:
+        if kind == "thread" and thread_id and value == thread_id:
+            return True
+        if kind == "address" and value in addrs:
+            return True
+    return False
+
+
+def _apply_exclusions(con) -> None:
+    """Recompute messages.excluded from the rules (after a rule is added or removed)."""
+    for r in con.execute("SELECT id, thread_id, from_addr, to_addrs FROM messages"):
+        con.execute("UPDATE messages SET excluded=? WHERE id=?",
+                    (int(is_excluded(con, r["thread_id"], r["from_addr"], r["to_addrs"])),
+                     r["id"]))
+    con.commit()
+
+
+def exclusion_add(con, kind: str, value: str, created_at: str = "") -> str:
+    if kind not in ("thread", "address"):
+        raise ValueError("kind must be thread or address")
+    value = value.strip().lower() if kind == "address" else value.strip()
+    if not value:
+        raise ValueError("value is empty")
+    r = con.execute("SELECT id FROM exclusions WHERE kind=? AND value=?", (kind, value)
                     ).fetchone()
-    return {"messages": r["n"], "mine": r["mine"]}
+    if r:
+        return r["id"]
+    xid = _uid()
+    con.execute("INSERT INTO exclusions (id, kind, value, created_at) VALUES (?,?,?,?)",
+                (xid, kind, value, created_at))
+    _apply_exclusions(con)
+    return xid
+
+
+def exclusion_list(con) -> list[dict[str, Any]]:
+    rows = [dict(r) for r in con.execute("SELECT * FROM exclusions ORDER BY created_at, kind")]
+    for r in rows:
+        if r["kind"] == "thread":
+            r["messages"] = con.execute("SELECT count(*) AS n FROM messages WHERE thread_id=?",
+                                        (r["value"],)).fetchone()["n"]
+        else:
+            r["messages"] = con.execute(
+                "SELECT count(*) AS n FROM messages WHERE from_addr=? OR to_addrs LIKE ?",
+                (r["value"], f"%{r['value']}%")).fetchone()["n"]
+    return rows
+
+
+def exclusion_delete(con, xid: str) -> None:
+    con.execute("DELETE FROM exclusions WHERE id=?", (xid,))
+    _apply_exclusions(con)
 
 
 def mail_search(con, query: str, language: str | None = None, contact_email: str = "",
@@ -412,7 +493,7 @@ def mail_search(con, query: str, language: str | None = None, contact_email: str
         return []
     contact_email = (contact_email or "").strip().lower()
     scored: list[tuple[tuple[int, int, str], dict[str, Any]]] = []
-    for r in con.execute("SELECT * FROM messages"):
+    for r in con.execute("SELECT * FROM messages WHERE excluded=0"):
         if language and r["language"] and not r["language"].startswith(language):
             continue
         with_contact = bool(contact_email) and (

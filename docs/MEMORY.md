@@ -19,8 +19,9 @@ you dated facts with the message each came from.
 | M2 | **Retrieval across languages** | Embeddings through the configured provider (Cohere's multilingual embed model on the API path, any OpenAI-compatible server's `/embeddings` locally, an offline hashed embedder otherwise), fused with the token search by reciprocal rank; the contact and recency priors applied after fusion; `envoy index`; the knowledge base searched the same way | done (0.9.1) |
 | M3 | **Extract the correct fact** | An Extractor agent turns each message into dated facts (topic, statement, value) on a reviewable Memory page; facts are sources with `fc:` ids; the Arbiter flags a reply that cites the newest of two disagreeing facts (warn) or an older one (block); your own sent mail as voice examples for the Rewriter | done (0.9.2) |
 | M4 | **Measure it** | A fixture mailbox with superseded facts in seven languages; `envoy bench memory`: recall at k for the token search and the hybrid search, overall and cross-lingual; newest-fact and stale-fact rates; conflict flagging; a Memory section in the report; the stub baseline pinned in the tests | done (0.9.3) |
-| M5 | Sources page and docs | What was imported, what each reply cited, exclude a thread, pause | |
+| M5 | **Sources, exclusions, pause** | Every reply's source panel labels each citation by kind and, for memory, by who said it and when; the Memory page opens any message with its facts, excludes a thread or an address (never searched, read for facts, or used as a voice example, new arrivals included), lists the exclusions, and pauses capture with one click | done (0.9.4) |
 | M6 | Remember as you send | The browser extension: turn memory on per site, a visible indicator, capture the message on send with the message it answers, never a keystroke | |
+| M2b | A reranker, if the numbers ask for it | Cohere's multilingual reranker as a third step after fusion, off by default, one call per reply. Decided by the real-model `envoy bench memory` run: worth it if the first relevant message is often in the top 5 but not at rank 1, not worth its latency if the gap closes with real embeddings | pending that run |
 | M7 | Host it | Run Envoy for yourself online and let others try it: an owner login, HTTPS behind a reverse proxy, a persistent data volume for the Docker image, and a public demo mode on the stub or a rate-limited shared key so visitors cannot spend yours | |
 
 ## Import
@@ -173,6 +174,33 @@ One finding from building it: the pipeline used to search mail and facts in
 the reply's language only, which made a Portuguese question blind to an
 answer given in English. Retrieval is now language-independent; only voice
 examples and past replies stay in the reply's language.
+
+## Where a reply came from, and what to keep out
+
+Every reply's **Sources behind each claim** panel labels each citation by
+kind (knowledge base, your mail, remembered fact, glossary, past reply, this
+thread) and, for anything from memory, by who said it and when ("you wrote
+on 2025-09-10, re: Returns", "you said on 2025-09-10, confirmed by you"),
+with a one-line count of where the reply drew from. History shows the same
+panel for past replies.
+
+On the Memory page, opening a message shows its full text and the facts read
+from it, with two buttons: **Exclude this thread** and **Exclude &lt;the other
+person&gt;**. An exclusion is a rule, kept in its own table: the messages it
+matches are greyed out and leave search, vectors, facts, extraction and
+voice examples at once, and a message that arrives later and matches the
+rule is excluded on arrival. Removing the rule brings them back. The
+**capture** badge at the top toggles whether new messages are remembered;
+while paused, the capture endpoint stores nothing and says so, which is what
+the extension will show.
+
+```
+GET    /api/messages/{id}     text and facts of one message
+GET    /api/exclusions        rules with how many messages each matches
+POST   /api/exclusions        {"kind": "thread" | "address", "value": …}
+DELETE /api/exclusions/{id}
+PUT    /api/settings          {"memory_capture": false}   pause; true resumes
+```
 
 ## Privacy
 

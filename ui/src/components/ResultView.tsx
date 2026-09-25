@@ -17,12 +17,50 @@ const KIND_LABEL: Record<string, string> = {
   unsupported_claim: "Unsupported claim",
   missing_item: "Segment missing",
   stage_failure: "Stage failed",
+  conflicting_sources: "Sources disagree (newest used)",
+  stale_source: "Older statement used",
 };
+
+const SOURCE_KIND: Record<string, { label: string; tone: "zinc" | "green" | "amber" | "red" | "indigo" }> = {
+  knowledge: { label: "knowledge base", tone: "indigo" },
+  glossary: { label: "glossary", tone: "indigo" },
+  mail: { label: "your mail", tone: "green" },
+  fact: { label: "remembered fact", tone: "green" },
+  history: { label: "past reply", tone: "zinc" },
+  thread: { label: "this thread", tone: "zinc" },
+};
+
+function sourceLine(src: { kind: string; meta: Record<string, unknown> } | undefined, id: string) {
+  if (!src) return id;
+  const m = src.meta;
+  if (src.kind === "mail" || src.kind === "fact") {
+    const said = String(m.said ?? "");
+    const status = m.status === "confirmed" ? " · confirmed" : "";
+    return `${said}${status}`;
+  }
+  if (src.kind === "knowledge") return String(m.title ?? "document");
+  if (src.kind === "thread") return `exchange on ${String(m.created_at ?? "").slice(0, 10)}`;
+  if (src.kind === "history") return `reply in ${String(m.locale ?? "")}`;
+  return id;
+}
 
 function segTone(flags: Result["flags"]) {
   if (flags.some((f) => f.severity === "block")) return "border-rose-300 bg-rose-50/60 dark:border-rose-900 dark:bg-rose-950/30";
   if (flags.length) return "border-amber-300 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30";
   return "border-transparent";
+}
+
+function citedSummary(result: Result, sourceById: Map<string, Result["sources"][number]>) {
+  const counts: Record<string, number> = {};
+  const seen = new Set<string>();
+  for (const e of result.ledger) for (const id of e.source_ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const k = sourceById.get(id)?.kind ?? "source";
+    counts[k] = (counts[k] ?? 0) + 1;
+  }
+  const parts = Object.entries(counts).map(([k, n]) => `${n} from ${SOURCE_KIND[k]?.label ?? k}`);
+  return parts.length ? <span className="text-xs text-zinc-500" data-testid="cited-summary">{parts.join(" · ")}</span> : null;
 }
 
 export default function ResultView({ result }: { result: Result }) {
@@ -106,18 +144,19 @@ export default function ResultView({ result }: { result: Result }) {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card title="Sources behind each claim">
+        <Card title="Sources behind each claim" action={citedSummary(result, sourceById)}>
           {result.ledger.some((e) => e.source_ids.length) ? (
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-sm" data-testid="sources">
               {result.ledger.filter((e) => e.source_ids.length).map((e) => (
                 <li key={e.segment_id}>
                   <span className="text-zinc-500">{e.segment_id}</span>
                   {e.source_ids.map((id) => {
                     const src = sourceById.get(id);
+                    const kind = SOURCE_KIND[src?.kind ?? ""] ?? { label: src?.kind ?? "source", tone: "zinc" as const };
                     return (
                       <div key={id} className="mt-1 rounded-lg bg-zinc-50 p-2 dark:bg-zinc-800/60">
-                        <div className="text-xs text-zinc-500">{src?.kind ?? "source"} · {String(src?.meta?.title ?? id)}</div>
-                        <div className="text-zinc-700 dark:text-zinc-300">{src?.text ?? id}</div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500"><Badge tone={kind.tone}>{kind.label}</Badge><span>{sourceLine(src, id)}</span></div>
+                        <div className="mt-1 text-zinc-700 dark:text-zinc-300">{src?.text ?? id}</div>
                       </div>
                     );
                   })}

@@ -145,3 +145,32 @@ def test_facts_extract_review_and_memory_status(settings):
                                             "to_addrs": ["omar@example.org"]}).json()
         assert cap["stored"] and cap["facts"] == 1
         assert c.get("/api/facts", params={"q": "cairo"}).json()[0]["value"] == "4"
+
+
+def test_exclusions_and_capture_pause(settings):
+    from pathlib import Path
+
+    fix = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
+    settings.user_email = "safea@example.com"
+    with _client(settings)[0] as c:
+        c.post("/api/import", json={"paths": [str(fix / "sample.mbox")]})
+        c.post("/api/extract")
+        m = c.get("/api/messages").json()["messages"][-1]  # oldest: the return window thread
+        detail = c.get(f"/api/messages/{m['id']}").json()
+        assert detail["text"].startswith("Hi Layla") and detail["facts"][0]["value"] == "14"
+        assert c.post("/api/exclusions", json={"kind": "banana", "value": "x"}).status_code == 400
+        x = c.post("/api/exclusions", json={"kind": "thread", "value": m["thread_id"]}).json()
+        assert x["counts"]["excluded"] == 2
+        assert c.get("/api/exclusions").json()[0]["messages"] == 2
+        mem = c.get("/api/memory").json()
+        assert mem["exclusions"] == 1 and mem["capture"] is True and mem["conflicts"] == []
+        assert c.delete(f"/api/exclusions/{x['id']}").json()["counts"]["excluded"] == 0
+        # pausing capture: nothing stored, nothing raised, and the state is visible
+        assert c.put("/api/settings", json={"memory_capture": False}).json()["memory_capture"] \
+            is False
+        r = c.post("/api/messages", json={"text": "Paused note.", "from_addr": "x@y"}).json()
+        assert r == {"id": None, "stored": False, "facts": 0, "reason": "capture is paused"}
+        assert c.get("/api/memory").json()["capture"] is False
+        c.put("/api/settings", json={"memory_capture": True})
+        assert c.post("/api/messages", json={"text": "Live again.", "from_addr": "x@y"}).json()[
+            "stored"]

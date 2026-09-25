@@ -33,7 +33,7 @@ def test_seed_mailbox_marks_mine_detects_languages_and_is_idempotent():
     con = db.connect()
     box = load_mailbox()
     ids = seed_mailbox(con, box)
-    assert len(ids) == 19 and db.message_count(con) == {"messages": 19, "mine": 16}
+    assert len(ids) == 19 and db.message_count(con) == {"messages": 19, "mine": 16, "excluded": 0}
     assert seed_mailbox(con, box) == ids
     langs = {m["external_id"]: m["language"] for m in db.message_list(con)}
     assert (langs["m09"], langs["m02"], langs["m03"], langs["m13"]) == ("ar", "pt", "de", "ja")

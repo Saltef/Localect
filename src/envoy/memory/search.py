@@ -38,7 +38,7 @@ def _vector_rank(con, embedder: Embedder, kind: str, query: str, limit: int) -> 
 def _mail_row(con, ref: str, contact_email: str) -> dict[str, Any] | None:
     mid, _, offset = ref.rpartition(":")
     m = db.message_get(con, mid)
-    if not m:
+    if not m or m.get("excluded"):
         return None
     start = int(offset)
     para = m["text"][start:].split("\n\n", 1)[0]

@@ -36,6 +36,7 @@ class Settings:
     # embed-multilingual-v3.0; otherwise the offline hashed embedder). For an
     # OpenAI-compatible server, name a model it serves (e.g. bge-m3, nomic-embed-text).
     embed_model: str = ""
+    memory_capture: bool = True  # False pauses capture: POST /api/messages stores nothing
 
     @property
     def db_path(self) -> Path:
