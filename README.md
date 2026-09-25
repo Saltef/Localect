@@ -173,6 +173,8 @@ envoy bench flores --data <FLORES-200 dir>  # the Critic alone: chrF of its back
 envoy bench memory                          # memory: right message found, newest fact used, conflicts flagged
 envoy study export --from heldout.json --out study/            # blind pairwise sheets
 envoy study score --sheets study/           # preference with CIs, Krippendorff's α, Cohen's κ
+envoy replay --n 30 --out replay.json       # your own inbox: real messages vs the replies you sent
+envoy fullrun --out envoy-results --quick   # all of the above on the configured model, one report
 envoy report *.json --out report.md         # one markdown report from any of the above
 ```
 
@@ -185,6 +187,7 @@ envoy report *.json --out report.md         # one markdown report from any of th
 | Does it sound native? | A blind pairwise study with native readers, scored with confidence intervals and inter-rater agreement |
 | Can it be tricked? | 140 injection samples; the Drafter cannot ground a claim the sources do not support, and the Arbiter blocks unsourced claims |
 | Does memory find the right thing? | A fixture mailbox with facts that change over time, in seven languages: retrieval recall with and without embeddings, newest-fact and stale-fact rates, and whether disagreeing facts were flagged |
+| How does it do on my actual mail? | `envoy replay` composes replies to your real incoming messages with memory cut off at their date and scores them against the replies you actually sent: language, the numbers you stated, chrF |
 
 CI runs the held-out set with perturbations and the injection set on the
 stub on every push and fails the build on any regression. Real-model results,

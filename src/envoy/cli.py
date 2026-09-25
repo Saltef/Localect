@@ -203,6 +203,94 @@ def _bench(args: argparse.Namespace) -> None:
         print(f"\nWrote {args.out}")
 
 
+def _replay(args: argparse.Namespace) -> None:
+    from .evalx import replay
+
+    s = Settings.load()
+    con = db.connect(s.db_path)
+    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    pairs = replay.find_pairs(con, args.n, args.contact or "", args.since or "")
+    if not pairs:
+        print("No exchanges to replay: import mail with both sides (someone wrote to you and "
+              "you replied) and set your address with `envoy config --user-email`.")
+        raise SystemExit(2)
+    print(f"Envoy replay  {len(pairs)} exchange(s)  provider={s.provider}")
+
+    def live(r):
+        state = "ERROR" if r.error else f"lang {'ok' if r.language_ok else 'NO'}, numbers " \
+            f"{r.numbers_hit}/{r.numbers_ref}, chrF {r.chrf}, {r.status}"
+        print(f"  [{r.model}] {r.date[:10]} {r.contact[:30]}: {state} ({r.seconds}s)", flush=True)
+
+    rows = asyncio.run(replay.run_replay(s, con, models, args.n, args.contact or "",
+                                         args.since or "", on_row=live))
+    print(replay.render_replay(rows))
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump({"replay": replay.replay_to_dicts(rows)}, f, ensure_ascii=False, indent=1)
+        print(f"\nWrote {args.out}")
+
+
+def _fullrun(args: argparse.Namespace) -> None:
+    """Every real-model measurement in one go, into one folder and one report."""
+    from pathlib import Path
+
+    from . import report
+    from .eval import main_eval
+    from .evalx import memory, replay
+
+    s = Settings.load()
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    quick = args.quick
+    print(f"Envoy fullrun  provider={s.provider} model={s.model}  "
+          f"{'quick subset' if quick else 'full sets'}  → {out}/")
+    written = []
+    # held-out with perturbations (quick: two samples per locale)
+    idx = None
+    if quick:
+        from .evalset import load
+
+        seen: dict[str, int] = {}
+        idx = []
+        for i, smp in enumerate(load("heldout")):
+            if seen.get(smp.locale, 0) < 2:
+                seen[smp.locale] = seen.get(smp.locale, 0) + 1
+                idx.append(i)
+    main_eval(s, models, idx, str(out / "heldout.json"), "heldout", perturb=True,
+              critic_model=args.critic_model)
+    written.append(out / "heldout.json")
+    # injection (quick: three attacks per language)
+    idx = None
+    if quick:
+        from .evalset import load
+
+        idx = [i for i, smp in enumerate(load("injection"))
+               if smp.id.rsplit("-", 1)[-1] in ("01", "04", "13")]
+    main_eval(s, models, idx, str(out / "injection.json"), "injection", perturb=False)
+    written.append(out / "injection.json")
+    # memory on the fixture mailbox
+    rows = asyncio.run(memory.run_memory(s, models, None))
+    print(memory.render_memory(rows))
+    (out / "memory.json").write_text(json.dumps({"memory": memory.memory_to_dicts(rows)},
+                                                ensure_ascii=False, indent=1), encoding="utf-8")
+    written.append(out / "memory.json")
+    # replay of the user's own inbox, when there is one
+    con = db.connect(s.db_path)
+    if replay.find_pairs(con, 1):
+        rrows = asyncio.run(replay.run_replay(s, con, models, 10 if quick else args.n))
+        print(replay.render_replay(rrows))
+        (out / "replay.json").write_text(json.dumps({"replay": replay.replay_to_dicts(rrows)},
+                                                    ensure_ascii=False, indent=1),
+                                         encoding="utf-8")
+        written.append(out / "replay.json")
+    else:
+        print("\n(no imported exchanges to replay; `envoy import` your mail to add that section)")
+    text = report.render(report.load_docs(written), title=f"Envoy full run: {s.provider}:{s.model}")
+    (out / "report.md").write_text(text, encoding="utf-8")
+    print(f"\nWrote {out / 'report.md'} and {len(written)} JSON file(s). Paste report.md back.")
+
+
 def _report(args: argparse.Namespace) -> None:
     from pathlib import Path
 
@@ -437,6 +525,28 @@ def main() -> None:
     b.add_argument("--critic-model", dest="critic_model", help="flores: the model that judges")
     b.add_argument("--out", help="write full results as JSON to this file")
     b.set_defaults(func=_bench)
+
+    rpl = sub.add_parser("replay", help="replay your own inbox: compose replies to real incoming "
+                                        "messages with memory cut off at their date, scored "
+                                        "against the replies you actually sent")
+    rpl.add_argument("--n", type=int, default=30, help="most recent exchanges to replay")
+    rpl.add_argument("--contact", help="only exchanges from this address")
+    rpl.add_argument("--since", help="only incoming messages from this ISO date")
+    rpl.add_argument("--models", help="comma-separated model names to compare")
+    rpl.add_argument("--out", help="write full results as JSON")
+    rpl.set_defaults(func=_replay)
+
+    fr = sub.add_parser("fullrun", help="every real-model measurement in one go: held-out with "
+                                        "perturbations, injection, memory bench, replay of "
+                                        "your inbox, one report")
+    fr.add_argument("--out", default="envoy-results", help="folder for the JSON and report.md")
+    fr.add_argument("--quick", action="store_true",
+                    help="a subset: 2 held-out samples per locale, 3 attacks per language, "
+                         "10 replays (about a quarter of the time)")
+    fr.add_argument("--models", help="comma-separated model names to compare")
+    fr.add_argument("--critic-model", dest="critic_model", help="judge with a different model")
+    fr.add_argument("--n", type=int, default=30, help="exchanges to replay in a full run")
+    fr.set_defaults(func=_fullrun)
 
     rp = sub.add_parser("report", help="one markdown report from eval, bench and study JSON")
     rp.add_argument("files", nargs="+", help="JSON written by envoy eval/bench/study --out")

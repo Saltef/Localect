@@ -194,6 +194,34 @@ def memory_md(rows: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def replay_md(rows: list[dict[str, Any]]) -> list[str]:
+    if not rows:
+        return []
+    from .evalx.replay import summarize
+
+    lines = ["### Replay of your own inbox (memory limited to what predated each message)", ""]
+    by_model: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in rows:
+        by_model[r["model"]].append(r)
+    out = []
+    for model, rs in by_model.items():
+        s = summarize(rs)
+        n_ok = s["n"] - s["errors"]
+        out.append([model, s["n"], s["errors"],
+                    f"{_pct(s['language_ok'], n_ok)} ({s['language_ok']}/{n_ok})",
+                    f"{_pct(s['numbers_hit'], s['numbers_ref'])} "
+                    f"({s['numbers_hit']}/{s['numbers_ref']})", s["numbers_extra"],
+                    s["chrf_mean"], f"{s['ready']} / {s['check']} / {s['escalate']}",
+                    f"{s['with_sources']}/{n_ok}"])
+    lines += _table(["model", "exchanges", "errors", "same language", "your numbers stated",
+                     "extra numbers", "mean chrF", "ready / check / escalate",
+                     "used sources"], out)
+    lines += ["", "Each exchange is a real incoming message and the reply you actually sent; "
+              "Envoy composed with memory cut off at the message's date. chrF compares "
+              "Envoy's reply with yours (100 = identical)."]
+    return lines
+
+
 def study_md(report: dict[str, Any]) -> list[str]:
     comps = report.get("comparisons") or {}
     if not comps:
@@ -239,6 +267,9 @@ def render(docs: list[dict[str, Any]], title: str = "Envoy evaluation report") -
     mem = memory_md([r for d in docs for r in d.get("memory", [])])
     if mem:
         lines += mem + [""]
+    rp = replay_md([r for d in docs for r in d.get("replay", [])])
+    if rp:
+        lines += rp + [""]
     for d in docs:
         if "comparisons" in d:
             s = study_md(d)

@@ -35,10 +35,10 @@ def _vector_rank(con, embedder: Embedder, kind: str, query: str, limit: int) -> 
     return [ref for score, ref in scored[:limit] if score > 0]
 
 
-def _mail_row(con, ref: str, contact_email: str) -> dict[str, Any] | None:
+def _mail_row(con, ref: str, contact_email: str, before: str = "") -> dict[str, Any] | None:
     mid, _, offset = ref.rpartition(":")
     m = db.message_get(con, mid)
-    if not m or m.get("excluded"):
+    if not m or m.get("excluded") or (before and m["date"] >= before):
         return None
     start = int(offset)
     para = m["text"][start:].split("\n\n", 1)[0]
@@ -70,11 +70,14 @@ def _fuse(rankings: list[list[str]]) -> dict[str, float]:
 
 
 def mail_search(con, embedder: Embedder | None, query: str, language: str | None = None,
-                contact_email: str = "", limit: int = 5) -> list[dict[str, Any]]:
+                contact_email: str = "", limit: int = 5, before: str = ""
+                ) -> list[dict[str, Any]]:
     """Token search fused with vector search, then contact first, newest first.
-    Without an embedder this is the token search alone."""
+    Without an embedder this is the token search alone. ``before`` (ISO date)
+    hides everything from that moment on, for replaying the past."""
     contact_email = (contact_email or "").strip().lower()
-    lexical = [r["id"] for r in db.mail_search(con, query, language, contact_email, limit=50)]
+    lexical = [r["id"] for r in db.mail_search(con, query, language, contact_email, limit=50,
+                                               before=before)]
     if embedder is None:
         rankings = [lexical]
     else:
@@ -83,7 +86,7 @@ def mail_search(con, embedder: Embedder | None, query: str, language: str | None
     fused = _fuse(rankings)
     rows = []
     for ref, score in fused.items():
-        row = _mail_row(con, ref, contact_email)
+        row = _mail_row(con, ref, contact_email, before)
         if row is None:
             continue
         if language and row["language"] and not row["language"].startswith(language):

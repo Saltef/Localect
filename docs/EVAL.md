@@ -181,6 +181,51 @@ The questions are held out in the same sense as the held-out set: no prompt
 is tuned against them. `--data your-mailbox.yaml` runs the same measurement
 on a mailbox of your own in the same format.
 
+## Replay your own inbox: the test on actual data
+
+Every sample set above was written by us. `envoy replay` uses the only
+actual data there is: your own history. Each stored exchange where someone
+wrote to you and you replied (same thread, or to the same address within two
+weeks) is a test case that needed no writing. The incoming message is the
+input; the reply you actually sent is the reference. Envoy composes with its
+memory cut off at the incoming message's date, so it cannot simply retrieve
+your answer, only what you knew before that moment. Per exchange:
+
+- **same language**: Envoy replied in the language you replied in;
+- **your numbers stated**: of the numbers in your real reply (days, amounts,
+  ids), how many Envoy's reply also states; extra numbers Envoy stated that
+  you did not are counted separately, since each is invented or from a
+  different fact;
+- **chrF** between Envoy's reply and yours, a rough proxy for saying the same
+  thing in your voice (100 is identical; the low 30s and above is the same
+  message said differently);
+- the Arbiter's status, and whether the pipeline errored.
+
+```bash
+envoy replay --n 30 --out replay.json          # the 30 most recent exchanges
+envoy replay --contact layla@shop.example      # one correspondent
+envoy replay --since 2026-06-01
+```
+
+Replays are not written to history. The result is not a benchmark score:
+it is the pipeline against what you actually did, read exchange by
+exchange, and the JSON keeps all three texts (incoming, yours, Envoy's) so a
+low chrF can be judged by eye.
+
+## One command for everything: `envoy fullrun`
+
+```bash
+envoy fullrun --out envoy-results            # 60 to 90 minutes on a hosted model
+envoy fullrun --out envoy-results --quick    # a quarter of that: 2 held-out per locale,
+                                             # 3 attacks per language, 10 replays
+```
+
+Runs, on the configured model: the held-out set with perturbations, the
+injection set, the memory bench on the fixture mailbox, and, when mail has
+been imported, the replay of your inbox; writes each JSON and one
+`report.md`. Every JSON is checkpointed as it goes, so an interrupted run
+keeps what it measured.
+
 ## The human study
 
 Nothing automatic can say whether a reply reads like a native wrote it at
