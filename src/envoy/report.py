@@ -156,6 +156,44 @@ def flores_md(rows: list[dict[str, Any]]) -> list[str]:
     return lines + _table(["model", "lang", "n", "errors", "chrF", "trust"], out)
 
 
+def memory_md(rows: list[dict[str, Any]]) -> list[str]:
+    if not rows:
+        return []
+    from .evalx.memory import KS, summarize
+
+    lines = ["### Memory on the fixture mailbox (retrieval, newest fact, conflicts)", ""]
+    by_model: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in rows:
+        by_model[r["model"]].append(r)
+
+    def pc(k: int, n: int) -> str:
+        return f"{_pct(k, n)} ({k}/{n})" if n else "-"
+
+    out, out_cross, out_facts = [], [], []
+    for model, rs in by_model.items():
+        s = summarize(rs)
+        out.append([model, s["n"], s["errors"]]
+                   + [f"{pc(s['lexical'][k], s['n'])} / {pc(s['hybrid'][k], s['n'])}"
+                      for k in KS])
+        if s["cross_lingual"]:
+            c = s["cross_lingual"]
+            out_cross.append([model, c] + [f"{pc(s['lexical_cross'][k], c)} / "
+                                           f"{pc(s['hybrid_cross'][k], c)}" for k in KS])
+        out_facts.append([model, s["valued"], pc(s["newest_ok"], s["valued"]),
+                          pc(s["stale_used"], s["valued"]), s["with_stale"],
+                          pc(s["flagged"], s["with_stale"])])
+    lines += ["Retrieval, first relevant message in the top k (token search / hybrid):", ""]
+    lines += _table(["model", "n", "errors", "@1", "@3", "@5"], out)
+    if out_cross:
+        lines += ["", "Cross-lingual questions only (the answer was said in another language):",
+                  ""]
+        lines += _table(["model", "n", "@1", "@3", "@5"], out_cross)
+    lines += ["", "Facts in the reply, after extraction by the model:", ""]
+    lines += _table(["model", "questions with a value", "newest used", "stale used",
+                     "with an older statement", "conflict flagged"], out_facts)
+    return lines
+
+
 def study_md(report: dict[str, Any]) -> list[str]:
     comps = report.get("comparisons") or {}
     if not comps:
@@ -198,6 +236,9 @@ def render(docs: list[dict[str, Any]], title: str = "Envoy evaluation report") -
     f = flores_md([r for d in docs for r in d.get("flores", [])])
     if f:
         lines += f + [""]
+    mem = memory_md([r for d in docs for r in d.get("memory", [])])
+    if mem:
+        lines += mem + [""]
     for d in docs:
         if "comparisons" in d:
             s = study_md(d)

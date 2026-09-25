@@ -41,10 +41,15 @@ jobs:
           ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
         run: envoy eval --set injection --out injection.json
 
+      - name: Memory bench on the fixture mailbox (stub baseline, pinned by the test suite)
+        env:
+          ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
+        run: envoy bench memory --out memory.json || true
+
       - name: Combined report
         env:
           ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
-        run: envoy report heldout.json injection.json --out eval-report.md
+        run: envoy report heldout.json injection.json memory.json --out eval-report.md
 
       - name: Upload eval report
         uses: actions/upload-artifact@v4

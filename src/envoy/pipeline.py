@@ -153,8 +153,11 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     sources += await tools.history_search(query, locale.language)
     contact = db.contact_get(con, req.contact_id) if req.contact_id else None
     contact_email = (contact or {}).get("email") or ""
-    sources += await tools.facts_search(query, locale.language, contact_email)
-    sources += await tools.mail_search(query, locale.language, contact_email)
+    # Facts and past mail are searched across languages: what was said to a
+    # customer in English answers a question asked in Portuguese. History and
+    # voice examples stay in the reply's language, since they carry register.
+    sources += await tools.facts_search(query, None, contact_email)
+    sources += await tools.mail_search(query, None, contact_email)
     if req.contact_id:
         sources += await tools.thread(req.contact_id)
     voice = await tools.voice_examples(locale.language, contact_email)

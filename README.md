@@ -160,6 +160,7 @@ envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out c
 envoy eval --set heldout --critic-model command-a-03-2025      # judge with a different model
 envoy bench massive --data <MASSIVE dir>    # the Reader alone: language accuracy, slot recall
 envoy bench flores --data <FLORES-200 dir>  # the Critic alone: chrF of its back-translation
+envoy bench memory                          # memory: right message found, newest fact used, conflicts flagged
 envoy study export --from heldout.json --out study/            # blind pairwise sheets
 envoy study score --sheets study/           # preference with CIs, Krippendorff's α, Cohen's κ
 envoy report *.json --out report.md         # one markdown report from any of the above
@@ -173,6 +174,7 @@ envoy report *.json --out report.md         # one markdown report from any of th
 | How good is each agent alone? | The Reader on MASSIVE, the Critic's back-translation on FLORES-200 |
 | Does it sound native? | A blind pairwise study with native readers, scored with confidence intervals and inter-rater agreement |
 | Can it be tricked? | 140 injection samples; the Drafter cannot ground a claim the sources do not support, and the Arbiter blocks unsourced claims |
+| Does memory find the right thing? | A fixture mailbox with facts that change over time, in seven languages: retrieval recall with and without embeddings, newest-fact and stale-fact rates, and whether disagreeing facts were flagged |
 
 CI runs the held-out set with perturbations and the injection set on the
 stub on every push and fails the build on any regression. Real-model results,

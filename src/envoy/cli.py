@@ -131,14 +131,33 @@ def _bench(args: argparse.Namespace) -> None:
     Critic's back-translation on FLORES-200."""
     from pathlib import Path
 
-    from .evalx import flores, massive
+    from .evalx import flores, massive, memory
 
     settings = Settings.load()
+    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    if args.dataset == "memory":
+        def live_m(r):
+            state = "ERROR" if r.error else ("ok" if r.passed else "fail")
+            print(f"  [{r.model}] {r.question} {r.label[:48]}: {state} (lex {r.lexical_rank or '-'}"
+                  f", hyb {r.hybrid_rank or '-'}, {r.seconds}s)", flush=True)
+
+        print(f"Envoy bench memory  data={args.data or 'built-in mailbox'}  "
+              f"provider={settings.provider}")
+        rows = asyncio.run(memory.run_memory(settings, models, args.data, on_row=live_m))
+        print(memory.render_memory(rows))
+        if args.out:
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump({"memory": memory.memory_to_dicts(rows)}, f, ensure_ascii=False,
+                          indent=1)
+            print(f"\nWrote {args.out}")
+        raise SystemExit(0 if all(r.passed for r in rows) else 1)
+    if not args.data:
+        print("--data is required: the unpacked dataset directory")
+        raise SystemExit(2)
     data = Path(args.data)
     if not data.exists():
         print(f"no such directory: {data}")
         raise SystemExit(2)
-    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
     languages = [x.strip() for x in args.languages.split(",") if x.strip()] \
         if args.languages else None
     if args.critic_model:
@@ -391,10 +410,12 @@ def main() -> None:
     ev.add_argument("--report", help="also write this run's tables as markdown to this file")
     ev.set_defaults(func=_eval)
 
-    b = sub.add_parser("bench", help="score one stage against a public dataset: the Reader on "
-                                     "MASSIVE, the Critic's back-translation on FLORES-200")
-    b.add_argument("dataset", choices=["massive", "flores"])
-    b.add_argument("--data", required=True, help="unpacked dataset directory")
+    b = sub.add_parser("bench", help="score one stage against a dataset: the Reader on MASSIVE, "
+                                     "the Critic's back-translation on FLORES-200, memory on the "
+                                     "fixture mailbox")
+    b.add_argument("dataset", choices=["massive", "flores", "memory"])
+    b.add_argument("--data", help="unpacked dataset directory (massive, flores) or a mailbox "
+                                  "YAML (memory; default: the built-in one)")
     b.add_argument("--n", type=int, default=50, help="sentences per language (default 50)")
     b.add_argument("--languages", help="comma-separated ISO codes (default: all supported)")
     b.add_argument("--models", help="comma-separated model names to compare")
