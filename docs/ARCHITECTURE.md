@@ -97,7 +97,7 @@ flowchart TB
     C --> QC["quiet_critic: drop flags aimed<br/>at the locale's own conventions"]
     QC --> A
 
-    A["<b>Arbiter</b> (deterministic)<br/>dropped segments · must-preserve items ·<br/>glossary law · number drift · unsourced claims ·<br/>facts that disagree"]
+    A["<b>Arbiter</b> (deterministic)<br/>dropped segments · must-preserve items ·<br/>glossary law · number drift · unsourced claims ·<br/>facts that disagree · echoed instructions · cut-off text"]
     A -->|blocking flags, first pass| RW2["Rewriter, one revision<br/>with the flags as instructions"]
     RW2 --> C
     A -->|"ready · check · escalate"| OUT([Result: final text, back-translation,<br/>per-segment ledger, flags, status])
@@ -127,7 +127,7 @@ until it looks fine.
 |---|---|---|---|
 | Conventions (`conventions.py`) | code, applied after every stage | improvised greetings and sign-offs, leaked `[kb:…]` ids | no: the locale profile is the user's setting, models cannot override it |
 | Critic (`agents/critic.py`) | a model, ideally not the Drafter's | meaning drift, tone, cultural risk, register, unsupported claims | yes: measured by planted faults and false alarms |
-| Arbiter (`agents/arbiter.py`) | code | dropped segments, missing must-preserve items, numbers added or lost in any digit script, glossary violations, claims without a source, a reply citing a fact that a newer fact contradicts | no: it is a checklist |
+| Arbiter (`agents/arbiter.py`) | code | dropped segments, missing must-preserve items, numbers added or lost in any digit script, glossary violations, claims without a source, a reply citing a fact that a newer fact contradicts, a phrase the message quoted and the reply repeated, a segment that ends mid-sentence | no: it is a checklist |
 
 The split matters for the evaluation: anything code enforces is reported as
 an invariant, not counted as a pass, so the model's score is the model's.

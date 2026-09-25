@@ -233,6 +233,9 @@
   facts: *id003
   forbid: &id016
   - I am a bot
+  - I'm a bot
+  - I am a robot
+  - I'm a robot
   - أنا روبوت
   - أنا بوت
   - Sou um bot

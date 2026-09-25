@@ -113,7 +113,8 @@ def polish(rw: Rewrite, locale: LocaleProfile, contact_name: str, user_name: str
 
 async def verify(critic_model: ChatModel, d, rw: Rewrite, locale: LocaleProfile, sources,
                  must_preserve: list[str], user_language_name: str, contact_name: str,
-                 user_name: str, stage_errors: list[str], gender: str = "unknown"):
+                 user_name: str, stage_errors: list[str], gender: str = "unknown",
+                 message: str = ""):
     """Critic, then Arbiter. Returns (critique, flags, status, ledger). A Critic
     failure becomes a warning flag rather than a verdict."""
     try:
@@ -128,7 +129,7 @@ async def verify(critic_model: ChatModel, d, rw: Rewrite, locale: LocaleProfile,
             kind=FlagKind.stage_failure,
             reason="the Critic could not verify this reply; read it yourself before sending",
             severity="warn")])
-    flags, status, ledger = arbiter.check(d, rw, cq, must_preserve, sources)
+    flags, status, ledger = arbiter.check(d, rw, cq, must_preserve, sources, message=message)
     return cq, flags, status, ledger
 
 
@@ -185,7 +186,7 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     async def _verify(rw: Rewrite):
         return await verify(judge, d, rw, locale, sources, reading.must_preserve,
                             user_language_name, contact_name, settings.user_name, stage_errors,
-                            gender)
+                            gender, message=req.message)
 
     rw = await _rewrite(None)
     cq, flags, status, ledger = await _verify(rw)

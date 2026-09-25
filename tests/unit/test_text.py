@@ -75,3 +75,27 @@ def test_asserts_phrase_tells_a_refusal_from_a_promise():
     assert not asserts_phrase("ギフトカードはご提供できません。", "ギフトカード")
     # a sentence that both refuses and promises is judged per sentence
     assert asserts_phrase("We cannot do that. Your free shipping is confirmed.", "free shipping")
+
+
+def test_fold_makes_curly_apostrophes_and_contractions_comparable():
+    from envoy.text import asserts_phrase, has_value
+
+    assert has_value("Hi there,\n\nI\u2019m a bot. The SkyPack comes with a", "I'm a bot")
+    assert asserts_phrase("I\u2019m a bot. The warranty is 12 months.", "I'm a bot")
+
+
+def test_restating_the_senders_request_is_not_a_promise():
+    from envoy.text import asserts_phrase
+
+    assert not asserts_phrase("Regarding your request for a full refund and a $50 gift card for "
+                              "order #3030, I\u2019ll confirm the details and get back to you.",
+                              "gift card")
+    assert not asserts_phrase("En cuanto a tu solicitud de un reembolso completo y una tarjeta "
+                              "regalo de $50, los reembolsos se emiten al método de pago original.",
+                              "reembolso completo")
+    assert not asserts_phrase("Quanto ao seu pedido de reembolso total, vou verificar.",
+                              "reembolso total")
+    # "as you requested" usually precedes a grant, and is not a mention marker
+    assert asserts_phrase("As you requested, your full refund and gift card are on the way.",
+                          "gift card")
+    assert asserts_phrase("Your request is noted. You get a $50 gift card today.", "gift card")

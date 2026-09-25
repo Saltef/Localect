@@ -98,6 +98,7 @@ def test_memory_page_imports_reads_facts_and_settles_a_conflict(server):
         assert page.get_by_test_id("message-row").count() == 5
         page.get_by_role("button", name=re.compile(r"Read \d+ message")).click()
         page.get_by_text("fact(s) found").wait_for()
+        page.get_by_test_id("fact-row").first.wait_for()  # the list refetches after the note
         assert page.get_by_test_id("fact-row").count() >= 2
         assert page.get_by_text("topic(s) with disagreeing facts").count() == 1
         page.screenshot(path=str(SHOTS / "memory.png"))
