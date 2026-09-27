@@ -173,6 +173,7 @@ envoy bench massive --data <MASSIVE dir>    # the Reader alone: language accurac
 envoy bench flores --data <FLORES-200 dir>  # the Critic alone: chrF of its back-translation
 envoy bench banking --data <dir> --n 20     # real bank customers in English, French and four Arabic varieties
 envoy bench health --data <dir> --n 20      # MedlinePlus topics across languages; real patients in Arabic, Portuguese, English
+envoy experiment --out exp --data <dir>     # everything, under every ablation (no Critic, no Rewriter, ...); ends in findings.md
 envoy bench memory                          # memory: right message found, newest fact used, conflicts flagged
 envoy study export --from heldout.json --out study/            # blind pairwise sheets
 envoy study score --sheets study/           # preference with CIs, Krippendorff's α, Cohen's κ
@@ -192,6 +193,7 @@ envoy report *.json --out report.md         # one markdown report from any of th
 | Does it hold outside a shop? | 42 samples on three other knowledge bases, a family clinic (appointments, results, prescriptions, urgent symptoms), a bank and a university admissions office, in seven languages, with the same checks and planted faults |
 | How does it do on real customers in other languages? | Banking77 and its hand-localized Arabic (MSA, Palestinian, Saudi, Moroccan, Tunisian) and French versions against the bank knowledge base: reply in the customer's language, region guessed for the dialects, the bank's number stated when it has one, nothing invented when it does not |
 | Does it stay grounded in health, in other languages? | MedlinePlus topics with the source in one language and the question in the other, scored on citing the paired topic and chrF against the human summary; real patient questions from AraMed, MedPT and TREC LiveQA against the clinic knowledge base, scored on not playing doctor |
+| Which stage should change next? | `envoy experiment` runs every benchmark under every ablation (no Critic, no Rewriter, no revision loop, facts only, mail only, no voice) into one resumable folder and writes findings.md: each failure counted, attributed to a stage, paired with the prompt or setting that changes it |
 | Does memory find the right thing? | A fixture mailbox with facts that change over time, in seven languages: retrieval recall with and without embeddings, newest-fact and stale-fact rates, and whether disagreeing facts were flagged |
 | How does it do on my actual mail? | `envoy replay` composes replies to your real incoming messages with memory cut off at their date and scores them against the replies you actually sent: language, the numbers you stated, chrF |
 

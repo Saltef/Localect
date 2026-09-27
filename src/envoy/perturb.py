@@ -138,8 +138,8 @@ def mutate(result: Result, mutation: str) -> tuple[Rewrite, str, str] | None:
     raise ValueError(f"unknown mutation {mutation!r}")
 
 
-async def perturb_one(result: Result, mutation: str, critic_model, user_name: str
-                      ) -> PerturbScore:
+async def perturb_one(result: Result, mutation: str, critic_model, user_name: str,
+                      ablations: tuple[str, ...] | list[str] = ()) -> PerturbScore:
     contact_name, gender = result.contact_name, result.contact_gender
     row = PerturbScore(model=result.model, critic_model=critic_model.name,
                        sample_id="", mutation=mutation)
@@ -162,7 +162,7 @@ async def perturb_one(result: Result, mutation: str, critic_model, user_name: st
         critic_model, result.draft, rw, result.locale, result.sources,
         result.reading.must_preserve,
         LANG_NAMES.get(result.user_language, result.user_language), contact_name, user_name,
-        errors, gender)
+        errors, gender, ablations=ablations)
     expected = EXPECTED[mutation]
     critic_hits = [f for f in cq.flags if f.kind in expected]
     critic_keys = {(f.segment_id, f.kind, f.span) for f in cq.flags}
@@ -177,11 +177,12 @@ async def perturb_one(result: Result, mutation: str, critic_model, user_name: st
 
 
 async def run_perturb(results: list[tuple[str, Result]], critic_model, user_name: str,
-                      on_row=None) -> list[PerturbScore]:
+                      on_row=None, ablations: tuple[str, ...] | list[str] = ()
+                      ) -> list[PerturbScore]:
     rows: list[PerturbScore] = []
     for sample_id, result in results:
         for m in MUTATIONS:
-            row = await perturb_one(result, m, critic_model, user_name)
+            row = await perturb_one(result, m, critic_model, user_name, ablations)
             row.sample_id = sample_id
             rows.append(row)
             if on_row:
