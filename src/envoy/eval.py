@@ -33,7 +33,7 @@ from . import db
 from .config import Settings, data_dir
 from .conventions import rendered_greeting, rendered_signoff
 from .demo import seed_demo
-from .evalset import SETS, Sample, load
+from .evalset import SETS, Sample, domains, load
 from .evalx.dialect import DialectScorer, discover, matches
 from .locales import seed_locales
 from .models import build_model
@@ -219,6 +219,18 @@ async def run_eval(settings: Settings, models: list[str] | None = None,
     base = build_model(settings)
     names = models or [getattr(base, "model", base.name)]
     chosen = select(samples if samples is not None else load(sample_set), indexes)
+    # A domain sample composes against its own knowledge base in a fresh
+    # in-memory store, so the shop's facts cannot answer a clinic's question.
+    stores: dict[str, Any] = {"": con}
+
+    def store_for(sample: Sample):
+        if sample.domain not in stores:
+            dcon = db.connect()
+            seed_locales(dcon)
+            domains()[sample.domain].seed(dcon)
+            stores[sample.domain] = dcon
+        return stores[sample.domain]
+
     rows: list[RunScore] = []
     for name in names:
         model = base.with_model(name) if hasattr(base, "with_model") and name != getattr(
@@ -228,8 +240,9 @@ async def run_eval(settings: Settings, models: list[str] | None = None,
             row = RunScore(model=model.name, sample_id=sample.id, set=sample.set,
                            label=sample.label, seconds=0.0, message=sample.text)
             try:
+                scon = store_for(sample)
                 r = await compose(ComposeRequest(message=sample.text), settings=settings,
-                                  model=model, tools=DirectTools(con), con=con)
+                                  model=model, tools=DirectTools(scon), con=scon)
                 row.status, row.locale = r.status.value, r.locale.locale
                 row.critic_model = r.critic_model
                 row.checks, row.invariants = score(r, sample, settings.user_name)

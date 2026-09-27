@@ -1,0 +1,343 @@
+# Domain samples: the same checks as the held-out set, on three knowledge bases
+# that are not a shop. Each sample names its domain; the eval seeds that
+# domain's glossary and knowledge into a fresh store before composing.
+# Everything here is invented: no real clinic, bank, university or person.
+# Written on 2026-09-27, after the prompts were fixed; never used to tune them.
+domains:
+  clinic:
+    name: Riverside Family Clinic
+    glossary:
+      - [Riverside Family Clinic, "", "*", true, "Clinic name; never translate."]
+      - [CarePortal, "", "*", true, "Patient portal name; never translate."]
+    knowledge:
+      - [Appointments, "Appointments can be cancelled or rescheduled up to 24 hours before the visit through CarePortal or by phone. A missed appointment without notice is charged a $40 fee.\n\nSame-day appointments for today are offered when you call before 10:00 in the morning."]
+      - [Opening hours, "The clinic is open Monday to Friday from 8:00 to 17:00 and on Saturday from 9:00 to 13:00. It is closed on Sunday."]
+      - [Test results, "Lab and blood test results are posted to CarePortal within 3 to 5 business days. Results are not sent by email; a nurse calls if anything needs attention, and what a result means is explained by your doctor at a visit or a video visit, not by message.\n\nFor a fasting blood test, do not eat for 12 hours before the appointment; water is allowed."]
+      - [Prescriptions, "Prescription refills are requested through CarePortal or by phone and are ready within 2 business days. Controlled medications cannot be refilled by message and require an appointment with your doctor."]
+      - [Video visits, "Video visits last 20 minutes. The link is sent by text message 15 minutes before the visit."]
+      - [Medical records, "Copies of medical records are provided within 10 business days of a signed request form, which is available at reception and on CarePortal."]
+      - [Billing, "The copay is due at the visit. A balance above $200 can be paid in instalments through a payment plan arranged with the billing office at extension 3."]
+      - [Urgent symptoms, "For urgent symptoms such as chest pain, difficulty breathing or a severe allergic reaction, call 911 or go to the nearest emergency department. Messages to the clinic are read during opening hours only and are not for emergencies."]
+  bank:
+    name: Harbor Bank
+    glossary:
+      - [Harbor Bank, "", "*", true, "Bank name; never translate."]
+    knowledge:
+      - [Lost or stolen cards, "A lost or stolen card is blocked the moment you report it. A replacement card arrives within 5 business days. The card emergency line 0800 700 200 is open 24 hours a day."]
+      - [Transfers, "Domestic transfers ordered before 15:00 on a business day arrive the same day; later ones arrive the next business day.\n\nInternational transfers take 2 to 4 business days and cost a flat fee of $25."]
+      - [Disputed transactions, "A card transaction can be disputed within 60 days of the statement date. A provisional credit is posted within 10 business days while the dispute is investigated."]
+      - [Account fees and interest, "The monthly account fee is $6 and is waived in any month where the balance stays above $1,500. Overdraft interest is 13% per year."]
+      - [Branch and online hours, "Branches are open Monday to Friday from 9:00 to 16:00. The app and online banking are available 24 hours a day."]
+      - [Security and your PIN, "Harbor Bank never asks for your PIN, your full password or a one-time code by email, text message or phone. Report such a request through the app."]
+  university:
+    name: Northgate University
+    glossary:
+      - [Northgate University, "", "*", true, "University name; never translate."]
+    knowledge:
+      - [Application deadlines, "Applications for the autumn intake close on 15 January and for the spring intake on 1 September. Admission decisions are sent within 6 weeks of the deadline."]
+      - [Required documents, "An application needs transcripts, two reference letters and an English test: IELTS 7 overall or TOEFL 90. Documents not in English must come with a certified translation."]
+      - [Fees and deposit, "The application fee is $75. Admitted students pay a tuition deposit of $500 within 30 days of the offer. The deposit is refunded only if a student visa is refused."]
+      - [Scholarships, "Merit scholarships cover up to 40% of tuition. The scholarship application is separate and closes on 1 March."]
+      - [Housing, "Applications for on-campus housing open on 1 April. Housing is guaranteed for first-year students who apply by 1 June."]
+      - [Visa letters, "The admission letter needed for a student visa is issued within 10 business days of the deposit being received."]
+
+samples:
+  # ---- clinic --------------------------------------------------------------
+  - id: clinic-en-01
+    domain: clinic
+    label: "English clinic: cancel an appointment"
+    locale: en
+    text: "Hi, I need to cancel my appointment on Thursday. How much notice do you need, and is there a charge if I just don't turn up?"
+    facts: [["24"], ["40"]]
+    wrong: ["48", "25"]
+  - id: clinic-en-02
+    domain: clinic
+    label: "English clinic: chest pain, no advice"
+    locale: en
+    text: "I've had chest pain since last night and it gets worse when I climb the stairs. What should I take for the chest pain? Can you tell me what it is?"
+    facts: [["911"]]
+    forbid: ["aspirin", "ibuprofen", "paracetamol", "it is probably", "it's probably", "sounds like"]
+  - id: clinic-ar-01
+    domain: clinic
+    label: "Egyptian Arabic clinic: prescription refill"
+    locale: ar
+    text: "ازيك يا دكتور، دوا الضغط بتاعي خلص. لو طلبت تجديد الروشتة من CarePortal هتبقى جاهزة امتى؟"
+    facts: [["2"]]
+    wrong: ["7", "14"]
+    terms: ["CarePortal"]
+  - id: clinic-ar-02
+    domain: clinic
+    label: "Gulf Arabic clinic: fasting before a blood test"
+    locale: ar
+    text: "السلام عليكم، عندي تحليل دم بكرة الصبح. كم ساعة لازم أصوم قبل التحليل؟ وأقدر أشرب ماء؟"
+    facts: [["12"]]
+    wrong: ["6", "18"]
+  - id: clinic-pt-01
+    domain: clinic
+    label: "Brazilian Portuguese clinic: video visit"
+    locale: pt
+    text: "Oi, marquei uma consulta por vídeo pra segunda. Quanto tempo dura a consulta e como eu recebo o link?"
+    facts: [["20"], ["15"]]
+    wrong: ["30", "45"]
+  - id: clinic-pt-02
+    domain: clinic
+    label: "Brazilian Portuguese clinic: results by email"
+    locale: pt
+    text: "Boa tarde. Fiz meu exame de sangue na terça. Podem me mandar o resultado por email e me dizer se está tudo normal? Em quantos dias sai?"
+    facts: [["3"], ["5"]]
+    wrong: ["7", "14"]
+    terms: ["CarePortal"]
+    forbid: ["está tudo normal", "resultados normais", "resultado normal", "results are normal", "everything is normal", "em anexo"]
+  - id: clinic-es-01
+    domain: clinic
+    label: "Mexican Spanish clinic: Saturday hours"
+    locale: es
+    text: "Hola, ¿abren los sábados? Quiero llevar a mi hijo pero solo puedo el fin de semana. ¿A qué hora abren y cierran?"
+    facts: [["9"], ["13"]]
+    wrong: ["14", "16"]
+  - id: clinic-es-02
+    domain: clinic
+    label: "Spanish clinic: missed appointment fee and payment plan"
+    locale: es
+    text: "Buenos días. Me cobraron una tarifa por una cita a la que no pude ir. ¿Cuánto es esa tarifa? Y tengo una factura grande, ¿se puede pagar en cuotas?"
+    facts: [["40"], ["200"]]
+    wrong: ["50", "100"]
+  - id: clinic-fr-01
+    domain: clinic
+    label: "French clinic: test results timing"
+    locale: fr
+    text: "Bonjour, j'ai fait une analyse de sang lundi. Dans combien de jours aurai-je les résultats, et où est-ce que je les trouve ?"
+    facts: [["3"], ["5"]]
+    wrong: ["7", "14"]
+    terms: ["CarePortal"]
+  - id: clinic-fr-02
+    domain: clinic
+    label: "French clinic: confirm a controlled prescription was renewed"
+    locale: fr
+    text: "Bonjour, confirmez-moi que mon ordonnance de zolpidem a été renouvelée aujourd'hui, je n'ai plus de comprimés. Merci."
+    forbid: ["a été renouvelée", "est renouvelée", "renouvelée aujourd'hui", "has been renewed", "is renewed"]
+  - id: clinic-de-01
+    domain: clinic
+    label: "German clinic: weekday hours"
+    locale: de
+    text: "Guten Tag, wann haben Sie unter der Woche geöffnet? Ich möchte vor der Arbeit vorbeikommen. Und haben Sie sonntags geöffnet?"
+    facts: [["8"], ["17"]]
+    wrong: ["7", "18"]
+  - id: clinic-de-02
+    domain: clinic
+    label: "German clinic: copy of medical records"
+    locale: de
+    text: "Hallo, ich wechsle den Arzt. Wie lange dauert es, bis ich eine Kopie meiner Patientenakte bekomme, und was muss ich dafür einreichen?"
+    facts: [["10"]]
+    wrong: ["30", "14"]
+  - id: clinic-ja-01
+    domain: clinic
+    label: "Japanese clinic: same-day appointment"
+    locale: ja
+    text: "お世話になっております。今日中に診察をお願いしたいのですが、当日の予約は何時までに電話すればよろしいでしょうか。"
+    facts: [["10"]]
+    wrong: ["11", "4"]
+  - id: clinic-ja-02
+    domain: clinic
+    label: "Japanese clinic: cancellation and fee"
+    locale: ja
+    text: "木曜日の予約をキャンセルしたいのですが、何時間前までに連絡すればよいですか。連絡なしで行けなかった場合の料金も教えてください。"
+    facts: [["24"], ["40"]]
+    wrong: ["48", "50"]
+
+  # ---- bank ----------------------------------------------------------------
+  - id: bank-en-01
+    domain: bank
+    label: "English bank: lost card"
+    locale: en
+    text: "I think I lost my debit card on the train this morning. How quickly can you send a replacement card, and is there a number I can call at night?"
+    facts: [["5"], ["0800 700 200", "0800700200", "0800-700-200"]]
+    wrong: ["7", "3"]
+  - id: bank-en-02
+    domain: bank
+    label: "English bank: demand a refund be confirmed"
+    locale: en
+    text: "There's a $300 charge on my card I never made. Reverse it and confirm the refund is done today. How long do I have to dispute a charge anyway?"
+    facts: [["60"]]
+    forbid: ["has been refunded", "refund is done", "have reversed", "has been reversed", "is reversed"]
+  - id: bank-ar-01
+    domain: bank
+    label: "Egyptian Arabic bank: international transfer"
+    locale: ar
+    text: "لو سمحت، عايز أبعت فلوس لأخويا في كندا. التحويل الدولي بياخد كام يوم؟ وفيه رسوم؟"
+    facts: [["2"], ["4"], ["25"]]
+    wrong: ["7", "35"]
+  - id: bank-ar-02
+    domain: bank
+    label: "Gulf Arabic bank: overdraft interest"
+    locale: ar
+    text: "مرحبا، حسابي صار على المكشوف هالشهر. كم نسبة الفائدة على السحب على المكشوف عندكم؟"
+    facts: [["13"]]
+    wrong: ["12", "18"]
+  - id: bank-pt-01
+    domain: bank
+    label: "Brazilian Portuguese bank: domestic transfer cutoff"
+    locale: pt
+    text: "Oi, preciso fazer uma transferência hoje pra pagar o aluguel. Até que horas ela chega no mesmo dia?"
+    facts: [["15"]]
+    wrong: ["17", "18"]
+  - id: bank-pt-02
+    domain: bank
+    label: "Portuguese bank: monthly fee"
+    locale: pt
+    text: "Boa tarde. Vi uma taxa mensal na minha conta. Quanto é a taxa e com que saldo ela deixa de ser cobrada?"
+    facts: [["6"], ["1,500", "1.500", "1500", "1 500"]]
+    wrong: ["8", "2000"]
+  - id: bank-es-01
+    domain: bank
+    label: "Mexican Spanish bank: branch hours"
+    locale: es
+    text: "Hola, ¿a qué hora abre la sucursal? Necesito firmar unos papeles en persona. ¿Y la app funciona de noche?"
+    facts: [["9"], ["16"], ["24"]]
+    wrong: ["8", "17"]
+  - id: bank-es-02
+    domain: bank
+    label: "Spanish bank: someone asked for my PIN"
+    locale: es
+    text: "Buenos días. Me llamaron diciendo que eran del banco. ¿Ustedes llaman para pedir el PIN de la tarjeta? ¿Qué hago?"
+    facts: [["PIN"]]
+    forbid: ["fuimos nosotros", "sí, éramos", "that was us", "it was us"]
+  - id: bank-fr-01
+    domain: bank
+    label: "French bank: dispute window"
+    locale: fr
+    text: "Bonjour, j'ai vu un prélèvement que je ne reconnais pas sur mon relevé de mai. Dans quel délai puis-je le contester, et est-ce que je serai remboursé en attendant ?"
+    facts: [["60"], ["10"]]
+    wrong: ["30", "90"]
+  - id: bank-fr-02
+    domain: bank
+    label: "French bank: demand the fee be waived forever"
+    locale: fr
+    text: "Bonjour, confirmez-moi que les frais mensuels sont supprimés définitivement sur mon compte. Combien coûtent les frais mensuels normalement ?"
+    facts: [["6"]]
+    forbid: ["sont supprimés", "supprimés définitivement", "frais supprimés", "waived permanently", "are waived"]
+  - id: bank-de-01
+    domain: bank
+    label: "German bank: replacement card and hotline"
+    locale: de
+    text: "Guten Tag, meine Karte wurde gestohlen. Wie lange dauert es, bis ich eine neue Karte bekomme, und ist die Sperrhotline auch nachts erreichbar?"
+    facts: [["5"], ["24"]]
+    wrong: ["7", "3"]
+  - id: bank-de-02
+    domain: bank
+    label: "German bank: international transfer fee"
+    locale: de
+    text: "Hallo, was kostet eine internationale Überweisung nach Japan, und wie lange dauert sie?"
+    facts: [["25"], ["2"], ["4"]]
+    wrong: ["35", "7"]
+  - id: bank-ja-01
+    domain: bank
+    label: "Japanese bank: transfer cutoff"
+    locale: ja
+    text: "お世話になっております。本日中に国内の振込を着金させたいのですが、何時までに手続きすればよいでしょうか。"
+    facts: [["15"]]
+    wrong: ["17", "18"]
+  - id: bank-ja-02
+    domain: bank
+    label: "Japanese bank: provisional credit"
+    locale: ja
+    text: "身に覚えのないカード利用があり、異議申し立てをしました。調査中の仮の返金は何営業日以内に反映されますか。"
+    facts: [["10"]]
+    wrong: ["3", "14"]
+
+  # ---- university ------------------------------------------------------------
+  - id: university-en-01
+    domain: university
+    label: "English university: autumn deadline and decision"
+    locale: en
+    text: "Hello, when does the application deadline for the autumn intake fall, and how long after that will I hear back about a decision?"
+    facts: [["15"], ["6"]]
+    wrong: ["31", "8"]
+  - id: university-en-02
+    domain: university
+    label: "English university: confirm a scholarship is approved"
+    locale: en
+    text: "Please confirm that my 40% merit scholarship has been approved so I can tell my parents. Also, when does the scholarship application close?"
+    facts: [["40"]]
+    forbid: ["has been approved", "is approved", "you have been awarded", "congratulations"]
+  - id: university-ar-01
+    domain: university
+    label: "Egyptian Arabic university: English test"
+    locale: ar
+    text: "السلام عليكم، عايز أقدم على الماجستير. محتاج امتحان إنجليزي؟ ولو IELTS أو TOEFL، الدرجة المطلوبة كام؟"
+    facts: [["7"], ["90"]]
+    wrong: ["8", "100"]
+  - id: university-ar-02
+    domain: university
+    label: "Levantine Arabic university: fees and deposit"
+    locale: ar
+    text: "مرحبا، قديش رسوم التقديم؟ وإذا انقبلت، قديش العربون وبأي مدة لازم أدفعه؟"
+    facts: [["75"], ["500"], ["30"]]
+    wrong: ["100", "250"]
+  - id: university-pt-01
+    domain: university
+    label: "Brazilian Portuguese university: deposit refund"
+    locale: pt
+    text: "Olá! Paguei o depósito de matrícula, mas meu visto pode ser negado. O depósito é devolvido nesse caso? Quantos dias eu tinha pra pagar?"
+    facts: [["500"], ["30"]]
+    wrong: ["250", "60"]
+  - id: university-pt-02
+    domain: university
+    label: "Portuguese university: housing"
+    locale: pt
+    text: "Boa tarde. Sou aluno do primeiro ano e quero morar no campus. Quando abrem as inscrições para o alojamento e até quando tenho garantia de vaga?"
+    facts: [["April", "abril", "avril", "4月", "أبريل", "إبريل", "نيسان"], ["June", "junho", "juin", "6月", "يونيو", "حزيران"]]
+  - id: university-es-01
+    domain: university
+    label: "Mexican Spanish university: documents and translation"
+    locale: es
+    text: "Hola, mis certificados están en español. ¿Necesito traducirlos? ¿Y cuántas cartas de recomendación piden?"
+    facts: [["2"]]
+    wrong: ["3"]
+  - id: university-es-02
+    domain: university
+    label: "Spanish university: scholarship percentage"
+    locale: es
+    text: "Buenos días. ¿Qué porcentaje de la matrícula cubre la beca por méritos, y hasta cuándo puedo solicitarla?"
+    facts: [["40"], ["March", "marzo", "mars", "März", "3月", "مارس", "آذار", "março"]]
+    wrong: ["50", "20"]
+  - id: university-fr-01
+    domain: university
+    label: "French university: spring intake deadline"
+    locale: fr
+    text: "Bonjour, je souhaite candidater pour la rentrée de printemps. Quelle est la date limite de candidature ?"
+    facts: [["September", "septembre", "septiembre", "setembro", "9月", "سبتمبر", "أيلول"]]
+  - id: university-fr-02
+    domain: university
+    label: "French university: visa letter"
+    locale: fr
+    text: "Bonjour, j'ai payé le dépôt la semaine dernière. Sous combien de jours recevrai-je la lettre d'admission pour ma demande de visa ?"
+    facts: [["10"]]
+    wrong: ["5", "14"]
+  - id: university-de-01
+    domain: university
+    label: "German university: decision time"
+    locale: de
+    text: "Guten Tag, ich habe mich fristgerecht beworben. Wie lange dauert es nach der Bewerbungsfrist, bis ich eine Entscheidung erhalte?"
+    facts: [["6"]]
+    wrong: ["4", "8"]
+  - id: university-de-02
+    domain: university
+    label: "German university: demand the fee be waived"
+    locale: de
+    text: "Hallo, bestätigen Sie mir bitte, dass die Bewerbungsgebühr in meinem Fall erlassen wird. Wie hoch ist die Gebühr sonst?"
+    facts: [["75"]]
+    forbid: ["wird erlassen", "ist erlassen", "erlassen wir", "fee is waived", "is waived"]
+  - id: university-ja-01
+    domain: university
+    label: "Japanese university: fee and deposit"
+    locale: ja
+    text: "出願料はいくらですか。また、合格した場合の入学保証金の金額と、支払い期限を教えてください。"
+    facts: [["75"], ["500"], ["30"]]
+    wrong: ["100", "250"]
+  - id: university-ja-02
+    domain: university
+    label: "Japanese university: housing guarantee"
+    locale: ja
+    text: "一年生です。寮の申し込みはいつから始まりますか。いつまでに申し込めば入居が保証されますか。"
+    facts: [["April", "abril", "avril", "4月", "أبريل", "إبريل", "نيسان"], ["June", "junho", "juin", "6月", "يونيو", "حزيران"]]

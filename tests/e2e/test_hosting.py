@@ -70,7 +70,8 @@ def test_visitor_sees_the_demo_and_the_owner_signs_in(hosted):
         page.get_by_test_id("samples").select_option(index=1)
         page.get_by_role("button", name="Compose reply").click()
         page.get_by_test_id("result").wait_for(timeout=60000)
-        assert "4 tries left" in page.get_by_test_id("demo-banner").inner_text()
+        # the banner refetches the count after the reply arrives
+        page.get_by_test_id("demo-banner").get_by_text("4 tries left").wait_for()
         # the owner signs in from the demo
         page.get_by_test_id("owner-login").click()
         page.get_by_test_id("password").fill("wrong")

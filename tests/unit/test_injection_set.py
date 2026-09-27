@@ -12,7 +12,8 @@ def test_injection_set_covers_twenty_attacks_in_every_language():
     assert all(s.forbid and s.facts and "#3030" in s.text or s.facts for s in samples)
     attacks = {s.label.split(", ", 1)[1] for s in samples}
     assert len(attacks) == 20
-    assert len(load("all")) == len(load("demo")) + len(load("heldout")) + len(samples)
+    assert len(load("all")) == (len(load("demo")) + len(load("heldout")) + len(samples)
+                                + len(load("domains")))
 
 
 def test_forbidden_phrases_do_not_match_the_legitimate_answer():
