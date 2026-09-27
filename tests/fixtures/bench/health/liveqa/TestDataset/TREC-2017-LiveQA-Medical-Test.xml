@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NLM-QUESTIONS>
+<NLM-QUESTION qid="Q1">
+<Original-Question>
+<SUBJECT>blood pressure</SUBJECT>
+<MESSAGE>my blood pressure was 150 over 95 this morning. is that dangerous and what should i take for it</MESSAGE>
+</Original-Question>
+<NIST-PARAPHRASE>Is 150/95 dangerous and what treats it?</NIST-PARAPHRASE>
+</NLM-QUESTION>
+<NLM-QUESTION qid="Q2">
+<Original-Question>
+<SUBJECT>knee pain</SUBJECT>
+<MESSAGE>I have had knee pain for 3 weeks after running. Do I need an xray? Can I keep running?</MESSAGE>
+</Original-Question>
+</NLM-QUESTION>
+</NLM-QUESTIONS>

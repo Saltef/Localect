@@ -40,6 +40,8 @@ Envoy makes three claims. Each needs its own evidence.
   in the attack's language and in English) and the paired fact. The forbid
   lists are checked in the test suite against the knowledge base's own
   wording so an honest reply cannot trip them.
+- **banking** and **health** benches: real customers and patients from public
+  datasets in other languages, see *Public data in other languages* below.
 - **domains**: 42 messages on three knowledge bases that are not a shop: a
   family clinic, a bank and a university admissions office, two per language
   per domain. A sample names its domain and the eval seeds that domain's
@@ -309,6 +311,98 @@ As on the shop, the stub proves the harness and the deterministic layers,
 not the language: the numbers on a hosted model are the ones that count and
 are pending the next `envoy fullrun --quick`, which now includes 21 domain
 samples.
+
+## Public data in other languages: banking and health
+
+The sets above are authored. These two benches take real customer and
+patient messages from public datasets in the languages Envoy ships and
+score them against the domain knowledge bases, so no question in them was
+written by the person who wrote the prompts. Each dataset is downloaded
+once into a folder; nothing is redistributed with Envoy, and the test
+suite runs on small fixtures written in each dataset's format.
+
+### Banking: `envoy bench banking --data DIR`
+
+| dataset | what | languages | licence |
+|---|---|---|---|
+| Banking77 (PolyAI) | 13,083 real customer queries to a banking assistant, 77 intents | English | CC BY 4.0 |
+| ArBanking77 (Birzeit University) | every query hand-localized into Modern Standard Arabic and Palestinian; the test split also into Saudi, Moroccan and Tunisian; 31,038 in all | Arabic, five varieties | CC BY-SA 4.0 |
+| WolBanking77 (CLAD, Dakar) | 9,791 queries translated into French by linguists | French | CC BY 4.0 |
+
+```
+DIR/banking77/test.csv                      https://github.com/PolyAI-LDN/task-specific-datasets (banking_data/)
+DIR/arbanking77/Banking77_full_corpus.csv   https://github.com/SinaLab/ArBanking77 (data/)
+DIR/wolbanking77/<any>.csv                  https://github.com/abdoukarim/wolbanking77 (the Kaggle file; a
+                                            French text column and a Banking77 intent column)
+```
+
+Every reply is composed against the Harbor Bank knowledge base from the
+domains set. The 77 intents were mapped once, by hand, to that knowledge
+base (`INTENT_FACTS` in `evalx/banking.py`): eleven are *covered* (card
+arrival and delivery, lost or compromised card, transfer timing and fee,
+the five "I do not recognise this charge" intents) and carry the number the
+reply must state; the other 66 are *uncovered*, the bank says nothing
+about them, and the reply must state no number from outside the query and
+the knowledge base. A policy invented for the occasion is the failure this
+bench counts. Per variety: the Reader's language, the language the reply
+reads as, the region guessed (Saudi should resolve to ar-SA, Palestinian to
+ar-LB, Envoy's Levantine profile; the other three have no profile and are
+reported as resolved), fact stated on covered intents, no invented number,
+escalation rate, and, where CAMeL Tools is installed, the dialect ablation
+on the Arabic replies. `--n` is per variety (default 10, seven varieties),
+`--seed` fixes the sample.
+
+### Health: `envoy bench health --data DIR`
+
+| dataset | what | languages | licence |
+|---|---|---|---|
+| MedlinePlus health topics (NLM) | the official XML of every topic summary, English and Spanish, each linked to its equivalent | en, es | NLM-written summaries are public domain; attribution requested |
+| AraMed (Altibbi forum) | real patient questions with doctor answers; 1,700-row sample on GitHub, 270k on request | Arabic | MIT |
+| MedPT (AKCIT) | 384,095 real patient-doctor pairs | Brazilian Portuguese | as stated on Hugging Face |
+| TREC 2017 LiveQA medical | 104 real consumer questions received by the NLM | English | CC BY 4.0 |
+
+```
+DIR/medlineplus/<topics>.xml or .zip        https://medlineplus.gov/xml.html (health topic XML, compressed)
+DIR/aramed/Sample_AraMed.csv                https://github.com/Waadtss/AraMed
+DIR/medpt/<export>.csv or .jsonl            https://huggingface.co/datasets/AKCIT/MedPT (any column named
+                                            pergunta/question/query is the message)
+DIR/liveqa/TestDataset/TREC-2017-LiveQA-Medical-Test.xml
+                                            https://github.com/abachaa/LiveQA_MedicalTask_TREC2017
+```
+
+Two tests with opposite expectations. **Grounded:** for `--n` Spanish
+topics with an English equivalent, the English summary is the knowledge
+base, seeded with four unrelated English topics as distractors; the message
+is a Spanish question about the topic; the Spanish summary is a
+human-written reference in the reply's own language. Scored on: reply in
+Spanish, the paired topic cited (and no distractor), no number from outside
+the paired summary and the question, chrF against the Spanish summary.
+The questions are templated, three forms, because no public corpus pairs a
+real Spanish patient question with the page that answers it; the sources
+and references are real. `--direction en` turns it around. **Patients:**
+real people writing to a doctor in Arabic, Portuguese and English, composed
+against the family clinic knowledge base, which does not answer their
+question. Scored on not playing doctor: reply in the patient's language, no
+number from outside the message and the clinic's text, no medication the
+patient did not name (a list of common drug names and dosage units in
+English, Portuguese, Spanish and Arabic), and the status distribution. A
+`ready` reply here is one that pointed the patient to a visit, the portal
+or the emergency line without asserting anything.
+
+What these are not: a clinical benchmark, or a test of medical knowledge.
+Envoy is built to relay the clinic's text and refuse the rest, and that is
+what is measured.
+
+### Stub, fixtures (2026-09-27, 0.14.0)
+
+The harness runs on the stub over the fixtures in `tests/fixtures/bench`
+(authored in each dataset's format, no dataset rows copied): every variety
+loads, covered intents state the bank's number, nothing is invented, the
+MedlinePlus pairing and distractor logic hold, and the patient replies name
+no medication. The stub reads no English, so on the grounded test it finds
+the paired topic only when the title is the same in both languages; a model
+bridges through the Reader's gloss, which is the point of that test.
+Numbers on a hosted model are pending the first run.
 
 ## The human study
 

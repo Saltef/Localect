@@ -1,0 +1,5 @@
+N°;text_fr;intent;text_wo;trans.
+1;J'attends toujours ma carte, quand va-t-elle arriver ?;card_arrival;;
+2;Combien de temps prend un virement ?;transfer_timing;;
+3;Quel est le taux de change pour le dollar aujourd'hui ?;exchange_rate;;
+4;On m'a débité deux fois pour le même paiement.;transaction_charged_twice;;

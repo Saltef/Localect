@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<health-topics total="8" date-generated="09/27/2026">
+<health-topic meta-desc="Iron deficiency" title="Iron Deficiency Anemia" url="https://medlineplus.gov/irondeficiencyanemia.html" id="1001" language="English" date-created="01/01/2020">
+<also-called>Iron-poor blood</also-called>
+<full-summary><![CDATA[<p>Iron deficiency anemia happens when your body does not have enough iron to make hemoglobin. Common symptoms are tiredness, pale skin and shortness of breath. Treatment is iron tablets for 3 to 6 months and a diet with iron-rich foods. See a doctor before taking iron supplements.</p>]]></full-summary>
+<language-mapped-topic id="2001" language="Spanish" url="https://medlineplus.gov/spanish/irondeficiencyanemia.html">Anemia por deficiencia de hierro</language-mapped-topic>
+</health-topic>
+<health-topic meta-desc="Anemia ferropénica" title="Anemia por deficiencia de hierro" url="https://medlineplus.gov/spanish/irondeficiencyanemia.html" id="2001" language="Spanish" date-created="01/01/2020">
+<full-summary><![CDATA[<p>La anemia por deficiencia de hierro ocurre cuando el cuerpo no tiene suficiente hierro para producir hemoglobina. Los síntomas comunes son cansancio, piel pálida y falta de aire. El tratamiento consiste en tabletas de hierro durante 3 a 6 meses y una dieta rica en hierro. Consulte a un médico antes de tomar suplementos de hierro.</p>]]></full-summary>
+<language-mapped-topic id="1001" language="English" url="https://medlineplus.gov/irondeficiencyanemia.html">Iron Deficiency Anemia</language-mapped-topic>
+</health-topic>
+<health-topic title="Migraine" url="https://medlineplus.gov/migraine.html" id="1002" language="English" date-created="01/01/2020">
+<full-summary><![CDATA[<p>A migraine is a headache that can cause severe throbbing pain, often on one side of the head. Attacks last 4 to 72 hours. Triggers include stress, certain foods and lack of sleep. A doctor can prescribe medicines to prevent or treat attacks.</p>]]></full-summary>
+<language-mapped-topic id="2002" language="Spanish" url="https://medlineplus.gov/spanish/migraine.html">Migraña</language-mapped-topic>
+</health-topic>
+<health-topic title="Migraña" url="https://medlineplus.gov/spanish/migraine.html" id="2002" language="Spanish" date-created="01/01/2020">
+<full-summary><![CDATA[<p>La migraña es un dolor de cabeza que puede causar un dolor pulsátil intenso, a menudo en un lado de la cabeza. Los ataques duran de 4 a 72 horas. Los desencadenantes incluyen el estrés, ciertos alimentos y la falta de sueño. Un médico puede recetar medicinas para prevenir o tratar los ataques.</p>]]></full-summary>
+<language-mapped-topic id="1002" language="English" url="https://medlineplus.gov/migraine.html">Migraine</language-mapped-topic>
+</health-topic>
+<health-topic title="Sunburn" url="https://medlineplus.gov/sunburn.html" id="1003" language="English" date-created="01/01/2020">
+<full-summary><![CDATA[<p>Sunburn is red, painful skin that feels hot to the touch after too much sun. It usually appears within a few hours and fades in 2 to 7 days. Cool baths and moisturizer help; avoid the sun until it heals.</p>]]></full-summary>
+</health-topic>
+<health-topic title="Hiccups" url="https://medlineplus.gov/hiccups.html" id="1004" language="English" date-created="01/01/2020">
+<full-summary><![CDATA[<p>Hiccups are spasms of the diaphragm. They usually stop on their own within a few minutes. Hiccups that last more than 48 hours need a doctor's attention.</p>]]></full-summary>
+</health-topic>
+<health-topic title="COVID-19" url="https://medlineplus.gov/covid19.html" id="1005" language="English" date-created="01/01/2021">
+<full-summary><![CDATA[<p>COVID-19 is an illness caused by a coronavirus. Symptoms appear 2 to 14 days after exposure and include fever, cough and tiredness. Most people recover at home; call a doctor if breathing becomes difficult.</p>]]></full-summary>
+<language-mapped-topic id="2005" language="Spanish" url="https://medlineplus.gov/spanish/covid19.html">COVID-19</language-mapped-topic>
+</health-topic>
+<health-topic title="COVID-19" url="https://medlineplus.gov/spanish/covid19.html" id="2005" language="Spanish" date-created="01/01/2021">
+<full-summary><![CDATA[<p>El COVID-19 es una enfermedad causada por un coronavirus. Los síntomas aparecen de 2 a 14 días después de la exposición e incluyen fiebre, tos y cansancio. La mayoría de las personas se recupera en casa; llame a un médico si le cuesta respirar.</p>]]></full-summary>
+<language-mapped-topic id="1005" language="English" url="https://medlineplus.gov/covid19.html">COVID-19</language-mapped-topic>
+</health-topic>
+</health-topics>
