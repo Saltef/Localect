@@ -52,6 +52,9 @@ class Settings:
     public_hourly: int = 20
     public_daily: int = 300
     trust_proxy: bool = False
+    # Experiment switches (see docs/EVAL.md, "The experiment"): no_critic,
+    # no_rewriter, no_revision, no_voice, facts_only, no_facts. Off in normal use.
+    ablations: list[str] = field(default_factory=list)
 
     @property
     def db_path(self) -> Path:
@@ -82,6 +85,8 @@ class Settings:
 
             s.owner_password_hash = hash_password(env["ENVOY_OWNER_PASSWORD"])
         s.public_mode = env.get("ENVOY_PUBLIC_MODE", s.public_mode)
+        if env.get("ENVOY_ABLATIONS") is not None:
+            s.ablations = [a.strip() for a in env["ENVOY_ABLATIONS"].split(",") if a.strip()]
         s.public_model = env.get("ENVOY_PUBLIC_MODEL", s.public_model)
         s.public_hourly = int(env.get("ENVOY_PUBLIC_HOURLY", s.public_hourly))
         s.public_daily = int(env.get("ENVOY_PUBLIC_DAILY", s.public_daily))

@@ -289,7 +289,8 @@ async def run_perturbations(rows: list[RunScore], settings: Settings, on_row=Non
         if hasattr(base, "with_model") and drafter.model != base.name:
             model = base.with_model(drafter.model.split(":", 1)[-1])
         judge = critic_model_for(settings, model)
-        out += await run_perturb(results, judge, settings.user_name, on_row=on_row)
+        out += await run_perturb(results, judge, settings.user_name, on_row=on_row,
+                                 ablations=settings.ablations)
         clean = [(sid, r) for sid, r in results
                  if all(score(r, _sample_by_id(rows, sid), settings.user_name)[0].values())]
         fa = false_alarms(clean)

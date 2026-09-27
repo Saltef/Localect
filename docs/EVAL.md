@@ -404,6 +404,75 @@ the paired topic only when the title is the same in both languages; a model
 bridges through the Reader's gloss, which is the point of that test.
 Numbers on a hosted model are pending the first run.
 
+## The experiment: every benchmark under every ablation, then what to change
+
+`envoy fullrun` measures the pipeline as shipped. `envoy experiment` measures
+what each stage and each policy earns, by running the benchmarks with parts
+switched off, and then reads the results back as findings.
+
+```bash
+envoy experiment --out exp --data <datasets dir>            # several hours on a hosted model
+envoy experiment --out exp --data <datasets dir> --quick    # under an hour
+envoy experiment --out exp --conditions base,no_critic --sections heldout,domains
+envoy diagnose exp                                          # rebuild experiment.md and findings.md
+```
+
+A *condition* is a named set of switches on the pipeline (`Settings.ablations`,
+also `ENVOY_ABLATIONS=no_critic,no_voice` for a single run):
+
+| condition | switch | question it answers |
+|---|---|---|
+| base | none | the pipeline as shipped |
+| no_critic | the Arbiter judges alone | what does the Critic model catch that code does not, and what does it block that it should not? |
+| no_rewriter | the draft goes out as written (greeting and sign-off still enforced) | what does the Rewriter add to dialect and register, and does it lose anything? |
+| no_revision | no second pass after a blocking flag | does the fix loop fix? |
+| facts_only | memory answers from extracted facts, no mail paragraphs | which source policy keeps the newest value? |
+| no_facts | mail paragraphs only, no extracted facts | the same, from the other side |
+| no_voice | no voice examples from your own mail | does register suffer without them? |
+
+Each condition runs only the sections its switch can change: `base` runs
+everything; `no_critic` the held-out, injection and domains sets (with
+perturbations, so the catches and false alarms are measured without the
+Critic too); `no_rewriter` held-out, domains and banking (the dialect
+ablation and the reply's language); `no_revision` held-out and injection;
+the three memory policies the memory bench and the replay. Sections that
+need a dataset folder (banking, health, MASSIVE, FLORES) run when
+`--data` has it and are skipped otherwise.
+
+Results land in `exp/<condition>/<section>.json`, the same files `envoy eval`
+and `envoy bench` write, so `envoy explain` and `envoy report` read them. A
+section already on disk is skipped, so an interrupted experiment resumes;
+`--fresh` reruns. At the end:
+
+- **experiment.md** puts the conditions side by side, one table per section:
+  passed, escalated, faults caught and by whom, Critic false blocks, dialect
+  draft to final, memory recall and newest-fact rates, replay chrF and extra
+  numbers, banking region and grounding, health citing and safety.
+- **findings.md** is the part that guides the next change. Every finding is a
+  count over stored rows with its denominator, attributed to the stage that
+  produced it, and paired with the lever that changes that stage: a prompt
+  file, a setting, or a code path. Ranked: grounding and safety first (an
+  obeyed instruction, an invented number, a medication named), then
+  correctness (a fact omitted, an item lost in the rewrite), then what the
+  verifier costs (correct replies escalated, Critic false blocks, and, with
+  `no_critic` present, what the Critic caught that code did not against the
+  passes it cost), then the Reader (language read but region missed, by
+  expected variety), then what each stage or policy earns (the revision
+  loop, the Rewriter's dialect gain, facts-only against base, embeddings
+  against the token search, voice examples on the replay). Example ids are
+  listed so `envoy explain` can print the replies behind a number.
+
+The rules in `evalx/diagnose.py` are deterministic and read only stored
+rows; no model is asked what went wrong. The loop this sets up: change one
+lever, rerun the section the finding names (`--sections`), compare in
+experiment.md, keep or revert. The held-out rule still holds: a prompt is
+changed for a general reason the finding names, never to pass one sample,
+and a held-out gain after a change made from reading held-out failures is
+recorded as such.
+
+Not yet run on a hosted model; the first `envoy experiment` on Command A is
+the next number to add here.
+
 ## The human study
 
 Nothing automatic can say whether a reply reads like a native wrote it at

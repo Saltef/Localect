@@ -114,14 +114,18 @@ def polish(rw: Rewrite, locale: LocaleProfile, contact_name: str, user_name: str
 async def verify(critic_model: ChatModel, d, rw: Rewrite, locale: LocaleProfile, sources,
                  must_preserve: list[str], user_language_name: str, contact_name: str,
                  user_name: str, stage_errors: list[str], gender: str = "unknown",
-                 message: str = ""):
+                 message: str = "", ablations: tuple[str, ...] | list[str] = ()):
     """Critic, then Arbiter. Returns (critique, flags, status, ledger). A Critic
-    failure becomes a warning flag rather than a verdict."""
+    failure becomes a warning flag rather than a verdict. With the
+    ``no_critic`` ablation the Arbiter judges alone."""
     try:
-        cq = await critic.critique(critic_model, d, rw, locale, sources, must_preserve,
-                                   user_language_name, contact_name, user_name, gender)
-        cq = quiet_critic(cq, {s.id: s.text for s in rw.segments}, locale, contact_name,
-                          user_name, gender)
+        if "no_critic" in ablations:
+            cq = Critique(back_segments=[], flags=[])
+        else:
+            cq = await critic.critique(critic_model, d, rw, locale, sources, must_preserve,
+                                       user_language_name, contact_name, user_name, gender)
+            cq = quiet_critic(cq, {s.id: s.text for s in rw.segments}, locale, contact_name,
+                              user_name, gender)
     except StageError as e:
         stage_errors.append(str(e))
         cq = Critique(back_segments=[], flags=[Flag(
@@ -157,11 +161,15 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     # Facts and past mail are searched across languages: what was said to a
     # customer in English answers a question asked in Portuguese. History and
     # voice examples stay in the reply's language, since they carry register.
-    sources += await tools.facts_search(query, None, contact_email)
-    sources += await tools.mail_search(query, None, contact_email)
+    ablations = tuple(settings.ablations)
+    if "no_facts" not in ablations:
+        sources += await tools.facts_search(query, None, contact_email)
+    if "facts_only" not in ablations:
+        sources += await tools.mail_search(query, None, contact_email)
     if req.contact_id:
         sources += await tools.thread(req.contact_id)
-    voice = await tools.voice_examples(locale.language, contact_email)
+    voice = [] if "no_voice" in ablations else \
+        await tools.voice_examples(locale.language, contact_email)
 
     try:
         d = await drafter.draft(model, reading, locale, sources,
@@ -175,6 +183,10 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     enforce(d.segments, locale, contact_name, settings.user_name, gender=gender)
 
     async def _rewrite(flags: list[Flag] | None) -> Rewrite:
+        if "no_rewriter" in ablations:
+            return polish(Rewrite(segments=[RewrittenSegment(id=s.id, text=s.text)
+                                            for s in d.segments]),
+                          locale, contact_name, settings.user_name, gender)
         try:
             rw_ = await rewriter.rewrite(model, d, locale, sources, reading.must_preserve, flags,
                                          contact_name=contact_name, gender=gender, voice=voice)
@@ -186,14 +198,14 @@ async def compose(req: ComposeRequest, *, settings: Settings, model: ChatModel,
     async def _verify(rw: Rewrite):
         return await verify(judge, d, rw, locale, sources, reading.must_preserve,
                             user_language_name, contact_name, settings.user_name, stage_errors,
-                            gender, message=req.message)
+                            gender, message=req.message, ablations=ablations)
 
     rw = await _rewrite(None)
     cq, flags, status, ledger = await _verify(rw)
     revisions = 0
 
     fixable = arbiter.blocking(flags)
-    if fixable and not stage_errors:
+    if fixable and not stage_errors and "no_revision" not in ablations:
         rw = await _rewrite(fixable)
         cq, flags, status, ledger = await _verify(rw)
         revisions = 1

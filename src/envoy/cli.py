@@ -372,6 +372,57 @@ def _bench_domain(args: argparse.Namespace, settings: Settings, models, banking,
         print(f"\nWrote {args.out}")
 
 
+def _experiment(args: argparse.Namespace) -> None:
+    """Every benchmark under every ablation, resumable, with a diagnosis."""
+    from pathlib import Path
+
+    from .evalx import experiment
+
+    s = Settings.load()
+    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    conditions = [c.strip() for c in args.conditions.split(",") if c.strip()] \
+        if args.conditions else None
+    for c in conditions or []:
+        if c not in experiment.CONDITIONS:
+            print(f"unknown condition {c!r}; choose from {', '.join(experiment.CONDITIONS)}")
+            raise SystemExit(2)
+    sections = [x.strip() for x in args.sections.split(",") if x.strip()] if args.sections else None
+    for x in sections or []:
+        if x not in experiment.SECTIONS:
+            print(f"unknown section {x!r}; choose from {', '.join(experiment.SECTIONS)}")
+            raise SystemExit(2)
+    out = Path(args.out)
+    data = Path(args.data) if args.data else None
+    print(f"Envoy experiment  provider={s.provider} model={s.model}  "
+          f"conditions={conditions or list(experiment.CONDITIONS)}  "
+          f"{'quick subset' if args.quick else 'full sets'}  → {out}/")
+    try:
+        experiment.run_experiment(s, out, data, models, conditions, sections, quick=args.quick,
+                                  fresh=args.fresh, critic_model=args.critic_model, n=args.n)
+    except KeyboardInterrupt:
+        print(f"\nInterrupted. Run the same command again to resume from {out}/.")
+        raise SystemExit(130) from None
+    print(f"\nWrote {out / 'experiment.md'} and {out / 'findings.md'}. Read findings.md first.")
+
+
+def _diagnose(args: argparse.Namespace) -> None:
+    """Rebuild experiment.md and findings.md from an experiment folder."""
+    from pathlib import Path
+
+    from .evalx import experiment
+    from .evalx.diagnose import diagnose, render_findings
+
+    out = Path(args.dir)
+    if not out.is_dir():
+        print(f"no such directory: {out}")
+        raise SystemExit(2)
+    (out / "experiment.md").write_text(experiment.compare(out), encoding="utf-8")
+    text = render_findings(diagnose(experiment.load_experiment(out)))
+    (out / "findings.md").write_text(text, encoding="utf-8")
+    print(text)
+    print(f"Wrote {out / 'experiment.md'} and {out / 'findings.md'}")
+
+
 def _rescore(args: argparse.Namespace) -> None:
     """Re-score stored replies with the current checks; no model calls."""
     from .eval import rescore_file
@@ -664,6 +715,30 @@ def main() -> None:
     ex2.add_argument("--width", type=int, default=600, help="characters of reply to show")
     ex2.set_defaults(func=_explain)
 
+    ex = sub.add_parser("experiment", help="every benchmark under every ablation (no Critic, "
+                                           "no Rewriter, no revision, facts only, ...), "
+                                           "resumable, ending in findings.md: what to change")
+    ex.add_argument("--out", required=True, help="folder for <condition>/<section>.json, "
+                                                 "experiment.md and findings.md")
+    ex.add_argument("--data", help="folder with the public datasets (banking77/, arbanking77/, "
+                                   "wolbanking77/, medlineplus/, aramed/, medpt/, liveqa/, "
+                                   "massive/, flores/); sections without data are skipped")
+    ex.add_argument("--models", help="comma-separated model names (default: configured)")
+    ex.add_argument("--conditions", help="comma-separated subset of: base, no_critic, "
+                                         "no_rewriter, no_revision, facts_only, no_facts, "
+                                         "no_voice")
+    ex.add_argument("--sections", help="comma-separated subset of: heldout, injection, domains, "
+                                       "memory, replay, banking, health, massive, flores")
+    ex.add_argument("--quick", action="store_true", help="the quick subsets (a few hours "
+                                                         "becomes under one)")
+    ex.add_argument("--fresh", action="store_true", help="rerun sections already on disk")
+    ex.add_argument("--critic-model", dest="critic_model", help="judge with another model")
+    ex.add_argument("--n", type=int, default=30, help="replays and bench rows per source")
+    ex.set_defaults(func=_experiment)
+    dg = sub.add_parser("diagnose", help="rebuild experiment.md and findings.md from an "
+                                         "experiment folder")
+    dg.add_argument("dir")
+    dg.set_defaults(func=_diagnose)
     rp = sub.add_parser("report", help="one markdown report from eval, bench and study JSON")
     rp.add_argument("files", nargs="+", help="JSON written by envoy eval/bench/study --out")
     rp.add_argument("--out", help="markdown file to write (default: print)")
