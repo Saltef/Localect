@@ -1,0 +1,5 @@
+Intent_ID,Intent_en,Intent_ar,QID,Question_en,QuestionID_MSA1,Question_MSA1,QuestionID_PAL1,Question_PAL1,QuestionID_Saudi1,Question_Saudi1,QuestionID_Moroccan,Question_Moroccan,QuestionID_Tunisian,Question_Tunisian
+0,card arrival,وصول البطاقة,Te1,I am still waiting on my card?,M1,ما زلت أنتظر بطاقتي؟,P1,بعدني بستنى البطاقة؟,S1,لسا ما وصلتني البطاقة؟,MO1,مازال ما وصلاتنيش الكارط؟,T1,مازالت ماوصلتش الكارطة؟
+2,exchange rate,سعر الصرف,Te2,What is the exchange rate for euros?,M2,ما هو سعر صرف اليورو؟,P2,قديش سعر صرف اليورو؟,S2,كم سعر صرف اليورو؟,MO2,شحال سعر صرف اليورو؟,T2,قداش سعر صرف اليورو؟
+51,transfer timing,توقيت التحويل,Tr3,How long does a transfer take?,M3,كم يستغرق التحويل؟,P3,قديش بياخد التحويل وقت؟,,,,,,
+49,transaction charged twice,خصم العملية مرتين,Tr4,I was charged twice for one payment.,M4,تم خصم المبلغ مرتين لعملية واحدة.,P4,انخصم مني المبلغ مرتين على نفس العملية.,,,,,,

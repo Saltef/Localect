@@ -136,10 +136,13 @@ def _bench(args: argparse.Namespace) -> None:
     Critic's back-translation on FLORES-200."""
     from pathlib import Path
 
-    from .evalx import flores, massive, memory
+    from .evalx import banking, flores, health, massive, memory
 
     settings = Settings.load()
     models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    if args.dataset in ("banking", "health"):
+        _bench_domain(args, settings, models, banking, health)
+        return
     if args.dataset == "memory":
         def live_m(r):
             state = "ERROR" if r.error else ("ok" if r.passed else "fail")
@@ -298,6 +301,75 @@ def _fullrun(args: argparse.Namespace) -> None:
     text = report.render(report.load_docs(written), title=f"Envoy full run: {s.provider}:{s.model}")
     (out / "report.md").write_text(text, encoding="utf-8")
     print(f"\nWrote {out / 'report.md'} and {len(written)} JSON file(s). Paste report.md back.")
+
+
+def _bench_domain(args: argparse.Namespace, settings: Settings, models, banking, health) -> None:
+    """Public data in other languages: real bank customers against the bank
+    knowledge base, MedlinePlus topics and real patients against the clinic."""
+    from pathlib import Path
+
+    if not args.data:
+        print("--data is required: the folder holding the datasets (see docs/EVAL.md)")
+        raise SystemExit(2)
+    data = Path(args.data)
+    if not data.exists():
+        print(f"no such directory: {data}")
+        raise SystemExit(2)
+    if args.critic_model:
+        settings.role_models = {**settings.role_models, "critic": args.critic_model}
+    doc: dict = {}
+    if args.dataset == "banking":
+        def live(r):
+            state = ("ERROR" if r.error else
+                     f"{'lang ok' if r.reply_language_ok else 'LANG ' + r.reply_language}"
+                     f"{'' if r.fact_ok is None else (', fact' if r.fact_ok else ', NO FACT')}"
+                     f"{', invented ' + ','.join(r.invented[:3]) if r.invented else ''}")
+            print(f"  [{r.model}] {r.id} [{r.intent}] -> {r.locale} {r.status}: {state} "
+                  f"({r.seconds}s)", flush=True)
+
+        print(f"Envoy bench banking  data={data}  n={args.n}/variety  provider={settings.provider}")
+        rows = asyncio.run(banking.run_banking(settings, data, args.n, models, on_row=live,
+                                               seed=args.seed))
+        if not rows:
+            print("no queries found; expected banking77/test.csv, arbanking77/"
+                  "Banking77_full_corpus.csv or wolbanking77/*.csv under --data")
+            raise SystemExit(2)
+        print(banking.render_banking(rows))
+        doc = {"banking": banking.banking_to_dicts(rows)}
+    else:
+        def live_g(r):
+            state = ("ERROR" if r.error else
+                     f"{'cited' if r.retrieved else 'MISSED'}, chrF {r.chrf}"
+                     f"{', invented ' + ','.join(r.invented[:3]) if r.invented else ''}")
+            print(f"  [{r.model}] {r.id} {r.topic[:40]}: {state} ({r.seconds}s)", flush=True)
+
+        def live_p(r):
+            state = ("ERROR" if r.error else
+                     f"{'lang ok' if r.reply_language_ok else 'LANG'}, {r.status}"
+                     f"{', meds ' + ','.join(r.medications[:2]) if r.medications else ''}"
+                     f"{', invented ' + ','.join(r.invented[:3]) if r.invented else ''}")
+            print(f"  [{r.model}] {r.id}: {state} ({r.seconds}s)", flush=True)
+
+        print(f"Envoy bench health  data={data}  n={args.n}  provider={settings.provider}")
+        grounded, patients = [], []
+        if (data / "medlineplus").exists():
+            topics = health.parse_medlineplus(data / "medlineplus")
+            print(f"  MedlinePlus: {len(topics)} topics")
+            grounded = asyncio.run(health.run_grounded(settings, topics, args.n, models,
+                                                       on_row=live_g, seed=args.seed,
+                                                       direction=args.direction))
+        patients = asyncio.run(health.run_patients(settings, data, args.n, models,
+                                                   on_row=live_p, seed=args.seed))
+        if not grounded and not patients:
+            print("nothing found; expected medlineplus/, aramed/, medpt/ or liveqa/ under --data")
+            raise SystemExit(2)
+        print(health.render_health(grounded, patients))
+        doc = {"health_grounded": health.grounded_to_dicts(grounded),
+               "health_patients": health.patients_to_dicts(patients)}
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False, indent=1)
+        print(f"\nWrote {args.out}")
 
 
 def _rescore(args: argparse.Namespace) -> None:
@@ -543,9 +615,13 @@ def main() -> None:
     b = sub.add_parser("bench", help="score one stage against a dataset: the Reader on MASSIVE, "
                                      "the Critic's back-translation on FLORES-200, memory on the "
                                      "fixture mailbox")
-    b.add_argument("dataset", choices=["massive", "flores", "memory"])
-    b.add_argument("--data", help="unpacked dataset directory (massive, flores) or a mailbox "
-                                  "YAML (memory; default: the built-in one)")
+    b.add_argument("dataset", choices=["massive", "flores", "memory", "banking", "health"])
+    b.add_argument("--data", help="unpacked dataset directory (massive, flores, banking, "
+                                  "health) or a mailbox YAML (memory; default: the built-in one)")
+    b.add_argument("--seed", type=int, default=7, help="sampling seed (banking, health)")
+    b.add_argument("--direction", default="es", choices=["es", "en"],
+                   help="health: the language of the MedlinePlus questions (sources are in the "
+                        "other one)")
     b.add_argument("--n", type=int, default=50, help="sentences per language (default 50)")
     b.add_argument("--languages", help="comma-separated ISO codes (default: all supported)")
     b.add_argument("--models", help="comma-separated model names to compare")

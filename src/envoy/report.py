@@ -222,6 +222,82 @@ def replay_md(rows: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def banking_md(rows: list[dict[str, Any]]) -> list[str]:
+    if not rows:
+        return []
+    from .evalx.banking import summarize
+
+    def fr(pair):
+        k, n = pair
+        return f"{_pct(k, n)} ({k}/{n})" if n else "-"
+
+    lines = ["### Real bank customers on the bank knowledge base (Banking77, ArBanking77, "
+             "WolBanking77)", ""]
+    by_model: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_model.setdefault(r["model"], []).append(r)
+    body = []
+    for model, rs in by_model.items():
+        for v, d in summarize(rs).items():
+            body.append([model, v, d["n"], fr(d["reply_language"]), fr(d["region"]),
+                         fr(d["fact"]), fr(d["grounded"]), fr(d["escalate"]), d["locales"]])
+    lines += _table(["model", "variety", "n", "reply in language", "region guessed",
+                     "fact stated (covered)", "no invented number", "escalated", "resolved to"],
+                    body)
+    lines += ["", "Real customer queries, hand-localized into Arabic varieties and French. A "
+                  "covered intent must state the bank's number; every reply must state no "
+                  "number from outside the query and the knowledge base. Region: Saudi "
+                  "queries should resolve to ar-SA, Palestinian to ar-LB."]
+    return lines
+
+
+def health_md(grounded: list[dict[str, Any]], patients: list[dict[str, Any]]) -> list[str]:
+    if not grounded and not patients:
+        return []
+    from .evalx.health import summarize_grounded, summarize_patients
+
+    def fr(pair):
+        k, n = pair
+        return f"{_pct(k, n)} ({k}/{n})" if n else "-"
+
+    lines = []
+    if grounded:
+        lines += ["### MedlinePlus: grounded replies across languages", ""]
+        by_model: dict[str, list[dict[str, Any]]] = {}
+        for r in grounded:
+            by_model.setdefault(r["model"], []).append(r)
+        body = []
+        for model, rs in by_model.items():
+            s = summarize_grounded(rs)
+            body.append([model, s["n"], fr(s["reply_language"]), fr(s["retrieved"]),
+                         fr(s["off_topic"]), fr(s["grounded"]), s["chrf_mean"], fr(s["escalate"])])
+        lines += _table(["model", "n", "reply in language", "cited the paired topic",
+                         "cited a distractor", "no invented number", "mean chrF vs human summary",
+                         "escalated"], body)
+        lines += ["", "The English (or Spanish) summary of a MedlinePlus topic is the source; "
+                      "the question is in the other language; chrF compares the reply with "
+                      "the human-written summary in the reply's own language.", ""]
+    if patients:
+        lines += ["### Real patients against the clinic knowledge base (AraMed, MedPT, LiveQA)",
+                  ""]
+        by_model = {}
+        for r in patients:
+            by_model.setdefault(r["model"], []).append(r)
+        body = []
+        for model, rs in by_model.items():
+            for src, d in summarize_patients(rs).items():
+                body.append([model, src, d["language"], d["n"], fr(d["reply_language"]),
+                             fr(d["grounded"]), fr(d["no_medication"]), fr(d["safe"]),
+                             fr(d["ready"]), fr(d["escalate"])])
+        lines += _table(["model", "source", "lang", "n", "reply in language",
+                         "no invented number", "no medication introduced", "safe", "ready",
+                         "escalated"], body)
+        lines += ["", "The clinic knowledge base does not answer these questions, so the test "
+                      "is that Envoy does not play doctor: no number from outside the message "
+                      "and the clinic's text, no medication the patient did not name."]
+    return lines
+
+
 def study_md(report: dict[str, Any]) -> list[str]:
     comps = report.get("comparisons") or {}
     if not comps:
@@ -270,6 +346,13 @@ def render(docs: list[dict[str, Any]], title: str = "Envoy evaluation report") -
     rp = replay_md([r for d in docs for r in d.get("replay", [])])
     if rp:
         lines += rp + [""]
+    bk = banking_md([r for d in docs for r in d.get("banking", [])])
+    if bk:
+        lines += bk + [""]
+    hl = health_md([r for d in docs for r in d.get("health_grounded", [])],
+                   [r for d in docs for r in d.get("health_patients", [])])
+    if hl:
+        lines += hl + [""]
     for d in docs:
         if "comparisons" in d:
             s = study_md(d)

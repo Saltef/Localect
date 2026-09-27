@@ -1,0 +1,6 @@
+text,category
+I am still waiting on my card?,card_arrival
+How long does a transfer take to arrive?,transfer_timing
+What is the exchange rate for euros today?,exchange_rate
+Someone charged my card twice for the same coffee.,transaction_charged_twice
+Can I get a virtual card?,getting_virtual_card
