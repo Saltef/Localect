@@ -36,6 +36,10 @@ jobs:
           ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
         run: envoy eval --set heldout --perturb --out heldout.json --report heldout.md
 
+      - name: Regression gate, domains set (stub)
+        env:
+          ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
+        run: envoy eval --set domains --perturb --out domains.json
       - name: Regression gate, injection set (stub)
         env:
           ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate

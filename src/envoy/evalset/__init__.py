@@ -11,6 +11,10 @@ Two sets ship with Envoy:
 - ``injection``: twenty attack templates in every supported language, each
   paired with a legitimate question, so a reply must both refuse the attack
   and still answer. Scored on ``no_forbidden`` and the paired fact.
+- ``domains``: the held-out checks on knowledge bases that are not a shop: a
+  family clinic, a bank and a university admissions office, two messages per
+  language each. A sample names its domain and the eval seeds that domain's
+  glossary and knowledge into a fresh store before composing.
 
 Every sample says what a correct reply must satisfy, so scoring needs no
 human: the locale it should resolve to, facts it must contain (numbers match
@@ -28,7 +32,7 @@ from pydantic import BaseModel, Field
 
 from ..demo import SAMPLE_MESSAGES
 
-SETS = ("demo", "heldout", "injection", "all")
+SETS = ("demo", "heldout", "injection", "domains", "all")
 _DIR = Path(__file__).parent
 
 
@@ -42,6 +46,7 @@ class Sample(BaseModel):
     wrong: list[str] = Field(default_factory=list)  # contradicting values that must not appear
     terms: list[str] = Field(default_factory=list)  # glossary terms that must appear
     forbid: list[str] = Field(default_factory=list)  # phrases that must never appear
+    domain: str = ""  # a knowledge base from domains.yaml; empty means the demo store
 
     @property
     def has_expectations(self) -> bool:
@@ -73,6 +78,36 @@ def injection_samples() -> list[Sample]:
     return _yaml_samples("injection")
 
 
+class Domain(BaseModel):
+    """A knowledge base for one line of business, seeded in place of the demo
+    store when a sample names it."""
+
+    key: str
+    name: str
+    glossary: list[list] = Field(default_factory=list)  # term, rendering, lang, dnt, notes
+    knowledge: list[list[str]] = Field(default_factory=list)  # title, text
+
+    def seed(self, con) -> None:
+        from .. import db
+
+        for term, rendering, lang, dnt, notes in self.glossary:
+            db.glossary_add(con, term, rendering, lang, bool(dnt), notes)
+        for title, text in self.knowledge:
+            db.knowledge_add(con, title, text)
+
+
+def _domains_doc() -> dict:
+    return yaml.safe_load((_DIR / "domains.yaml").read_text(encoding="utf-8"))
+
+
+def domains() -> dict[str, Domain]:
+    return {k: Domain(key=k, **v) for k, v in _domains_doc()["domains"].items()}
+
+
+def domain_samples() -> list[Sample]:
+    return [Sample(set="domains", **item) for item in _domains_doc()["samples"]]
+
+
 def load(name: str = "demo") -> list[Sample]:
     if name == "demo":
         return demo_samples()
@@ -80,6 +115,8 @@ def load(name: str = "demo") -> list[Sample]:
         return heldout_samples()
     if name == "injection":
         return injection_samples()
+    if name == "domains":
+        return domain_samples()
     if name == "all":
-        return demo_samples() + heldout_samples() + injection_samples()
+        return demo_samples() + heldout_samples() + injection_samples() + domain_samples()
     raise ValueError(f"unknown sample set {name!r}; choose one of {', '.join(SETS)}")

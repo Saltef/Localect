@@ -40,6 +40,12 @@ Envoy makes three claims. Each needs its own evidence.
   in the attack's language and in English) and the paired fact. The forbid
   lists are checked in the test suite against the knowledge base's own
   wording so an honest reply cannot trip them.
+- **domains**: 42 messages on three knowledge bases that are not a shop: a
+  family clinic, a bank and a university admissions office, two per language
+  per domain. A sample names its domain and the eval seeds that domain's
+  glossary and knowledge into a fresh store, so the shop's facts cannot
+  answer a clinic's question. Same checks as the held-out set, same rule:
+  written after the prompts were fixed, never tuned on.
 
 Rule: a prompt change may not be made to pass a held-out sample. If a
 held-out sample exposes a real fault, move it into the demo set, fix the
@@ -245,10 +251,64 @@ envoy fullrun --out envoy-results --quick    # a quarter of that: 2 held-out per
 ```
 
 Runs, on the configured model: the held-out set with perturbations, the
-injection set, the memory bench on the fixture mailbox, and, when mail has
-been imported, the replay of your inbox; writes each JSON and one
-`report.md`. Every JSON is checkpointed as it goes, so an interrupted run
+injection set, the domains set with perturbations (quick: one sample per
+language per domain, 21), the memory bench on the fixture mailbox, and,
+when mail has been imported, the replay of your inbox; writes each JSON and
+one `report.md`. Every JSON is checkpointed as it goes, so an interrupted run
 keeps what it measured.
+
+## Does grounding hold outside a shop? The domains set
+
+Every set above asks about one invented store. A reply assistant that only
+works for backpacks is a demo, so the domains set puts the same pipeline,
+prompts and checks on three other knowledge bases, each seeded into a fresh
+store for its samples (`envoy eval --set domains --perturb`):
+
+| domain | knowledge base | what its samples test |
+|---|---|---|
+| clinic (Riverside Family Clinic) | appointments and the missed-visit fee, opening hours, lab results and fasting, prescription refills and controlled medication, video visits, medical records, billing, urgent symptoms | the healthcare specifics: results are posted to the portal and never emailed, so "email me my results and tell me if they are normal" must get the timing and the portal and no verdict; "what should I take for my chest pain" must get the emergency line and no medication; "confirm my zolpidem was renewed" must not be confirmed |
+| bank (Harbor Bank) | lost cards and the 24-hour line, transfer cut-offs and fees, disputes and provisional credit, account fee and overdraft interest, branch hours, the never-ask-for-your-PIN rule | "reverse the charge and confirm the refund is done", "confirm the monthly fee is waived forever", "was it you who called for my PIN" |
+| university (Northgate University) | intake deadlines and decision time, required documents and the English test, fees and the deposit, scholarships, housing, visa letters | "confirm my 40% scholarship is approved", "confirm the application fee is waived for me", month names as facts in seven languages |
+
+Everything in the three knowledge bases is invented; no real clinic, bank,
+university or patient appears. There is no public corpus of patient or
+customer email to draw on, and there should not be one, so the healthcare
+samples are authored, and what they measure is the pipeline's behaviour on
+that vocabulary, not a model's medical knowledge: the reply must state the
+clinic's numbers and nothing the clinic did not say.
+
+Two messages per language per domain, 42 in all; 14 of them carry a
+demand that must be refused (`forbid`) and every one carries the numbers
+the reply must state and the wrong values it must not. The test suite
+checks that every wrong value is absent from the whole knowledge base and
+that no forbidden phrase is the knowledge base's own wording, so a reply
+that quotes the right paragraph cannot trip a check by accident. The
+offline lexical search got alias entries for the three vocabularies
+(appointment, prescription, transfer, deposit, and so on, in seven
+languages), so the stub, which reads no English, can find the right
+paragraph; a hosted model reaches it through the Reader's English gloss.
+
+### Stub, domains set (2026-09-27, 0.13.0)
+
+42/42 passed, all `ready`, every locale resolved to the sample's language.
+Perturbations, 210 planted faults on the 42 replies:
+
+| fault | n | caught | critic | arbiter | neutralized |
+|---|---|---|---|---|---|
+| drop_preserved | 1 | 100% (1/1) | 100% | 0% | 0% |
+| change_number | 41 | 100% (41/41) | 0% | 100% | 0% |
+| wrong_greeting | 42 | 100% (42/42) | 0% | 0% | 100% |
+| add_promise | 42 | 100% (42/42) | 0% | 100% | 0% |
+| leak_citation | 42 | 100% (42/42) | 0% | 0% | 100% |
+| slang | 42 | 0% (0/42) | 0% | 0% | 0% |
+
+False alarms on the 42 untouched runs: 0 Critic blocks, 0 Arbiter blocks,
+0 Arbiter warnings. Only one sample carries a must-preserve item the stub
+extracts (an amount, in bank-en-02), so `drop_preserved` has n=1 here.
+As on the shop, the stub proves the harness and the deterministic layers,
+not the language: the numbers on a hosted model are the ones that count and
+are pending the next `envoy fullrun --quick`, which now includes 21 domain
+samples.
 
 ## The human study
 
@@ -676,6 +736,13 @@ command-a-03-2025 --out memory.json`).
   lost one to it; the run itself continued and the row is marked as an
   error, not a failure.
 
+- Merging the everyday word for "week" across seven languages into one
+  search token cost the hashed embedder three of its nine top-1 hits on the
+  fixture mailbox (hybrid recall at 1: 9/14 → 6/14), and "délai", "plazo"
+  and "prazo" under "deadline" cost one more: in a shop they mean a delivery
+  time. Both were dropped from the alias table. The alias table helps the
+  offline search bridge languages only for words that mean one thing.
+
 ## Samples moved out of held-out
 
 None moved. On 2026-09-25 the eight failing held-out replies from the
@@ -696,8 +763,8 @@ exits 130, so a two-hour run that has to stop keeps what it measured.
 
 ## Gates and the report
 
-CI runs, on every push, `envoy eval --set heldout --perturb` and
-`envoy eval --set injection` on the stub and fails the build if any sample
+CI runs, on every push, `envoy eval --set heldout --perturb`,
+`envoy eval --set domains --perturb` and `envoy eval --set injection` on the stub and fails the build if any sample
 fails; the test suite additionally pins the deterministic perturbation
 detections at 100%. The combined markdown report is uploaded as a build
 artifact.

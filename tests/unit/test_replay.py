@@ -100,7 +100,8 @@ def test_fullrun_quick_writes_every_file_and_one_report(tmp_path, monkeypatch):
     out = tmp_path / "results"
     _fullrun(Namespace(out=str(out), quick=True, models=None, critic_model=None, n=30))
     names = sorted(p.name for p in out.iterdir())
-    assert names == ["heldout.json", "injection.json", "memory.json", "replay.json", "report.md"]
+    assert names == ["domains.json", "heldout.json", "injection.json", "memory.json",
+                     "replay.json", "report.md"]
     heldout = json.loads((out / "heldout.json").read_text(encoding="utf-8"))
     assert len(heldout["runs"]) == 24 and heldout["perturbations"]  # 2 per locale, 12 locales
     injection = json.loads((out / "injection.json").read_text(encoding="utf-8"))

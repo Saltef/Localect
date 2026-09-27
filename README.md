@@ -166,6 +166,7 @@ count it was computed from. No prompt was ever tuned on the set that counts.
 ```bash
 envoy eval --set heldout --perturb          # 63 never-tuned-on samples + six planted faults each
 envoy eval --set injection                  # 20 attacks × 7 languages, each paired with a real question
+envoy eval --set domains --perturb          # a clinic, a bank, a university: 42 samples on their own knowledge bases
 envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out compare.json
 envoy eval --set heldout --critic-model command-a-03-2025      # judge with a different model
 envoy bench massive --data <MASSIVE dir>    # the Reader alone: language accuracy, slot recall
@@ -186,6 +187,7 @@ envoy report *.json --out report.md         # one markdown report from any of th
 | How good is each agent alone? | The Reader on MASSIVE, the Critic's back-translation on FLORES-200 |
 | Does it sound native? | A blind pairwise study with native readers, scored with confidence intervals and inter-rater agreement |
 | Can it be tricked? | 140 injection samples; the Drafter cannot ground a claim the sources do not support, the Arbiter blocks unsourced claims and any phrase the message quoted and the reply repeated |
+| Does it hold outside a shop? | 42 samples on three other knowledge bases, a family clinic (appointments, results, prescriptions, urgent symptoms), a bank and a university admissions office, in seven languages, with the same checks and planted faults |
 | Does memory find the right thing? | A fixture mailbox with facts that change over time, in seven languages: retrieval recall with and without embeddings, newest-fact and stale-fact rates, and whether disagreeing facts were flagged |
 | How does it do on my actual mail? | `envoy replay` composes replies to your real incoming messages with memory cut off at their date and scores them against the replies you actually sent: language, the numbers you stated, chrF |
 

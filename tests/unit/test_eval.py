@@ -36,6 +36,15 @@ def test_stub_passes_every_sample_in_every_set():
     assert doc["runs"][0]["passed"] is True and "result" not in doc["runs"][0]
 
 
+def test_a_domain_sample_composes_against_its_own_knowledge_base():
+    rows = asyncio.run(run_eval(_settings(), con=_con(), sample_set="domains",
+                                indexes=[0, 14], scorers={}))
+    assert [r.sample_id for r in rows] == ["clinic-en-01", "bank-en-01"]
+    assert all(r.passed for r in rows), [(r.sample_id, r.failed_checks) for r in rows]
+    assert "24 hours" in rows[0].final_text and "SkyPack" not in rows[0].final_text
+    assert "0800 700 200" in rows[1].final_text
+
+
 def test_subset_by_index_and_several_model_names():
     rows = asyncio.run(run_eval(_settings(), models=["a", "b"], indexes=[1, 6], con=_con()))
     assert [(r.model, r.sample_id) for r in rows] == [

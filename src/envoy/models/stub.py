@@ -31,11 +31,13 @@ _LANG_WORDS = {
     "pt": {"obrigado", "obrigada", "você", "não", "olá", "quando", "onde", "envio",
            "reembolso", "gostaria", "preciso", "pedido", "bom", "dia", "também", "qual",
            "é", "isso", "depois", "coberto", "coberta", "ainda", "boa", "tarde", "têm",
-           "encomenda"},
+           "encomenda", "oi", "quanto", "quantos", "uma", "eu", "meu", "minha", "até",
+           "pra"},
     "fr": {"bonjour", "merci", "commande", "vous", "je", "pour", "remboursement",
            "livraison", "quand", "où", "pourriez", "cordialement"},
     "de": {"hallo", "danke", "bestellung", "ich", "bitte", "und", "nicht",
-           "rückerstattung", "lieferung", "wann", "können", "grüße"},
+           "rückerstattung", "lieferung", "wann", "können", "grüße", "guten", "wie", "lange",
+           "dauert", "eine", "der", "die", "das", "bis", "nach", "sie", "haben"},
     "en": {"the", "please", "order", "refund", "shipping", "when", "thanks", "hello",
            "could", "would", "you", "my"},
 }
@@ -139,7 +141,8 @@ class StubModel:
         msg: str = ctx["message"]
         lang = detect_language(msg)
         sentences = [s.strip() for s in re.split(r"(?<=[.!?؟。？！])\s*", msg) if s.strip()]
-        asks = [s for s in sentences if s.endswith(("?", "؟", "？"))
+        # A question ends in a question mark, or, in Japanese, in か。
+        asks = [s for s in sentences if (s.endswith(("?", "؟", "？")) or s.endswith("か。"))
                 and (len(s.split()) > 2 or _JAPANESE.search(s))]
         return {
             "language": lang,

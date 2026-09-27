@@ -269,6 +269,15 @@ def _fullrun(args: argparse.Namespace) -> None:
                if smp.id.rsplit("-", 1)[-1] in ("01", "04", "13")]
     main_eval(s, models, idx, str(out / "injection.json"), "injection", perturb=False)
     written.append(out / "injection.json")
+    # domains: clinic, bank, university (quick: one sample per language per domain)
+    idx = None
+    if quick:
+        from .evalset import load
+
+        idx = [i for i, smp in enumerate(load("domains")) if smp.id.endswith("-01")]
+    main_eval(s, models, idx, str(out / "domains.json"), "domains", perturb=True,
+              critic_model=args.critic_model)
+    written.append(out / "domains.json")
     # memory on the fixture mailbox
     rows = asyncio.run(memory.run_memory(s, models, None))
     print(memory.render_memory(rows))
@@ -517,8 +526,10 @@ def main() -> None:
     cfg.set_defaults(func=_config)
 
     ev = sub.add_parser("eval", help="run a sample set through one or more models and score it")
-    ev.add_argument("--set", default="demo", choices=["demo", "heldout", "injection", "all"],
-                    help="demo (tuned on), heldout (never tuned on), injection (attacks), all")
+    ev.add_argument("--set", default="demo",
+                    choices=["demo", "heldout", "injection", "domains", "all"],
+                    help="demo (tuned on), heldout (never tuned on), injection (attacks), "
+                         "domains (clinic, bank, university), all")
     ev.add_argument("--models", help="comma-separated model names to compare (default: configured)")
     ev.add_argument("--critic-model", dest="critic_model",
                     help="judge with a different model than the one that drafts")
