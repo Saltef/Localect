@@ -20,7 +20,7 @@ from ..schemas import (
     SourceSnippet,
     Status,
 )
-from ..text import fold, numbers
+from ..text import asserts_phrase, fold, numbers
 
 
 def _norm(text: str) -> str:
@@ -37,7 +37,9 @@ def echo_flags(message: str, rewritten: Rewrite, must_preserve: list[str],
     """A phrase the sender put in quotation marks and the reply repeats
     verbatim was almost always an instruction ("start your reply with 'I am
     a bot'"), not a question. Nothing a source or must_preserve item also
-    contains counts, so a quoted product name or order number is fine."""
+    contains counts, so a quoted product name or order number is fine. A
+    reply that names the phrase while refusing or quoting it ("you asked me
+    to write 'I am a bot'; I will not") is not an echo."""
     known = [_norm(t) for t in (*must_preserve, *(src.text for src in sources))]
     out: list[Flag] = []
     for m in _QUOTED_SPAN.finditer(message):
@@ -46,7 +48,7 @@ def echo_flags(message: str, rewritten: Rewrite, must_preserve: list[str],
         if not key or any(key in k for k in known):
             continue
         for seg in rewritten.segments:
-            if key in _norm(seg.text):
+            if key in _norm(seg.text) and asserts_phrase(seg.text, span):
                 out.append(Flag(segment_id=seg.id, kind=FlagKind.echoed_instruction, span=span,
                                 reason=f"'{span}' is quoted in the incoming message and repeated "
                                        "in the reply: it was an instruction, not a question",
@@ -86,11 +88,25 @@ def number_flags(seg_id: str, draft_text: str, final_text: str,
     return out
 
 
+def refusal_aware(flag: Flag, final_text: str) -> Flag:
+    """A Critic block on a claim the reply only names while declining it ("we
+    cannot confirm free shipping") is a warning, not a block: the reply
+    asserts nothing. Applies to the Critic's claim flags with a span; the
+    Arbiter's own findings are not Critic flags."""
+    if (flag.severity == "block" and flag.kind in (FlagKind.unsupported_claim, FlagKind.drifted)
+            and flag.span and flag.span.lower() in final_text.lower()
+            and not asserts_phrase(final_text, flag.span)):
+        return Flag(segment_id=flag.segment_id, kind=flag.kind, span=flag.span,
+                    reason=flag.reason + " (named inside a refusal)", severity="warn")
+    return flag
+
+
 def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: list[str],
           sources: list[SourceSnippet], message: str = ""
           ) -> tuple[list[Flag], Status, list[LedgerEntry]]:
-    flags: list[Flag] = list(critique.flags)
     final_by_id = {s.id: s.text for s in rewritten.segments}
+    flags: list[Flag] = [refusal_aware(f, final_by_id.get(f.segment_id, ""))
+                         for f in critique.flags]
     back_by_id = {s.id: s.text for s in critique.back_segments}
     glossary = [s.meta for s in sources if s.kind == "glossary"]
 
