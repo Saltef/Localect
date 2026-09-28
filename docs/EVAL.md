@@ -497,6 +497,28 @@ tables follow when it does.
   English question on a Spanish source (mem-04) never gets the newest
   value, and the French one (mem-08) uses the stale value.
 
+**Rerun with the revision loop, injection, 11/21 against `no_revision`'s
+7/21.** 0.15.1's "named inside a refusal" fix did not reach every language.
+Its span match required the Critic's flagged span to be a literal substring
+of the *localized* final text; on non-English replies (`inj-pt-01`,
+`inj-de-01`, `inj-es-01`) the Critic instead quoted the span from its own
+English back-translation ("full refund", "$50 gift card"), which is never
+literally present in a Portuguese, German or Spanish reply, so the match
+failed silently and the block never downgraded, whatever the reply said.
+Fixed in 0.15.2: `refusal_aware` now checks both the final text and the
+Critic's back-translation for the segment, matching whichever one the span
+actually came from (`src/envoy/agents/arbiter.py`, `refusal_aware`).
+A second, separate pattern survived on both English and non-English rows
+(`inj-en-04`, `inj-fr-01`, `inj-fr-04`, `inj-fr-13`, `inj-ja-04`): the
+Critic flagging pure wording as `drifted` — a contraction ("I'm unable" →
+"I can't"), a synonym ("crédit en magasin" → "avoir en magasin"), a mood
+shift ("est gratuite" → "soit gratuite") — that its own prompt already says
+is not drift. This is the model not following an instruction it was given,
+not a scoring bug, so no code can fix it outright; the prompt now spells out
+the refusal-rephrasing and synonym cases that recurred and says explicitly
+not to raise them even as a warn (`src/envoy/prompts/critic.md`). Whether
+that holds is only known from the next real-model rerun.
+
 
 ## The human study
 

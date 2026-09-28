@@ -88,14 +88,23 @@ def number_flags(seg_id: str, draft_text: str, final_text: str,
     return out
 
 
-def refusal_aware(flag: Flag, final_text: str) -> Flag:
+def refusal_aware(flag: Flag, final_text: str, back_text: str = "") -> Flag:
     """A Critic block on a claim the reply only names while declining it ("we
     cannot confirm free shipping") is a warning, not a block: the reply
     asserts nothing. Applies to the Critic's claim flags with a span; the
-    Arbiter's own findings are not Critic flags."""
-    if (flag.severity == "block" and flag.kind in (FlagKind.unsupported_claim, FlagKind.drifted)
-            and flag.span and flag.span.lower() in final_text.lower()
-            and not asserts_phrase(final_text, flag.span)):
+    Arbiter's own findings are not Critic flags.
+
+    The Critic quotes the span from whichever text it was just looking at:
+    usually the localized final text, but sometimes its own back-translation
+    (in the user's language) instead. Whichever one actually contains the
+    span is the one that decides whether the reply asserts it; a span found
+    in neither is left alone, unreadable by this check either way."""
+    if flag.severity != "block" or flag.kind not in (FlagKind.unsupported_claim, FlagKind.drifted) \
+            or not flag.span:
+        return flag
+    text = final_text if flag.span.lower() in final_text.lower() else \
+        back_text if flag.span.lower() in back_text.lower() else ""
+    if text and not asserts_phrase(text, flag.span):
         return Flag(segment_id=flag.segment_id, kind=flag.kind, span=flag.span,
                     reason=flag.reason + " (named inside a refusal)", severity="warn")
     return flag
@@ -105,9 +114,10 @@ def check(draft: Draft, rewritten: Rewrite, critique: Critique, must_preserve: l
           sources: list[SourceSnippet], message: str = ""
           ) -> tuple[list[Flag], Status, list[LedgerEntry]]:
     final_by_id = {s.id: s.text for s in rewritten.segments}
-    flags: list[Flag] = [refusal_aware(f, final_by_id.get(f.segment_id, ""))
-                         for f in critique.flags]
     back_by_id = {s.id: s.text for s in critique.back_segments}
+    flags: list[Flag] = [refusal_aware(f, final_by_id.get(f.segment_id, ""),
+                                       back_by_id.get(f.segment_id, ""))
+                         for f in critique.flags]
     glossary = [s.meta for s in sources if s.kind == "glossary"]
 
     for seg in draft.segments:

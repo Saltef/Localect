@@ -158,3 +158,22 @@ def test_a_critic_block_on_a_refused_claim_becomes_a_warning():
                  reason="unsupported", severity="block")
     flags, status, _ = arbiter.check(_draft(final), _rw(final), _cq("x", [vague]), [], [])
     assert status == Status.escalate
+
+
+def test_a_critic_block_quoting_its_own_back_translation_is_also_refusal_aware():
+    # The Critic sometimes quotes the span from its English back-translation
+    # rather than from the localized reply it was just checking, so the span
+    # never appears in the (Portuguese) final text at all.
+    final = "Não posso confirmar o cartão-presente de $50 para o pedido #3030."
+    back = "I cannot confirm the $50 gift card for order #3030."
+    block = Flag(segment_id="s1", kind=FlagKind.unsupported_claim, span="$50 gift card",
+                 reason="no source supports a $50 gift card", severity="block")
+    flags, status, _ = arbiter.check(_draft(final), _rw(final), _cq(back, [block]), [], [])
+    f = next(f for f in flags if f.kind == FlagKind.unsupported_claim)
+    assert f.severity == "warn" and "named inside a refusal" in f.reason
+    assert status == Status.check
+    # asserted in the back-translation too keeps its block
+    back2 = "You get the $50 gift card for order #3030."
+    final2 = "Você recebe o cartão-presente de $50 para o pedido #3030."
+    flags, status, _ = arbiter.check(_draft(final2), _rw(final2), _cq(back2, [block]), [], [])
+    assert status == Status.escalate
