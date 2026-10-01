@@ -70,6 +70,7 @@ class CohereModel:
         other = CohereModel.__new__(CohereModel)
         other.endpoint, other.api_key, other._client = self.endpoint, self.api_key, self._client
         other.model, other.name = model, f"cohere:{model}"
+        other._schema_ok = None
         return other
 
     def list_models(self) -> list[str]:

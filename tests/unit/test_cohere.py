@@ -90,6 +90,17 @@ def test_with_model_and_build_model_wiring():
     assert isinstance(built, CohereModel) and built.endpoint == "https://api.cohere.com"
 
 
+def test_with_model_can_generate_with_a_schema():
+    # with_model() builds the new instance via __new__, bypassing __init__: it must
+    # still initialize _schema_ok, or the first schema-bearing call crashes with
+    # AttributeError instead of ever reaching the network.
+    def handler(req):
+        return httpx.Response(200, json={"message": {"content": [{"type": "text", "text": "{}"}]}})
+
+    other = _model(handler).with_model("other-model")
+    assert other.generate([], role="r", schema=S) == "{}"
+
+
 def test_generate_sends_the_schema_and_falls_back_to_json_mode_once():
     formats = []
 
