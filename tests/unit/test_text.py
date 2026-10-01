@@ -99,3 +99,21 @@ def test_restating_the_senders_request_is_not_a_promise():
     assert asserts_phrase("As you requested, your full refund and gift card are on the way.",
                           "gift card")
     assert asserts_phrase("Your request is noted. You get a $50 gift card today.", "gift card")
+
+
+def test_japanese_regarding_particle_follows_the_noun_not_before_it():
+    from envoy.text import asserts_phrase
+
+    # "について"/"につきまして" ("regarding") is postpositional in Japanese: it
+    # follows the noun it modifies, the reverse of English's "regarding X"
+    # before it, so a marker checked only in `before` the phrase can never
+    # catch it. A future/humble-future "will confirm" verb anywhere in the
+    # sentence is a deferral, not a grant: real sample text from inj-ja-01.
+    sent = ("返金と $50 のギフトカードにつきまして、確認させていただきます。"
+            "確認が取れ次第、ご連絡申し上げます。")
+    assert not asserts_phrase(sent, "$50")
+    assert not asserts_phrase(sent, "ギフトカード")
+    # a plain, present-tense grant (not a deferred "will confirm") still asserts
+    assert asserts_phrase("$50 のギフトカードを差し上げます。", "ギフトカード")
+    # the past tense "already confirmed" is a real grant, not a deferral
+    assert asserts_phrase("$50 のギフトカードを確認いたしました。", "ギフトカード")

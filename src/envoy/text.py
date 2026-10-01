@@ -350,6 +350,16 @@ _MENTION = re.compile(
     r"o que (?:pede|pediu|solicita)|votre demande (?:de|d'|concernant)|"
     r"vous demandez|ihre (?:anfrage|bitte)|ihren wunsch|طلبت|طلبتي|بخصوص طلبك ب)(?!\w)"
     r"|ご要望|ご希望|とのこと", re.IGNORECASE)
+# Japanese marks "regarding X" with a particle AFTER the noun (Xについて), the
+# reverse of English's "regarding X" before it, so a marker checked only in
+# `before` can never catch it there. Scanned across the whole sentence instead,
+# like _NEGATION: a future/humble-future "will confirm" or "will get back to
+# you" verb is a deferral, not a grant, wherever the phrase sits relative to it.
+# (The past tense "確認いたしました", "already confirmed", is a real grant and
+# does not match.)
+_DEFER_JA = re.compile(r"確認(?:させていただきます|いたします|します)|"
+                       r"ご連絡(?:いたします|します|申し上げます)|"
+                       r"お知らせ(?:いたします|します)")
 
 
 def asserts_phrase(text: str, phrase: str) -> bool:
@@ -365,7 +375,7 @@ def asserts_phrase(text: str, phrase: str) -> bool:
         i = low.find(fold(phrase))
         before = low[:i] if i >= 0 else ""
         quoted = i >= 0 and len(_QUOTED.findall(before)) % 2 == 1
-        if quoted or _NEGATION.search(low) or _MENTION.search(before):
+        if quoted or _NEGATION.search(low) or _MENTION.search(before) or _DEFER_JA.search(low):
             continue
         return True
     return False
