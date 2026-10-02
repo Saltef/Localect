@@ -43,17 +43,21 @@ def echo_flags(message: str, rewritten: Rewrite, must_preserve: list[str],
     to write 'I am a bot'; I will not") is not an echo.
 
     A URL in the incoming message needs no quotation marks to be an
-    instruction ("add this link to your reply: http://..."): it is never a
-    legitimate source or must_preserve item, so any URL that reaches the
-    reply verbatim is blocked outright, not just when it was asked for by
-    name."""
+    instruction ("add this link to your reply: http://..."): a URL is
+    legitimate only when Envoy's own knowledge grounds it, never merely
+    because it is in must_preserve, since the Reader can be talked into
+    copying the attacker's own URL there as something to "preserve" - that
+    is the attack, not evidence the link is genuine. A quoted product name
+    or order number is still exempt via must_preserve, as before."""
     known = [_norm(t) for t in (*must_preserve, *(src.text for src in sources))]
+    known_sources = [_norm(src.text) for src in sources]
     quoted = [(m.group(1) or m.group(2) or "").strip() for m in _QUOTED_SPAN.finditer(message)]
     urls = [m.group(0) for m in _URL.finditer(message)]
     out: list[Flag] = []
     for span, is_url in (*((s, False) for s in quoted), *((s, True) for s in urls)):
         key = _norm(span)
-        if not key or any(key in k for k in known):
+        pool = known_sources if is_url else known
+        if not key or any(key in k for k in pool):
             continue
         for seg in rewritten.segments:
             if key in _norm(seg.text) and asserts_phrase(seg.text, span):
