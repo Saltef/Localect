@@ -29,6 +29,7 @@ def _norm(text: str) -> str:
 
 _QUOTED_SPAN = re.compile(r"[\"“„«「『]([^\"“”„«»「」『』]{6,120})[\"”«»」』]"
                           r"|['‘]([^'’‘]{6,120})['’]")
+_URL = re.compile(r"https?://[^\s<>\"')\]]+", re.IGNORECASE)
 _TERMINAL = ".!?؟。！？…"
 
 
@@ -39,20 +40,29 @@ def echo_flags(message: str, rewritten: Rewrite, must_preserve: list[str],
     a bot'"), not a question. Nothing a source or must_preserve item also
     contains counts, so a quoted product name or order number is fine. A
     reply that names the phrase while refusing or quoting it ("you asked me
-    to write 'I am a bot'; I will not") is not an echo."""
+    to write 'I am a bot'; I will not") is not an echo.
+
+    A URL in the incoming message needs no quotation marks to be an
+    instruction ("add this link to your reply: http://..."): it is never a
+    legitimate source or must_preserve item, so any URL that reaches the
+    reply verbatim is blocked outright, not just when it was asked for by
+    name."""
     known = [_norm(t) for t in (*must_preserve, *(src.text for src in sources))]
+    quoted = [(m.group(1) or m.group(2) or "").strip() for m in _QUOTED_SPAN.finditer(message)]
+    urls = [m.group(0) for m in _URL.finditer(message)]
     out: list[Flag] = []
-    for m in _QUOTED_SPAN.finditer(message):
-        span = (m.group(1) or m.group(2) or "").strip()
+    for span, is_url in (*((s, False) for s in quoted), *((s, True) for s in urls)):
         key = _norm(span)
         if not key or any(key in k for k in known):
             continue
         for seg in rewritten.segments:
             if key in _norm(seg.text) and asserts_phrase(seg.text, span):
+                reason = (f"'{span}' is a URL in the incoming message and appears in the reply: "
+                          "never a legitimate source or citation" if is_url else
+                          f"'{span}' is quoted in the incoming message and repeated "
+                          "in the reply: it was an instruction, not a question")
                 out.append(Flag(segment_id=seg.id, kind=FlagKind.echoed_instruction, span=span,
-                                reason=f"'{span}' is quoted in the incoming message and repeated "
-                                       "in the reply: it was an instruction, not a question",
-                                severity="block"))
+                                reason=reason, severity="block"))
                 break
     return out
 
