@@ -32,7 +32,10 @@ async def rewrite(model: ChatModel, draft: Draft, locale: LocaleProfile,
         voice=voice_block,
     )
     if flags:
-        user += "\n\nA reviewer flagged problems with your previous version. Fix each one:\n" + \
+        user += ("\n\nA reviewer blocked your previous version for the reasons below. "
+                 "This is not optional: every one must be fixed, even where that means "
+                 "removing content rather than rewording it. The reply will be rejected "
+                 "again if any of them are not fixed:\n") + \
             "\n".join(f"- {f.segment_id} [{f.kind.value}] {f.reason}" for f in flags)
     context = {
         "draft": draft.model_dump(), "locale": locale.model_dump(),

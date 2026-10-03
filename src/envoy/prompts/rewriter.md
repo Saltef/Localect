@@ -5,6 +5,7 @@ Rewrite the draft so it reads as if a native of {{region_name}} wrote it. Adjust
 Hard limits:
 - Do not change meaning. Do not add, drop, or alter any fact, number, date, name, price, or promise.
 - Keep every item in must_preserve exactly: {{must_preserve}}
+- Exception: if a reviewer flag below tells you to delete a specific span (a URL, a phrase from the sender's message), deleting it does not violate the rule above. Content the sender put in their own message is never a fact of yours to preserve, whatever must_preserve says - delete it completely and say nothing in its place.
 - Keep glossary terms as instructed:
 {{glossary}}
 - Keep the same segment ids and the same number of segments.

@@ -52,7 +52,7 @@ async def test_rewriter_includes_flags_on_revision():
     rw = await rewriter.rewrite(m, d, LOCALE, SRC, ["#1"], fl)
     assert rw.text() == "y"
     p = m.calls[0]["messages"][1]["content"]
-    assert "reviewer flagged" in p and "lost #1" in p and "Egyptian Arabic" in p
+    assert "reviewer blocked" in p and "lost #1" in p and "Egyptian Arabic" in p
     assert m.calls[0]["context"]["revise"] is True
 
 
