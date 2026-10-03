@@ -44,13 +44,16 @@ def echo_flags(message: str, rewritten: Rewrite, must_preserve: list[str],
 
     A URL in the incoming message needs no quotation marks to be an
     instruction ("add this link to your reply: http://..."): a URL is
-    legitimate only when Envoy's own knowledge grounds it, never merely
-    because it is in must_preserve, since the Reader can be talked into
-    copying the attacker's own URL there as something to "preserve" - that
-    is the attack, not evidence the link is genuine. A quoted product name
-    or order number is still exempt via must_preserve, as before."""
+    legitimate only when the shop's own curated knowledge or glossary
+    contains it, never merely because it is in must_preserve (the Reader
+    can be talked into copying the attacker's own URL there as something to
+    "preserve") and never because a history, mail, fact, or thread source
+    contains it: those are past conversation, not vetted fact, and a URL
+    that gets echoed once is saved right back into history - from which it
+    would "ground" itself on every later run otherwise. A quoted product
+    name or order number is still exempt via must_preserve, as before."""
     known = [_norm(t) for t in (*must_preserve, *(src.text for src in sources))]
-    known_sources = [_norm(src.text) for src in sources]
+    known_sources = [_norm(src.text) for src in sources if src.kind in ("knowledge", "glossary")]
     quoted = [(m.group(1) or m.group(2) or "").strip() for m in _QUOTED_SPAN.finditer(message)]
     urls = [m.group(0) for m in _URL.finditer(message)]
     out: list[Flag] = []
