@@ -29,6 +29,36 @@ def test_banking_loads_every_variety_and_maps_intents():
         [q.id for q in banking.load_banking(FIX / "banking", n=2)]
 
 
+def test_banking_loads_saudi_from_its_own_per_dialect_test_file(tmp_path):
+    # The real ArBanking77 release never puts Saudi, Moroccan or Tunisian
+    # columns in Banking77_full_corpus.csv - only MSA and Palestinian. The
+    # other three ship as their own label,text file, with label an Arabic
+    # intent name resolved through Banking77_intents.csv.
+    ar_dir = tmp_path / "arbanking77"
+    ar_dir.mkdir()
+    (ar_dir / "Banking77_full_corpus.csv").write_text(
+        "Intent_ID,Intent_en,Intent_ar,QID,Question_en,QuestionID_MSA1,Question_MSA1,"
+        "QuestionID_PAL1,Question_PAL1\n"
+        "0,card arrival,وصول البطاقة,Te1,still waiting?,M1,ما زلت أنتظر بطاقتي؟,"
+        "P1,بعدني بستنى البطاقة؟\n", encoding="utf-8")
+    (ar_dir / "Banking77_intents.csv").write_text(
+        "label_en,label_ar\n"
+        "card arrival,وصول البطاقة\n"
+        "not a real intent,نية غير معروفة\n", encoding="utf-8")
+    (ar_dir / "Banking77_Arabized_Saudi_test.csv").write_text(
+        "label,text\n"
+        "وصول البطاقة,لسا ما وصلتني البطاقة؟\n"
+        # an intent not in KNOWN_INTENTS even though it is in the mapping file
+        "نية غير معروفة,سؤال غريب\n"
+        # a label with no entry in Banking77_intents.csv at all
+        "نية مش موجودة,سؤال تاني\n", encoding="utf-8")
+
+    qs = banking.load_banking(tmp_path, n=10, varieties=["ar-Saudi"])
+    assert len(qs) == 1
+    assert qs[0].intent == "card_arrival" and qs[0].region == "ar-SA"
+    assert qs[0].text == "لسا ما وصلتني البطاقة؟"
+
+
 def test_banking_bench_on_the_stub_states_covered_facts_and_invents_nothing():
     rows = asyncio.run(banking.run_banking(_settings(), FIX / "banking", n=10, scorers={}))
     assert rows and not any(r.error for r in rows)

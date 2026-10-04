@@ -29,7 +29,14 @@ Tools), the draft-versus-final ablation runs on the Arabic replies too.
 Data layout under ``--data``::
 
     banking77/test.csv                       text,category (PolyAI raw)
-    arbanking77/Banking77_full_corpus.csv    the ArBanking77 corpus
+    arbanking77/Banking77_full_corpus.csv    MSA and Palestinian (Question_MSA1,
+                                             Question_PAL1, Intent_en columns)
+    arbanking77/Banking77_Arabized_{Saudi,Moroccan,Tunisian}_test.csv
+                                             the other three varieties: released as
+                                             their own files, label,text columns,
+                                             the label an Arabic intent name resolved
+                                             through Banking77_intents.csv
+                                             (label_en,label_ar)
     wolbanking77/*.csv                       any CSV with a French text column
                                              and a Banking77 intent column
 
@@ -85,6 +92,14 @@ ARABIC_COLUMNS = [
     ("Question_Tunisian", "ar-Tunisian", None),
 ]
 VARIETY_ORDER = ["en", "fr", "ar-MSA", "ar-PAL", "ar-Saudi", "ar-Moroccan", "ar-Tunisian"]
+# Saudi, Moroccan and Tunisian ship as their own per-dialect test file
+# (label,text), never as extra columns of Banking77_full_corpus.csv: that
+# file only ever has the MSA and Palestinian columns above.
+DIALECT_TEST_FILES = {
+    "ar-Saudi": "Banking77_Arabized_Saudi_test.csv",
+    "ar-Moroccan": "Banking77_Arabized_Moroccan_test.csv",
+    "ar-Tunisian": "Banking77_Arabized_Tunisian_test.csv",
+}
 
 
 @dataclass
@@ -147,6 +162,17 @@ def _pick(rows: list, n: int, seed: int) -> list:
     return rows[:n]
 
 
+def _label_to_intent(data_dir: Path) -> dict[str, str]:
+    """Banking77_intents.csv maps the Arabic intent name a per-dialect test
+    file carries in its own ``label`` column back to the English intent, the
+    same way Intent_en does inside the full corpus."""
+    path = data_dir / "arbanking77" / "Banking77_intents.csv"
+    if not path.exists():
+        return {}
+    return {r["label_ar"].strip(): normalize_intent(r["label_en"])
+            for r in _read_csv(path) if r.get("label_ar") and r.get("label_en")}
+
+
 def load_banking(data_dir: Path, n: int = 10, seed: int = 7,
                  varieties: list[str] | None = None) -> list[Query]:
     """``n`` queries per variety, sampled with a fixed seed, so that two runs
@@ -160,16 +186,36 @@ def load_banking(data_dir: Path, n: int = 10, seed: int = 7,
             out.append(Query(id=f"en-{i:03d}", variety="en", language="en", text=r["text"],
                              intent=normalize_intent(r["category"])))
     ar = data_dir / "arbanking77" / "Banking77_full_corpus.csv"
+    sourced: set[str] = set()
     if ar.exists():
         rows = _read_csv(ar)
         for column, variety, region in ARABIC_COLUMNS:
             if variety not in wanted:
                 continue
             have = [r for r in rows if (r.get(column) or "").strip() and r.get("Intent_en")]
+            if not have:
+                continue
+            sourced.add(variety)
             for i, r in enumerate(_pick(have, n, seed)):
                 out.append(Query(id=f"{variety}-{i:03d}", variety=variety, language="ar",
                                  text=r[column].strip(), intent=normalize_intent(r["Intent_en"]),
                                  region=region))
+    label_to_intent: dict[str, str] | None = None
+    for variety, fname in DIALECT_TEST_FILES.items():
+        if variety not in wanted or variety in sourced:
+            continue
+        path = data_dir / "arbanking77" / fname
+        if not path.exists():
+            continue
+        if label_to_intent is None:
+            label_to_intent = _label_to_intent(data_dir)
+        region = next((reg for _col, var, reg in ARABIC_COLUMNS if var == variety), None)
+        have = [(r["text"].strip(), label_to_intent[r["label"].strip()])
+               for r in _read_csv(path) if (r.get("text") or "").strip()
+               and label_to_intent.get((r.get("label") or "").strip()) in KNOWN_INTENTS]
+        for i, (text, intent) in enumerate(_pick(have, n, seed)):
+            out.append(Query(id=f"{variety}-{i:03d}", variety=variety, language="ar",
+                             text=text, intent=intent, region=region))
     fr_dir = data_dir / "wolbanking77"
     if "fr" in wanted and fr_dir.is_dir():
         rows = []
