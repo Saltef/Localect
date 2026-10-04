@@ -404,6 +404,49 @@ the paired topic only when the title is the same in both languages; a model
 bridges through the Reader's gloss, which is the point of that test.
 Numbers on a hosted model are pending the first run.
 
+### Command A (Cohere), real customers (2026-10-04, 0.15.2)
+
+Banking77 (English) and ArBanking77 (five Arabic varieties), 20 queries per
+variety sampled with the fixed seed, against the Harbor Bank knowledge
+base: 120 real customer messages, none written for Envoy.
+
+The first attempt surfaced a harness bug, not a model one: `envoy bench
+banking` silently returned zero rows for Saudi, Moroccan and Tunisian. The
+loader only ever read `Question_Saudi1`/`Question_Moroccan`/
+`Question_Tunisian` columns out of `Banking77_full_corpus.csv`; the real
+ArBanking77 release never puts them there, only MSA and Palestinian live in
+that file. The other three ship as their own
+`Banking77_Arabized_{Saudi,Moroccan,Tunisian}_test.csv` file (`label,text`),
+the label an Arabic intent name resolved through the release's own
+`Banking77_intents.csv` (`label_en,label_ar`). Fixed in `load_banking()`: a
+variety the full corpus has no data for falls back to its own file. The
+test fixture is untouched, since it puts synthetic Saudi/Moroccan/Tunisian
+columns directly in its authored full-corpus file, unlike the real release.
+
+| variety | n | language | reply language | region | covered | fact stated | grounded |
+|---|---|---|---|---|---|---|---|
+| en | 20 | 100% (20/20) | 100% (20/20) | n/a | 3 | 33% (1/3) | 80% (16/20) |
+| ar-MSA | 20 | 100% (20/20) | 100% (20/20) | n/a | 2 | 100% (2/2) | 100% (20/20) |
+| ar-PAL | 20 | 100% (20/20) | 100% (20/20) | 5% (1/20) | 2 | 50% (1/2) | 100% (20/20) |
+| ar-Saudi | 20 | 100% (20/20) | 100% (20/20) | 35% (7/20) | 3 | 67% (2/3) | 100% (20/20) |
+| ar-Moroccan | 20 | 100% (20/20) | 100% (20/20) | n/a | 2 | 100% (2/2) | 95% (19/20) |
+| ar-Tunisian | 20 | 100% (20/20) | 100% (20/20) | n/a | 1 | 100% (1/1) | 100% (20/20) |
+
+Language identification and reply-language matching: 120/120, every
+variety. Grounding (no invented number) holds at 116/120; the English
+misses line up with the "24/7" false positive below, not fabrication.
+
+Two findings here are real, not harness artifacts:
+
+- **Region resolution for Palestinian and Saudi Arabic is close to failing
+  outright**: 1/20 and 7/20 against a target of `ar-LB` and `ar-SA`. This is
+  real customer phrasing, not an authored sample, resolving to the wrong
+  locale the large majority of the time.
+- **English has the worst covered-intent grounding of the six varieties**:
+  1/3, against 100% for MSA, Moroccan and Tunisian. The dominant-language
+  model should not be the weakest at stating a fact it already has; reading
+  the two failing replies in full is the next step, not yet done.
+
 ## The experiment: every benchmark under every ablation, then what to change
 
 `envoy fullrun` measures the pipeline as shipped. `envoy experiment` measures
@@ -945,6 +988,12 @@ command-a-03-2025 --out memory.json`).
 - One Cohere 500 survived three retries with backoff. A run of 45 samples
   lost one to it; the run itself continued and the row is marked as an
   error, not a failure.
+
+- "24/7" reads as an invented number on the banking bench. The digit regex
+  splits it into "24" and "7" as separate tokens, and "7" alone never
+  appears in the knowledge base's own phrasing, "24 hours a day". A
+  handful of the English banking-bench grounding misses are this, not
+  fabrication; not yet fixed.
 
 - Merging the everyday word for "week" across seven languages into one
   search token cost the hashed embedder three of its nine top-1 hits on the
