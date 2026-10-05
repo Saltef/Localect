@@ -127,6 +127,7 @@ class BankScore:
     text: str
     locale: str = ""
     status: str = ""
+    region_guess: str = ""  # the Reader's own guess, before any fallback resolves it
     language_ok: bool = False  # the Reader resolved the query's language
     reply_language: str = ""  # what the reply itself reads as
     reply_language_ok: bool = False
@@ -280,7 +281,8 @@ def score_query(q: Query, result, known: set[str], scorer=None) -> BankScore:
     reply = result.final_text
     row = BankScore(model="", id=q.id, variety=q.variety, language=q.language, intent=q.intent,
                     covered=q.covered, text=q.text, locale=result.locale.locale,
-                    status=result.status.value, reply=reply)
+                    status=result.status.value, reply=reply,
+                    region_guess=result.reading.region_guess or "")
     row.language_ok = result.locale.language == q.language
     row.reply_language = detect_language(reply)
     row.reply_language_ok = row.reply_language == q.language
