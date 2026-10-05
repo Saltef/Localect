@@ -349,3 +349,40 @@ tests/              unit · agents · mcp (over stdio) · pipeline · api · e2e
   JSON schema as `response_format`, falls back to JSON mode and then to
   free text on a 400, and remembers per model. Smaller models echo schemas;
   the stage runner names that failure and asks for an instance.
+
+## 7. Related work
+
+Three things worth stating plainly rather than leaving for a reader to
+notice themselves:
+
+- **The Rewriter–Critic loop is a cousin of an existing idea, not a new
+  one.** Andrew Ng's [Translation
+  Agent](https://github.com/andrewyng/translation-agent) (2024) popularized
+  a "draft, reflect, refine" loop for machine translation. Envoy's version
+  differs in what it is built for: a reply, not a standalone translation,
+  so the Drafter grounds every claim to the user's own sources through
+  MCP, the Rewriter is driven by an editable locale profile rather than
+  one prompt, and a deterministic Arbiter does not delegate to the model
+  anything code can check outright. The loop structure itself is shared
+  prior art.
+- **Back-translation as a trust signal has a documented failure mode, and
+  the design does not use it the way that failure mode applies.**
+  Round-trip translation was shown, well before LLMs, to correlate poorly
+  with forward-translation quality when read as a scalar score — early
+  work called it "good for nothing" as a metric, and even recent
+  rehabilitations of the idea hold only under narrower conditions. The
+  Critic here never produces a score: it produces per-segment flags,
+  judged adversarially against a Drafter it ideally did not write
+  (`--critic-model`), and those flags are themselves measured, not
+  trusted, by planting six kinds of fault and reading what each layer
+  catches (`docs/EVAL.md`, *Perturbations*). The evidence for the Critic
+  is the perturbation recall table, not the back-translation step by
+  itself.
+- **A single Critic is one step behind current MT-evaluation research.**
+  Work such as M-MAD (ACL 2025) and HiMATE builds multi-agent *debate*
+  among several judges specifically to reduce single-judge bias in
+  LLM-as-a-judge translation evaluation. Envoy's Critic is one model per
+  run. A debate-style Critic is a reasonable next step if the perturbation
+  false-alarm rate does not fall with a better prompt alone; nothing in
+  this design assumes a single judge is sufficient, only that it is what
+  is measured today.

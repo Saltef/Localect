@@ -244,7 +244,9 @@ pytest -q tests/e2e              # boots the real server and drives the UI in Ch
 One pull request per change, version bumped per release, UTF-8 everywhere.
 The evaluation has its own rules, in [docs/EVAL.md](docs/EVAL.md): never
 tune a prompt on the held-out set, never write a number the code did not
-produce, keep the negative results.
+produce, keep the negative results. See
+[CONTRIBUTING.md](CONTRIBUTING.md) before a pull request and
+[SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Roadmap
 
