@@ -447,6 +447,56 @@ Two findings here are real, not harness artifacts:
   model should not be the weakest at stating a fact it already has; reading
   the two failing replies in full is the next step, not yet done.
 
+### Reading the region misses: what the Reader actually guessed (0.15.3)
+
+The 1/20 and 7/20 above are a resolved locale against a target, which says
+whether the system got it right but not where it went wrong: a Reader that
+declines to guess and one that guesses confidently wrong both end up at the
+language default. The run's stored rows keep the Reader's raw `region_guess`
+before any fallback, so the two cases separate:
+
+| variety | n | no guess | guessed `ar-JO` | guessed wrong (other) | guessed right |
+|---|---|---|---|---|---|
+| ar-PAL (target ar-LB) | 20 | 12 | 4 | 3 (`ar-EG`) | 1 |
+| ar-Saudi (target ar-SA) | 20 | 12 | 0 | 1 (`ar-LB`) | 7 |
+
+Two different problems, not one: when the Reader commits to a guess it is
+usually right (8/8 Saudi guesses minus the one miss = 7/8; on Palestinian,
+4 of the 8 guesses were `ar-JO`, Jordanian). The dominant failure on both
+varieties is declining to guess at all (12/20, 60%, on real single-sentence
+customer messages) — the Reader's own prompt instruction is explicitly
+conservative here (`prompts/reader.md`: *"otherwise null"*), and Envoy's
+language default then resolves every one of those to `ar-EG`, which is
+guaranteed wrong for these two target locales in this benchmark.
+
+The `ar-JO` guesses were a fixable, narrow miss rather than a model fault:
+Jordanian is the same Levantine Arabic family as the shipped `ar-LB`
+profile, but `locale_for_reading()` only matched exact configured locale
+codes, so a guess of `ar-JO` fell straight through to the `ar-EG` default
+instead of landing one step away on the Levantine profile it already names.
+Fixed in `pipeline.py` (`REGION_ALIAS = {"ar-JO": "ar-LB"}`, consulted right
+after the exact-match lookup fails, before the language default).
+
+Confirmed against this run's own stored rows, not a fresh model call: this
+container has no model credentials, so the fix is checked by replaying
+every row's recorded `region_guess` through `locale_for_reading()` before
+and after the change (recomputing "before" first reproduces the `region_ok`
+already stored in the run's JSON on all 40 rows, which is the sanity check
+that the replay is faithful to what actually ran).
+
+| variety | target | before | after |
+|---|---|---|---|
+| ar-PAL | ar-LB | 1/20 (5%) | 5/20 (25%) |
+| ar-Saudi | ar-SA | 7/20 (35%) | 7/20 (35%, no `ar-JO` guesses here) |
+
+The four rows that flip (`ar-PAL-002`, `ar-PAL-006`, `ar-PAL-014`,
+`ar-PAL-017`) are exactly the four `ar-JO` guesses; nothing else moves. This
+is a real, bounded gain, not the fix for the finding above: the 60%
+no-guess rate is untouched, is the larger share of both misses, and is a
+prompt-conservatism tradeoff, not a resolver bug — loosening it is a change
+to `prompts/reader.md` that needs a live rerun to judge, which is *pending*
+the next `envoy bench banking` on a configured model.
+
 ## The experiment: every benchmark under every ablation, then what to change
 
 `envoy fullrun` measures the pipeline as shipped. `envoy experiment` measures
