@@ -37,6 +37,12 @@ class PipelineError(RuntimeError):
 DEFAULT_REGION = {"ar": "ar-EG", "de": "de-DE", "en": "en-US", "es": "es-MX", "fr": "fr-FR",
                   "ja": "ja-JP", "pt": "pt-BR"}
 
+# Regional guesses the Reader may name that have no configured profile of
+# their own but are close enough to one we do configure that writing in it
+# beats falling through to the language's generic default. ar-JO (Jordanian)
+# is the same Levantine Arabic family as our ar-LB profile.
+REGION_ALIAS = {"ar-JO": "ar-LB"}
+
 
 def normalize_locale_code(code: str | None) -> str:
     """"ar_eg", "AR-EG", "ar-eg" -> "ar-EG"; "es" -> "es"; junk -> ""."""
@@ -55,7 +61,7 @@ def locale_for_reading(con, language: str, region_guess: str | None) -> LocalePr
     language = normalize_locale_code(language).split("-")[0]
     guess = normalize_locale_code(region_guess)
     if "-" in guess:
-        p = db.locale_get(con, guess)
+        p = db.locale_get(con, guess) or db.locale_get(con, REGION_ALIAS.get(guess, ""))
         if p:
             return p
     default = DEFAULT_REGION.get(language)

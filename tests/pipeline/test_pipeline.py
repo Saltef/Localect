@@ -160,6 +160,9 @@ def test_region_guess_is_normalized_and_languages_have_a_default_region(con):
     assert normalize_locale_code(None) == "" and normalize_locale_code("??") == ""
     # a usable guess wins
     assert locale_for_reading(con, "ar", "ar_sa").locale == "ar-SA"
+    # ar-JO has no profile of its own, but it's the same Levantine Arabic as
+    # ar-LB, so it's aliased there instead of falling through to the default
+    assert locale_for_reading(con, "ar", "ar-jo").locale == "ar-LB"
     # no guess, or one that names no configured profile: the language's default
     # region, not the alphabetically first profile
     assert locale_for_reading(con, "es", None).locale == "es-MX"
