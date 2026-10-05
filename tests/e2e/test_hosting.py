@@ -1,4 +1,4 @@
-"""A hosted Envoy in the browser: the public demo, the sign-in, and sign-out."""
+"""A hosted Localect in the browser: the public demo, the sign-in, and sign-out."""
 
 import os
 import socket
@@ -23,11 +23,11 @@ def _free_port() -> int:
 @pytest.fixture(scope="module")
 def hosted():
     port = _free_port()
-    env = {**os.environ, "ENVOY_DATA_DIR": tempfile.mkdtemp(), "ENVOY_PROVIDER": "stub",
-           "ENVOY_PORT": str(port), "ENVOY_OWNER_PASSWORD": "owner-pass-word",
-           "ENVOY_PUBLIC_MODE": "demo", "ENVOY_PUBLIC_HOURLY": "5"}
-    proc = subprocess.Popen([sys.executable, "-m", "envoy.cli", "serve", "--no-browser"], env=env,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    env = {**os.environ, "LOCALECT_DATA_DIR": tempfile.mkdtemp(), "LOCALECT_PROVIDER": "stub",
+           "LOCALECT_PORT": str(port), "LOCALECT_OWNER_PASSWORD": "owner-pass-word",
+           "LOCALECT_PUBLIC_MODE": "demo", "LOCALECT_PUBLIC_HOURLY": "5"}
+    proc = subprocess.Popen([sys.executable, "-m", "localect.cli", "serve", "--no-browser"],
+                            env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     url = f"http://127.0.0.1:{port}"
     for _ in range(100):
         try:

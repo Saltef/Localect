@@ -2,7 +2,7 @@
 // a miss is logged rather than thrown, so a redesign degrades to "nothing
 // captured" and never breaks the page.
 (function () {
-  const E = window.Envoy;
+  const E = window.Localect;
   const SEND = ['div[role="button"][data-tooltip^="Send"]', 'div[role="button"][aria-label^="Send"]', 'div[role="button"].T-I-atl'];
   const q = (root, sels) => { for (const s of sels) { const el = root.querySelector(s); if (el) return el; } return null; };
 

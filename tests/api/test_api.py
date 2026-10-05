@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
-from envoy import db
-from envoy.app import create_app
-from envoy.locales import seed_locales
+from localect import db
+from localect.app import create_app
+from localect.locales import seed_locales
 
 
 def _client(settings):
@@ -64,7 +64,7 @@ def test_locales_get_and_put(settings):
 
 
 def test_put_settings_rebuilds_model(settings, tmp_path, monkeypatch):
-    monkeypatch.setenv("ENVOY_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("LOCALECT_DATA_DIR", str(tmp_path))
     with _client(settings)[0] as c:
         out = c.put("/api/settings", json={"user_name": "Nadir", "api_key": "k"}).json()
         assert out["user_name"] == "Nadir" and out["api_key"] == "set"
@@ -177,7 +177,7 @@ def test_exclusions_and_capture_pause(settings):
 
 
 def test_origin_guard_and_extension_pairing(settings, tmp_path, monkeypatch):
-    monkeypatch.setenv("ENVOY_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("LOCALECT_DATA_DIR", str(tmp_path))
     with _client(settings)[0] as c:
         # no Origin (CLI, curl, tests): unaffected
         assert c.get("/api/health").status_code == 200

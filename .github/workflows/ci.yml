@@ -33,27 +33,27 @@ jobs:
 
       - name: Regression gate, held-out set with planted faults (stub)
         env:
-          ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
-        run: envoy eval --set heldout --perturb --out heldout.json --report heldout.md
+          LOCALECT_DATA_DIR: ${{ runner.temp }}/localect-gate
+        run: localect eval --set heldout --perturb --out heldout.json --report heldout.md
 
       - name: Regression gate, domains set (stub)
         env:
-          ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
-        run: envoy eval --set domains --perturb --out domains.json
+          LOCALECT_DATA_DIR: ${{ runner.temp }}/localect-gate
+        run: localect eval --set domains --perturb --out domains.json
       - name: Regression gate, injection set (stub)
         env:
-          ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
-        run: envoy eval --set injection --out injection.json
+          LOCALECT_DATA_DIR: ${{ runner.temp }}/localect-gate
+        run: localect eval --set injection --out injection.json
 
       - name: Memory bench on the fixture mailbox (stub baseline, pinned by the test suite)
         env:
-          ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
-        run: envoy bench memory --out memory.json || true
+          LOCALECT_DATA_DIR: ${{ runner.temp }}/localect-gate
+        run: localect bench memory --out memory.json || true
 
       - name: Combined report
         env:
-          ENVOY_DATA_DIR: ${{ runner.temp }}/envoy-gate
-        run: envoy report heldout.json injection.json memory.json --out eval-report.md
+          LOCALECT_DATA_DIR: ${{ runner.temp }}/localect-gate
+        run: localect report heldout.json injection.json memory.json --out eval-report.md
 
       - name: Upload eval report
         uses: actions/upload-artifact@v4
@@ -90,12 +90,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build the image
-        run: docker build -t envoy .
+        run: docker build -t localect .
       - name: Smoke-test the container
         run: |
-          docker run -d --name envoy -p 8765:8765 envoy
+          docker run -d --name localect -p 8765:8765 localect
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:8765/api/health && break || sleep 1
           done
           curl -sf http://127.0.0.1:8765/api/health | grep -q '"ok":true'
-          docker rm -f envoy
+          docker rm -f localect

@@ -73,26 +73,28 @@ def test_extension_pairs_captures_on_send_and_shows_the_indicator(server, page_s
             opts.fill("#token", token)
             opts.click("#save")
             opts.wait_for_function("document.getElementById('msg').textContent.includes('Paired')")
-            assert "Paired with Envoy" in opts.text_content("#msg")
+            assert "Paired with Localect" in opts.text_content("#msg")
             # the fixture "mail client": indicator on, send captures both messages
             page = ctx.new_page()
             page.goto(f"{page_server}/compose.html")
-            page.wait_for_selector("[data-envoy-indicator]")
-            page.wait_for_function("document.querySelector('[data-envoy-indicator]')"
+            page.wait_for_selector("[data-localect-indicator]")
+            page.wait_for_function("document.querySelector('[data-localect-indicator]')"
                                    ".textContent.includes('remembering')")
-            page.fill('[data-envoy="body"]',
+            page.fill('[data-localect="body"]',
                       "Hi Layla,\n\nYou have 30 days from delivery.\n\nBest,\nSafea")
-            page.click('[data-envoy="send"]')
+            page.click('[data-localect="send"]')
             page.wait_for_function(
-                "document.querySelector('[data-envoy-indicator]').dataset.envoyLast === 'stored'")
-            assert "Remembered" in page.text_content("[data-envoy-indicator]")
+                "document.querySelector('[data-localect-indicator]')"
+                ".dataset.localectLast === 'stored'")
+            assert "Remembered" in page.text_content("[data-localect-indicator]")
             # pausing the site from the pill stops capture without touching the server
-            page.click("[data-envoy-indicator]")
-            page.wait_for_function("document.querySelector('[data-envoy-indicator]')"
+            page.click("[data-localect-indicator]")
+            page.wait_for_function("document.querySelector('[data-localect-indicator]')"
                                    ".textContent.includes('off on generic')")
-            page.click('[data-envoy="send"]')
+            page.click('[data-localect="send"]')
             page.wait_for_function(
-                "document.querySelector('[data-envoy-indicator]').dataset.envoyLast === 'skipped'")
+                "document.querySelector('[data-localect-indicator]')"
+                ".dataset.localectLast === 'skipped'")
         finally:
             ctx.close()
     listing = _get(f"{server}/api/messages")

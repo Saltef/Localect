@@ -2,7 +2,7 @@
 .git
 ui/node_modules
 ui/dist
-src/envoy/static
+src/localect/static
 **/__pycache__
 tests
 docs

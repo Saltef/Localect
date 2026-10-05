@@ -1,6 +1,6 @@
 import httpx
 
-from envoy.models.openai_compat import OpenAICompatModel
+from localect.models.openai_compat import OpenAICompatModel
 
 
 def _model(handler):

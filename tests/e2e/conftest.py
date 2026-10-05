@@ -19,10 +19,10 @@ def _free_port() -> int:
 def server():
     """Boot the real app (MCP servers included) on a temp data dir."""
     port = _free_port()
-    env = {**os.environ, "ENVOY_DATA_DIR": tempfile.mkdtemp(), "ENVOY_PROVIDER": "stub",
-           "ENVOY_PORT": str(port)}
-    proc = subprocess.Popen([sys.executable, "-m", "envoy.cli", "serve", "--no-browser"], env=env,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    env = {**os.environ, "LOCALECT_DATA_DIR": tempfile.mkdtemp(), "LOCALECT_PROVIDER": "stub",
+           "LOCALECT_PORT": str(port)}
+    proc = subprocess.Popen([sys.executable, "-m", "localect.cli", "serve", "--no-browser"],
+                            env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     url = f"http://127.0.0.1:{port}"
     for _ in range(100):
         try:

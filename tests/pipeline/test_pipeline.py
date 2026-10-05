@@ -5,12 +5,12 @@ import re
 
 import pytest
 
-from envoy import db
-from envoy.models import build_model
-from envoy.models.base import FakeModel
-from envoy.pipeline import PipelineError, compose
-from envoy.schemas import ComposeRequest, FlagKind, Status
-from envoy.tools import DirectTools
+from localect import db
+from localect.models import build_model
+from localect.models.base import FakeModel
+from localect.pipeline import PipelineError, compose
+from localect.schemas import ComposeRequest, FlagKind, Status
+from localect.tools import DirectTools
 
 
 async def _run(con, settings, message, model=None, **kw):
@@ -121,7 +121,7 @@ async def test_history_records_result(demo_con, settings):
 
 async def test_critic_can_run_on_a_different_model(demo_con, settings):
     """role_models['critic'] switches the judge; the Result records both models."""
-    from envoy.models.stub import StubModel
+    from localect.models.stub import StubModel
 
     class Switchable(StubModel):
         def __init__(self, model="writer"):
@@ -152,7 +152,7 @@ async def test_contact_gender_selects_the_greeting_form(demo_con, settings):
 
 
 def test_region_guess_is_normalized_and_languages_have_a_default_region(con):
-    from envoy.pipeline import locale_for_reading, normalize_locale_code
+    from localect.pipeline import locale_for_reading, normalize_locale_code
 
     assert normalize_locale_code("ar_eg") == "ar-EG"
     assert normalize_locale_code(" ES-mx ") == "es-MX"
@@ -175,7 +175,7 @@ def test_region_guess_is_normalized_and_languages_have_a_default_region(con):
 async def test_past_mail_is_a_source_and_the_newest_statement_wins(con, settings):
     """Two emails give different return windows; the reply cites the newer one,
     with a mail source id that survives citation stripping."""
-    from envoy.text import strip_citations
+    from localect.text import strip_citations
 
     db.message_add(con, text="Our return window is 14 days from delivery.",
                    date="2025-09-01T07:00:00Z", from_addr="safea@example.com", is_mine=True,
@@ -195,7 +195,7 @@ async def test_past_mail_is_a_source_and_the_newest_statement_wins(con, settings
 async def test_facts_that_disagree_put_the_reply_on_check_with_both_dates(con, settings):
     """Two dated facts on one topic: the reply uses the newest and is marked
     for a look, and the ledger says why."""
-    from envoy.memory.facts import topic_key
+    from localect.memory.facts import topic_key
 
     for value, day in (("14", "2025-09-01"), ("30", "2025-09-10")):
         db.fact_add(con, topic="return window", topic_key=topic_key("return window"),

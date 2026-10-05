@@ -1,4 +1,4 @@
-from envoy.text import strip_citations
+from localect.text import strip_citations
 
 
 def test_strips_bracketed_and_bare_ids_and_tidies_spacing():

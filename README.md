@@ -1,13 +1,13 @@
 <div align="center">
 
-# Envoy
+# Localect
 
 **Reply to anyone in their language, and sound like a local.**
 
 Private. Runs on your machine. You always press send.
 
-[![CI](https://github.com/Saltef/Envoy/actions/workflows/ci.yml/badge.svg)](https://github.com/Saltef/Envoy/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/envoy-ai)](https://pypi.org/project/envoy-ai/)
+[![CI](https://github.com/Saltef/Localect/actions/workflows/ci.yml/badge.svg)](https://github.com/Saltef/Localect/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/localect)](https://pypi.org/project/localect/)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -17,17 +17,17 @@ Private. Runs on your machine. You always press send.
 
 ---
 
-Paste a message someone sent you in any language. Envoy tells you what it
+Paste a message someone sent you in any language. Localect tells you what it
 says, drafts a reply in their language grounded in your own facts, has a
 native editor rewrite it so it reads local to their region, and has a critic
 back-translate the result so you can see nothing was lost before you send.
 
-![Envoy composing a Levantine Arabic reply with a side-by-side back-translation](docs/screenshots/compose.png)
+![Localect composing a Levantine Arabic reply with a side-by-side back-translation](docs/screenshots/compose.png)
 
-## Why Envoy
+## Why Localect
 
 Machine translation gives you a correct sentence that sounds translated.
-Envoy treats "sounds local" as its own problem, with its own agent, its own
+Localect treats "sounds local" as its own problem, with its own agent, its own
 editable locale profiles, and its own measurement. And because a fluent
 rewrite is exactly where meaning slips, every reply is checked by a Critic on
 a second read and by deterministic code before you see it.
@@ -50,7 +50,7 @@ a second read and by deterministic code before you see it.
   claims. A deterministic Arbiter re-checks what a model must never get
   wrong: numbers and ids in any digit script, do-not-translate terms,
   dropped segments.
-- **Drafts from what you actually said.** Import your past mail and Envoy
+- **Drafts from what you actually said.** Import your past mail and Localect
   reads it into dated facts you can review, cites them with who said what
   when, warns when two of them disagree, writes in your own voice, and keeps
   out any thread or person you exclude. See [docs/MEMORY.md](docs/MEMORY.md).
@@ -61,16 +61,16 @@ a second read and by deterministic code before you see it.
 - **Yours, online too.** Host it behind HTTPS with an owner login and,
   if you like, a public demo that runs on sample data and never sees your
   mail. See [docs/HOSTING.md](docs/HOSTING.md).
-- **You send.** Envoy never sends anything. You copy the reply.
+- **You send.** Localect never sends anything. You copy the reply.
 
 ## Quick start
 
 ```bash
-pipx install envoy-ai      # or: uv tool install envoy-ai
-envoy                      # opens http://127.0.0.1:8765
+pipx install localect      # or: uv tool install localect
+localect                      # opens http://127.0.0.1:8765
 ```
 
-Until you point it at a model, Envoy runs in **stub mode**: a deterministic
+Until you point it at a model, Localect runs in **stub mode**: a deterministic
 stand-in, labelled as such, that exercises the whole pipeline offline. Load
 the demo data from **Settings** to try it immediately. Then pick a model:
 
@@ -80,10 +80,10 @@ the demo data from **Settings** to try it immediately. Then pick a model:
 
 ```bash
 ollama pull aya-expanse:8b
-envoy config --provider openai \
+localect config --provider openai \
   --endpoint http://127.0.0.1:11434/v1 \
   --model aya-expanse:8b
-envoy check
+localect check
 ```
 
 Any OpenAI-compatible server works: Ollama, LM Studio, llama.cpp, vLLM.
@@ -91,14 +91,14 @@ Any OpenAI-compatible server works: Ollama, LM Studio, llama.cpp, vLLM.
 </td><td>
 
 ```bash
-envoy config --provider cohere \
+localect config --provider cohere \
   --model command-a-03-2025 \
   --api-key "YOUR_KEY"
-envoy check
+localect check
 ```
 
 Uses Cohere's own chat API with structured output; the key is stored in
-`~/.envoy/settings.json`, never shown again.
+`~/.localect/settings.json`, never shown again.
 
 </td></tr>
 </table>
@@ -106,19 +106,19 @@ Uses Cohere's own chat API with structured output; the key is stored in
 Give it your past writing, so replies say what you have already told people:
 
 ```bash
-envoy config --user-email you@example.com
-envoy import ~/Takeout/Mail/All\ mail.mbox      # or a folder of .eml files, or .md/.txt/.pdf
+localect config --user-email you@example.com
+localect import ~/Takeout/Mail/All\ mail.mbox      # or a folder of .eml files, or .md/.txt/.pdf
 ```
 
-Reply from Gmail, Outlook or WhatsApp Web, and let Envoy remember what you
+Reply from Gmail, Outlook or WhatsApp Web, and let Localect remember what you
 send: load the `extension/` folder as an unpacked extension and pair it with
 the token from Settings. See [docs/EXTENSION.md](docs/EXTENSION.md).
 
 Prefer a container, or want it online?
 
 ```bash
-docker build -t envoy .
-docker run -p 8765:8765 -v envoy-data:/data envoy   # talks to Ollama on the host
+docker build -t localect .
+docker run -p 8765:8765 -v localect-data:/data localect   # talks to Ollama on the host
 
 cp .env.example .env && docker compose up -d --build  # hosted: HTTPS via Caddy, owner login,
                                                      # optional public demo; see docs/HOSTING.md
@@ -164,22 +164,22 @@ Every check is deterministic and needs no human. Every number comes with the
 count it was computed from. No prompt was ever tuned on the set that counts.
 
 ```bash
-envoy eval --set heldout --perturb          # 63 never-tuned-on samples + six planted faults each
-envoy eval --set injection                  # 20 attacks × 7 languages, each paired with a real question
-envoy eval --set domains --perturb          # a clinic, a bank, a university: 42 samples on their own knowledge bases
-envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out compare.json
-envoy eval --set heldout --critic-model command-a-03-2025      # judge with a different model
-envoy bench massive --data <MASSIVE dir>    # the Reader alone: language accuracy, slot recall
-envoy bench flores --data <FLORES-200 dir>  # the Critic alone: chrF of its back-translation
-envoy bench banking --data <dir> --n 20     # real bank customers in English, French and four Arabic varieties
-envoy bench health --data <dir> --n 20      # MedlinePlus topics across languages; real patients in Arabic, Portuguese, English
-envoy experiment --out exp --data <dir>     # everything, under every ablation (no Critic, no Rewriter, ...); ends in findings.md
-envoy bench memory                          # memory: right message found, newest fact used, conflicts flagged
-envoy study export --from heldout.json --out study/            # blind pairwise sheets
-envoy study score --sheets study/           # preference with CIs, Krippendorff's α, Cohen's κ
-envoy replay --n 30 --out replay.json       # your own inbox: real messages vs the replies you sent
-envoy fullrun --out envoy-results --quick   # all of the above on the configured model, one report
-envoy report *.json --out report.md         # one markdown report from any of the above
+localect eval --set heldout --perturb          # 63 never-tuned-on samples + six planted faults each
+localect eval --set injection                  # 20 attacks × 7 languages, each paired with a real question
+localect eval --set domains --perturb          # a clinic, a bank, a university: 42 samples on their own knowledge bases
+localect eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out compare.json
+localect eval --set heldout --critic-model command-a-03-2025      # judge with a different model
+localect bench massive --data <MASSIVE dir>    # the Reader alone: language accuracy, slot recall
+localect bench flores --data <FLORES-200 dir>  # the Critic alone: chrF of its back-translation
+localect bench banking --data <dir> --n 20     # real bank customers in English, French and four Arabic varieties
+localect bench health --data <dir> --n 20      # MedlinePlus topics across languages; real patients in Arabic, Portuguese, English
+localect experiment --out exp --data <dir>     # everything, under every ablation (no Critic, no Rewriter, ...); ends in findings.md
+localect bench memory                          # memory: right message found, newest fact used, conflicts flagged
+localect study export --from heldout.json --out study/            # blind pairwise sheets
+localect study score --sheets study/           # preference with CIs, Krippendorff's α, Cohen's κ
+localect replay --n 30 --out replay.json       # your own inbox: real messages vs the replies you sent
+localect fullrun --out localect-results --quick   # all of the above on the configured model, one report
+localect report *.json --out report.md         # one markdown report from any of the above
 ```
 
 | Question | How it is answered |
@@ -193,9 +193,9 @@ envoy report *.json --out report.md         # one markdown report from any of th
 | Does it hold outside a shop? | 42 samples on three other knowledge bases, a family clinic (appointments, results, prescriptions, urgent symptoms), a bank and a university admissions office, in seven languages, with the same checks and planted faults |
 | How does it do on real customers in other languages? | Banking77 and its hand-localized Arabic (MSA, Palestinian, Saudi, Moroccan, Tunisian) and French versions against the bank knowledge base: reply in the customer's language, region guessed for the dialects, the bank's number stated when it has one, nothing invented when it does not |
 | Does it stay grounded in health, in other languages? | MedlinePlus topics with the source in one language and the question in the other, scored on citing the paired topic and chrF against the human summary; real patient questions from AraMed, MedPT and TREC LiveQA against the clinic knowledge base, scored on not playing doctor |
-| Which stage should change next? | `envoy experiment` runs every benchmark under every ablation (no Critic, no Rewriter, no revision loop, facts only, mail only, no voice) into one resumable folder and writes findings.md: each failure counted, attributed to a stage, paired with the prompt or setting that changes it |
+| Which stage should change next? | `localect experiment` runs every benchmark under every ablation (no Critic, no Rewriter, no revision loop, facts only, mail only, no voice) into one resumable folder and writes findings.md: each failure counted, attributed to a stage, paired with the prompt or setting that changes it |
 | Does memory find the right thing? | A fixture mailbox with facts that change over time, in seven languages: retrieval recall with and without embeddings, newest-fact and stale-fact rates, and whether disagreeing facts were flagged |
-| How does it do on my actual mail? | `envoy replay` composes replies to your real incoming messages with memory cut off at their date and scores them against the replies you actually sent: language, the numbers you stated, chrF |
+| How does it do on my actual mail? | `localect replay` composes replies to your real incoming messages with memory cut off at their date and scores them against the replies you actually sent: language, the numbers you stated, chrF |
 
 CI runs the held-out set with perturbations and the injection set on the
 stub on every push and fails the build on any regression. Real-model results,
@@ -205,14 +205,14 @@ including the first run's harness faults and what they changed, are in
 ## Privacy
 
 Everything runs locally: the model, the database, the glossary, the history.
-The only network call Envoy makes is to the model endpoint you configure,
+The only network call Localect makes is to the model endpoint you configure,
 which by default is on your own machine. There is no account and no
 telemetry.
 
 ## Project structure
 
 ```
-src/envoy/
+src/localect/
   pipeline.py     compose(): Reader → Drafter → Rewriter → Critic → Arbiter, one revision loop
   agents/         reader, drafter, rewriter, critic, extractor (model-driven); arbiter (code)
   prompts/        one versioned prompt per agent
@@ -224,7 +224,7 @@ src/envoy/
   locales/        twelve starter locale profiles (YAML)
   eval.py, perturb.py, evalset/, evalx/, study.py, report.py   the evaluation
   db.py, app.py, cli.py, demo.py
-ui/               React + Vite + Tailwind, built into src/envoy/static
+ui/               React + Vite + Tailwind, built into src/localect/static
 extension/        Chrome/Edge extension: side-panel Compose, capture on send (no build step)
 tests/            unit · agents · mcp · pipeline · api · e2e
 docs/             ARCHITECTURE.md · EVAL.md · MEMORY.md · EXTENSION.md · HOSTING.md · DESIGN.md · RUBRIC.md
@@ -236,7 +236,7 @@ docs/             ARCHITECTURE.md · EVAL.md · MEMORY.md · EXTENSION.md · HOS
 pip install -e ".[dev]"
 ruff check src tests
 pytest -q --ignore=tests/e2e     # unit, agents, MCP over stdio, pipeline, API
-cd ui && npm ci && npm run build # bundles the UI into src/envoy/static (committed)
+cd ui && npm ci && npm run build # bundles the UI into src/localect/static (committed)
 playwright install chromium
 pytest -q tests/e2e              # boots the real server and drives the UI in Chromium
 ```

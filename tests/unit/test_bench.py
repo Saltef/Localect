@@ -1,10 +1,10 @@
 import asyncio
 from pathlib import Path
 
-from envoy.config import Settings
-from envoy.evalx import flores, massive
-from envoy.models.base import FakeModel
-from envoy.schemas import Reading
+from localect.config import Settings
+from localect.evalx import flores, massive
+from localect.models.base import FakeModel
+from localect.schemas import Reading
 
 FIX = Path(__file__).parent.parent / "fixtures"
 
@@ -83,7 +83,7 @@ def test_flores_loader_pairs_sources_with_english_references():
 
 
 def test_flores_runs_the_critic_and_scores_its_back_translation():
-    from envoy.pipeline import _fallback_locale
+    from localect.pipeline import _fallback_locale
 
     ref = "The parcel leaves the warehouse within two business days."
     fake = FakeModel([f'{{"back_segments": [{{"id": "s1", "text": "{ref}"}}], "flags": []}}'])

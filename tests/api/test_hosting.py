@@ -2,14 +2,14 @@
 
 from fastapi.testclient import TestClient
 
-from envoy import auth, db
-from envoy.app import create_app
-from envoy.config import Settings
-from envoy.locales import seed_locales
+from localect import auth, db
+from localect.app import create_app
+from localect.config import Settings
+from localect.locales import seed_locales
 
 
 def _client(monkeypatch, tmp_path, **kw):
-    monkeypatch.setenv("ENVOY_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("LOCALECT_DATA_DIR", str(tmp_path))
     con = db.connect()
     seed_locales(con)
     s = Settings(provider="stub", user_name="Safea", user_email="safea@example.com", **kw)

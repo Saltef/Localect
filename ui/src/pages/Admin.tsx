@@ -74,7 +74,7 @@ export function ContactsPage() {
                 </li>
               ))}
             </ul>
-          ) : <Empty>No contacts yet. A contact pins the locale Envoy writes in.</Empty>}
+          ) : <Empty>No contacts yet. A contact pins the locale Localect writes in.</Empty>}
         </Card>
         <Card title="Add a contact">
           <form onSubmit={add} className="space-y-3">
@@ -132,7 +132,7 @@ export function KnowledgePage() {
               <li key={k.id} className="flex items-center justify-between py-2"><span><b>{k.title}</b> <span className="text-zinc-500">· {k.size} chars</span></span><Button kind="danger" onClick={() => api.delKnowledge(k.id).then(load)}><Trash2 className="h-4 w-4" /></Button></li>
             ))}
           </ul>
-        ) : <Empty>Nothing yet. Envoy only states facts it can find here, so add your policies, prices, and answers.</Empty>}
+        ) : <Empty>Nothing yet. Localect only states facts it can find here, so add your policies, prices, and answers.</Empty>}
       </Card>
       <Card title="Add a document">
         <form onSubmit={add} className="space-y-3">
@@ -224,13 +224,13 @@ export function SettingsPage() {
         <Card title="You">
           <div className="space-y-3">
             <Field label="Your name" hint="Used in sign-offs"><input className={inputCls} value={s.user_name} onChange={(e) => setS({ ...s, user_name: e.target.value })} /></Field>
-            <Field label="Your email address(es)" hint="Comma-separated. Marks which imported or captured messages you wrote, so Envoy can learn your facts and your voice."><input className={inputCls} value={s.user_email || ""} onChange={(e) => setS({ ...s, user_email: e.target.value })} /></Field>
+            <Field label="Your email address(es)" hint="Comma-separated. Marks which imported or captured messages you wrote, so Localect can learn your facts and your voice."><input className={inputCls} value={s.user_email || ""} onChange={(e) => setS({ ...s, user_email: e.target.value })} /></Field>
             <Field label="Your language" hint="Glosses and back-translations are shown in this language"><select className={inputCls} value={s.user_language} onChange={(e) => setS({ ...s, user_language: e.target.value })}>{["en", "ar", "es", "pt", "fr", "de", "ja"].map((l) => <option key={l}>{l}</option>)}</select></Field>
             <Button onClick={save}>{saved ? "Saved" : "Save"}</Button>
           </div>
         </Card>
         <Card title="Browser extension">
-          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">The Envoy extension composes replies from Gmail, Outlook and WhatsApp Web and remembers what you send, with your say-so. Pair it once with this token; it only ever talks to this Envoy on this machine.</p>
+          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">The Localect extension composes replies from Gmail, Outlook and WhatsApp Web and remembers what you send, with your say-so. Pair it once with this token; it only ever talks to this Localect on this machine.</p>
           <div className="flex flex-wrap items-center gap-2">
             <code className="rounded bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800" data-testid="extension-token">{token || "••••••••••••••••••••••••"}</code>
             {!token && <Button kind="ghost" onClick={showToken}>Show</Button>}
@@ -240,7 +240,7 @@ export function SettingsPage() {
           <p className="mt-2 text-xs text-zinc-500">Load the <code>extension/</code> folder as an unpacked extension in Chrome or Edge, open its options, paste the token. See docs/EXTENSION.md.</p>
         </Card>
         <Card title="Demo data">
-          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">Load a fabricated small store (glossary, policies, contacts) to try Envoy immediately.</p>
+          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">Load a fabricated small store (glossary, policies, contacts) to try Localect immediately.</p>
           <Button kind="ghost" onClick={loadDemo}>Load demo data</Button>
           {demo && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300" data-testid="demo">{demo}</p>}
         </Card>

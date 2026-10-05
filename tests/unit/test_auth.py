@@ -1,6 +1,6 @@
 import time
 
-from envoy import auth
+from localect import auth
 
 
 def test_password_hashing_is_salted_and_verifies():

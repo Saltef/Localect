@@ -25,7 +25,7 @@ function Login({ onDone }: { onDone: () => void }) {
   };
   return (
     <div className="grid min-h-screen place-items-center bg-zinc-50 p-4 dark:bg-zinc-950">
-      <Card title="Sign in to Envoy" className="w-full max-w-sm">
+      <Card title="Sign in to Localect" className="w-full max-w-sm">
         <form onSubmit={submit} className="space-y-3">
           <input className={inputCls} type="password" autoFocus placeholder="Owner password" value={password} onChange={(e) => setPassword(e.target.value)} data-testid="password" />
           {error && <p className="text-sm text-rose-600" data-testid="login-error">{error}</p>}
@@ -42,7 +42,7 @@ export default function App() {
   const [tick, setTick] = useState(0);
   const [wantLogin, setWantLogin] = useState(false);
   useEffect(() => { api.health().then(setHealth).catch(() => setHealth(null)); }, [page, tick]);
-  useEffect(() => { const bump = () => setTick((t) => t + 1); window.addEventListener("envoy:composed", bump); return () => window.removeEventListener("envoy:composed", bump); }, []);
+  useEffect(() => { const bump = () => setTick((t) => t + 1); window.addEventListener("localect:composed", bump); return () => window.removeEventListener("localect:composed", bump); }, []);
   const visitor = !!health && !health.owner;
   const gated = !!health && health.auth_required && !health.owner && (health.public_mode !== "demo" || wantLogin);
   if (gated) return <Login onDone={() => { setWantLogin(false); setTick((t) => t + 1); }} />;
@@ -54,7 +54,7 @@ export default function App() {
       <aside className="hidden w-60 shrink-0 flex-col border-r border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 md:flex">
         <div className="mb-6 flex items-center gap-2 px-2">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-600 text-white"><Languages className="h-4 w-4" /></span>
-          <div><div className="font-semibold leading-tight">Envoy</div><div className="text-[11px] text-zinc-500">reply like a local</div></div>
+          <div><div className="font-semibold leading-tight">Localect</div><div className="text-[11px] text-zinc-500">reply like a local</div></div>
         </div>
         <nav className="space-y-1">
           {nav.map(({ id, label, Icon }) => (

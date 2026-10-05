@@ -43,7 +43,7 @@ async function insert() {
   try {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, args: [text], func: (t) => {
       const el = document.activeElement && document.activeElement.isContentEditable ? document.activeElement
-        : document.querySelector('[data-envoy="body"], div[aria-label="Message Body"], div[aria-label="Message body"][contenteditable="true"], footer div[contenteditable="true"], textarea');
+        : document.querySelector('[data-localect="body"], div[aria-label="Message Body"], div[aria-label="Message body"][contenteditable="true"], footer div[contenteditable="true"], textarea');
       if (!el) return false;
       if ("value" in el && el.tagName !== "DIV") { el.value = t; el.dispatchEvent(new Event("input", { bubbles: true })); return true; }
       el.focus(); document.execCommand("insertText", false, t); return true;

@@ -1,15 +1,15 @@
 import httpx
 import pytest
 
-from envoy.agents.critic import normalize_critique
-from envoy.models.base import ModelError
-from envoy.models.cohere import CohereModel
-from envoy.schemas import Critique
-from envoy.text import fill_name
+from localect.agents.critic import normalize_critique
+from localect.models.base import ModelError
+from localect.models.cohere import CohereModel
+from localect.schemas import Critique
+from localect.text import fill_name
 
 
 def test_retry_on_500_then_success(monkeypatch):
-    monkeypatch.setattr("envoy.models.cohere.time.sleep", lambda s: None)
+    monkeypatch.setattr("localect.models.cohere.time.sleep", lambda s: None)
     calls = []
 
     def handler(req):
@@ -25,7 +25,7 @@ def test_retry_on_500_then_success(monkeypatch):
 
 
 def test_no_retry_on_4xx(monkeypatch):
-    monkeypatch.setattr("envoy.models.cohere.time.sleep", lambda s: None)
+    monkeypatch.setattr("localect.models.cohere.time.sleep", lambda s: None)
     calls = []
 
     def handler(req):

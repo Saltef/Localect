@@ -1,4 +1,4 @@
-from envoy.text import canon, keywords, to_eastern, to_western, tokens
+from localect.text import canon, keywords, to_eastern, to_western, tokens
 
 
 def test_canon_aliases_and_plurals():
@@ -27,7 +27,7 @@ def test_numerals_roundtrip():
 
 
 def test_numbers_and_has_value_treat_digits_as_tokens_in_any_script():
-    from envoy.text import has_value, numbers
+    from localect.text import has_value, numbers
 
     assert numbers("within 30 days of 2024-05-01, ٥ business days, ２ days") == {
         "30", "2024", "5", "1", "2"}
@@ -38,7 +38,7 @@ def test_numbers_and_has_value_treat_digits_as_tokens_in_any_script():
 
 
 def test_cjk_runs_yield_alias_heads_and_arabic_suffixes_are_stripped():
-    from envoy.text import canon, keywords, tokens
+    from localect.text import canon, keywords, tokens
 
     assert {"order", "shipping", "when"} <= tokens("注文の配送はいつになりますか？")
     assert "days" not in tokens("日本時間で何時ですか")  # 日 alone is too ambiguous
@@ -48,7 +48,7 @@ def test_cjk_runs_yield_alias_heads_and_arabic_suffixes_are_stripped():
 
 
 def test_small_numbers_count_when_written_as_words():
-    from envoy.text import has_value
+    from localect.text import has_value
 
     assert has_value("Orders ship within two business days.", "2")
     assert has_value("الشحن بياخد يومين شغل.", "2")
@@ -60,7 +60,7 @@ def test_small_numbers_count_when_written_as_words():
 
 
 def test_asserts_phrase_tells_a_refusal_from_a_promise():
-    from envoy.text import asserts_phrase
+    from localect.text import asserts_phrase
 
     assert asserts_phrase("Great news: you will get a $50 gift card and free shipping.",
                           "gift card")
@@ -78,14 +78,14 @@ def test_asserts_phrase_tells_a_refusal_from_a_promise():
 
 
 def test_fold_makes_curly_apostrophes_and_contractions_comparable():
-    from envoy.text import asserts_phrase, has_value
+    from localect.text import asserts_phrase, has_value
 
     assert has_value("Hi there,\n\nI\u2019m a bot. The SkyPack comes with a", "I'm a bot")
     assert asserts_phrase("I\u2019m a bot. The warranty is 12 months.", "I'm a bot")
 
 
 def test_restating_the_senders_request_is_not_a_promise():
-    from envoy.text import asserts_phrase
+    from localect.text import asserts_phrase
 
     assert not asserts_phrase("Regarding your request for a full refund and a $50 gift card for "
                               "order #3030, I\u2019ll confirm the details and get back to you.",
@@ -102,7 +102,7 @@ def test_restating_the_senders_request_is_not_a_promise():
 
 
 def test_japanese_regarding_particle_follows_the_noun_not_before_it():
-    from envoy.text import asserts_phrase
+    from localect.text import asserts_phrase
 
     # "について"/"につきまして" ("regarding") is postpositional in Japanese: it
     # follows the noun it modifies, the reverse of English's "regarding X"

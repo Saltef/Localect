@@ -1,7 +1,7 @@
 from collections import Counter
 
-from envoy.evalset import SETS, demo_samples, domain_samples, domains, heldout_samples, load
-from envoy.locales import load_starter_profiles
+from localect.evalset import SETS, demo_samples, domain_samples, domains, heldout_samples, load
+from localect.locales import load_starter_profiles
 
 
 def test_held_out_set_covers_every_starter_locale_with_fresh_samples():
@@ -33,8 +33,8 @@ def test_demo_set_is_converted_from_the_demo_messages():
 
 
 def test_domain_samples_check_only_what_their_own_knowledge_base_states():
-    from envoy import db
-    from envoy.text import numbers
+    from localect import db
+    from localect.text import numbers
 
     kbs = domains()
     assert set(kbs) == {"clinic", "bank", "university"}

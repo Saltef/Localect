@@ -1,6 +1,6 @@
 # Contributing
 
-Envoy already states most of its own rules in `README.md` (*Development*)
+Localect already states most of its own rules in `README.md` (*Development*)
 and `docs/EVAL.md`. This page points to them and adds what was missing.
 
 ## Before you start
@@ -19,7 +19,7 @@ and `docs/EVAL.md`. This page points to them and adds what was missing.
 pip install -e ".[dev]"
 ruff check src tests
 pytest -q --ignore=tests/e2e     # unit, agents, MCP over stdio, pipeline, API
-cd ui && npm ci && npm run build # the built UI is committed to src/envoy/static
+cd ui && npm ci && npm run build # the built UI is committed to src/localect/static
 playwright install chromium
 pytest -q tests/e2e              # boots the real server, drives the UI in Chromium
 ```
@@ -38,7 +38,7 @@ prompt diff.
 
 Never write a number into a doc that a command did not print. If a claim
 in a PR description or a doc update depends on a run, paste the command
-and its output (or `envoy report`'s markdown), not a remembered figure.
+and its output (or `localect report`'s markdown), not a remembered figure.
 Negative results and tables marked `pending` stay in `docs/EVAL.md` —
 that's the existing rule, not a new one.
 

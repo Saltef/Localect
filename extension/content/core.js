@@ -9,9 +9,9 @@
 //                  button, or Ctrl/Cmd+Enter inside the compose body)
 //   read(event)    { text, to_addrs, subject, thread_id, replied_to: { text,
 //                  from_addr, from_name, date, external_id } | null } or null
-window.Envoy = window.Envoy || {};
+window.Localect = window.Localect || {};
 (function () {
-  const E = window.Envoy;
+  const E = window.Localect;
   E.adapter = null;
   E.register = (adapter) => { E.adapter = adapter; };
   E.text = (el) => (el ? (el.innerText || el.textContent || "") : "").replace(/ /g, " ").trim();
@@ -21,7 +21,7 @@ window.Envoy = window.Envoy || {};
     const a = E.adapter;
     if (!a || !a.isSend(ev)) return;
     let payload;
-    try { payload = a.read(ev); } catch (e) { console.debug("[envoy] read failed", e); return; }
+    try { payload = a.read(ev); } catch (e) { console.debug("[localect] read failed", e); return; }
     if (!payload || !payload.text || payload.text.length < 2) return;
     chrome.runtime.sendMessage({ type: "capture", site: a.name, payload }, (r) => {
       if (chrome.runtime.lastError) return;

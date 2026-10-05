@@ -1,5 +1,5 @@
-from envoy import db
-from envoy.locales import load_starter_profiles, seed_locales
+from localect import db
+from localect.locales import load_starter_profiles, seed_locales
 
 
 def test_twelve_profiles_load_with_arabic_rtl():
@@ -17,7 +17,7 @@ def test_seed_is_idempotent(con):
 
 
 def test_seed_refreshes_starter_profiles_but_not_user_edits(con):
-    from envoy.schemas import LocaleProfile
+    from localect.schemas import LocaleProfile
 
     eg = db.locale_get(con, "ar-EG")
     stale = eg.model_copy(update={"greeting": "old {name}،"})

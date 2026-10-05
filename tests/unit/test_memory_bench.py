@@ -1,10 +1,10 @@
-"""envoy bench memory: the fixture mailbox and the numbers it yields on the stub."""
+"""localect bench memory: the fixture mailbox and the numbers it yields on the stub."""
 
 import asyncio
 
-from envoy import db
-from envoy.config import Settings
-from envoy.evalx.memory import (
+from localect import db
+from localect.config import Settings
+from localect.evalx.memory import (
     load_mailbox,
     memory_to_dicts,
     render_memory,
@@ -12,7 +12,7 @@ from envoy.evalx.memory import (
     seed_mailbox,
     summarize,
 )
-from envoy.report import render
+from localect.report import render
 
 
 def test_fixture_mailbox_is_consistent():

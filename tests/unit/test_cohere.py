@@ -4,10 +4,10 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from envoy.config import Settings
-from envoy.models import build_model
-from envoy.models.base import ModelError
-from envoy.models.cohere import CohereModel
+from localect.config import Settings
+from localect.models import build_model
+from localect.models.base import ModelError
+from localect.models.cohere import CohereModel
 
 
 def _model(handler, model="command-a-03-2025"):

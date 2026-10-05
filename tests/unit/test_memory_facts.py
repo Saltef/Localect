@@ -3,14 +3,14 @@
 import asyncio
 from pathlib import Path
 
-from envoy import db
-from envoy.agents.arbiter import blocking, conflict_flags
-from envoy.agents.extractor import normalize_extraction
-from envoy.memory import import_paths
-from envoy.memory.facts import extract_pending, topic_key, value_key
-from envoy.models.stub import StubModel
-from envoy.schemas import Claim, Draft, FlagKind, Segment
-from envoy.tools import fact_snippets
+from localect import db
+from localect.agents.arbiter import blocking, conflict_flags
+from localect.agents.extractor import normalize_extraction
+from localect.memory import import_paths
+from localect.memory.facts import extract_pending, topic_key, value_key
+from localect.models.stub import StubModel
+from localect.schemas import Claim, Draft, FlagKind, Segment
+from localect.tools import fact_snippets
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
 
@@ -105,7 +105,7 @@ def test_voice_examples_prefer_the_contact_and_the_language():
 
 
 def test_facts_must_be_verifiably_in_the_message():
-    from envoy.memory.facts import verify_provenance
+    from localect.memory.facts import verify_provenance
 
     text = "Hi Layla,\n\nOur return window is 14 days from delivery. Items must be unused.\n\nBest"
     assert verify_provenance("Our return window is 14 days from delivery.", text)
@@ -118,8 +118,8 @@ def test_facts_must_be_verifiably_in_the_message():
 
 
 async def test_extraction_drops_invented_facts_and_counts_them():
-    from envoy.memory.facts import ExtractReport, extract_message
-    from envoy.models.base import FakeModel
+    from localect.memory.facts import ExtractReport, extract_message
+    from localect.models.base import FakeModel
 
     con = db.connect()
     mid = db.message_add(con, text="The warranty is 12 months.", date="2025-01-01T00:00:00Z",

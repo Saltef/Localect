@@ -1,28 +1,28 @@
 # The browser extension
 
-Envoy's extension puts Compose next to your mail and chat, and remembers what
-you send, with your say-so, into your own Envoy on this machine. It talks to
+Localect's extension puts Compose next to your mail and chat, and remembers what
+you send, with your say-so, into your own Localect on this machine. It talks to
 nothing else.
 
 ## Install (Chrome or Edge, unpacked)
 
-1. Start Envoy (`envoy`) and open **Settings → Browser extension**. Copy the
+1. Start Localect (`localect`) and open **Settings → Browser extension**. Copy the
    pairing token.
 2. Open `chrome://extensions` (or `edge://extensions`), turn on **Developer
    mode**, click **Load unpacked**, and choose the `extension/` folder of this
    repository.
-3. Click the Envoy icon → ⚙ (or right-click → Options), paste the token,
-   **Save and test**. It should say "Paired with Envoy 0.10.0 as you@…".
+3. Click the Localect icon → ⚙ (or right-click → Options), paste the token,
+   **Save and test**. It should say "Paired with Localect 0.10.0 as you@…".
 
-The token proves to Envoy that requests come from your extension and not from
-a web page that happens to reach `localhost`. Envoy refuses API calls from any
+The token proves to Localect that requests come from your extension and not from
+a web page that happens to reach `localhost`. Localect refuses API calls from any
 other origin. "New token" in Settings revokes the old one.
 
 ## Compose
 
-Click the Envoy icon, or select text on any page and choose **Reply with
-Envoy** from the right-click menu. The side panel runs the whole pipeline
-(Reader, Drafter, Rewriter, Critic, Arbiter) on your local Envoy and shows the
+Click the Localect icon, or select text on any page and choose **Reply with
+Localect** from the right-click menu. The side panel runs the whole pipeline
+(Reader, Drafter, Rewriter, Critic, Arbiter) on your own Localect and shows the
 reply, the gloss, the back-translation, the flags, and where the reply drew
 its facts from. **Insert into page** puts the reply into the compose box you
 were writing in; **Copy** copies it. You still press send.
@@ -32,19 +32,19 @@ were writing in; **Copy** copies it. You still press send.
 On Gmail, Outlook on the web and WhatsApp Web, a small pill sits at the
 bottom right:
 
-- **● Envoy is remembering this conversation**: when you press send, the
-  message you sent and the message it answered are stored in your Envoy,
+- **● Localect is remembering this conversation**: when you press send, the
+  message you sent and the message it answered are stored in your Localect,
   which strips quoted text and signatures, indexes them, and reads them for
   dated facts. The pill briefly says "Remembered · 2 fact(s)".
 - Click the pill to **pause that site**; click again to resume. The
   extension's options page has the same switches.
-- **❚❚ capture paused**: memory is paused for everything, from Envoy's Memory
+- **❚❚ capture paused**: memory is paused for everything, from Localect's Memory
   page. Nothing is stored anywhere until you resume.
-- Grey: Envoy is not running or not paired.
+- Grey: Localect is not running or not paired.
 
 Capture reads the compose box once, at the moment you send. Nothing watches
 keystrokes, nothing is captured from drafts, and nothing leaves the machine:
-the extension's only network destination is your Envoy server on
+the extension's only network destination is your Localect server on
 `127.0.0.1`.
 
 ## What is captured, exactly

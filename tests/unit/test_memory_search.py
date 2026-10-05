@@ -6,10 +6,10 @@ from pathlib import Path
 import httpx
 import pytest
 
-from envoy import db
-from envoy.config import Settings
-from envoy.memory import import_paths
-from envoy.memory.embed import (
+from localect import db
+from localect.config import Settings
+from localect.memory import import_paths
+from localect.memory.embed import (
     CohereEmbedder,
     HashEmbedder,
     OpenAICompatEmbedder,
@@ -18,9 +18,9 @@ from envoy.memory.embed import (
     from_bytes,
     to_bytes,
 )
-from envoy.memory.index import index_all, index_message, paragraphs
-from envoy.memory.search import knowledge_search, mail_search
-from envoy.models.base import ModelError
+from localect.memory.index import index_all, index_message, paragraphs
+from localect.memory.search import knowledge_search, mail_search
+from localect.models.base import ModelError
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
 

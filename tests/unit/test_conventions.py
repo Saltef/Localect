@@ -1,5 +1,5 @@
-from envoy.conventions import enforce, quiet_critic, rendered_greeting, rendered_signoff
-from envoy.schemas import (
+from localect.conventions import enforce, quiet_critic, rendered_greeting, rendered_signoff
+from localect.schemas import (
     BackSegment,
     Claim,
     Critique,
@@ -87,7 +87,7 @@ def test_enforce_keeps_a_real_closing_sentence():
 
 
 def test_gendered_forms_are_used_only_when_the_gender_is_known():
-    from envoy.conventions import greeting_form, signoff_form
+    from localect.conventions import greeting_form, signoff_form
 
     eg = LocaleProfile(locale="ar-EG", language="ar", language_name="Arabic",
                        region_name="Egypt", variety="Egyptian Arabic",
@@ -107,7 +107,7 @@ def test_gendered_forms_are_used_only_when_the_gender_is_known():
 
 
 def test_every_starter_arabic_locale_greets_both_genders_correctly():
-    from envoy.locales import load_starter_profiles
+    from localect.locales import load_starter_profiles
 
     for p in load_starter_profiles():
         if p.language != "ar":

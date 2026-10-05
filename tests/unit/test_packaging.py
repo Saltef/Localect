@@ -10,12 +10,12 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src" / "envoy"
+SRC = ROOT / "src" / "localect"
 
 
 def test_every_non_python_file_under_the_package_is_declared_as_package_data():
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    globs = pyproject["tool"]["setuptools"]["package-data"]["envoy"]
+    globs = pyproject["tool"]["setuptools"]["package-data"]["localect"]
     missing = []
     for f in SRC.rglob("*"):
         if not f.is_file() or f.suffix in (".py", ".pyc") or "__pycache__" in f.parts:
@@ -38,9 +38,9 @@ def test_built_wheel_contains_the_sample_sets(tmp_path):
     r = subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", "-q",
                         "-w", str(tmp_path), str(ROOT)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[-2000:]
-    wheel = next(tmp_path.glob("envoy_ai-*.whl"))
+    wheel = next(tmp_path.glob("localect-*.whl"))
     names = set(zipfile.ZipFile(wheel).namelist())
-    for needed in ("envoy/evalset/heldout.yaml", "envoy/evalset/injection.yaml",
-                   "envoy/locales/ar-EG.yaml", "envoy/prompts/critic.md",
-                   "envoy/static/index.html"):
+    for needed in ("localect/evalset/heldout.yaml", "localect/evalset/injection.yaml",
+                   "localect/locales/ar-EG.yaml", "localect/prompts/critic.md",
+                   "localect/static/index.html"):
         assert needed in names, needed

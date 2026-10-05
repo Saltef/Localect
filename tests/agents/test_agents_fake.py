@@ -2,9 +2,9 @@
 
 import json
 
-from envoy.agents import critic, drafter, reader, rewriter
-from envoy.models.base import FakeModel
-from envoy.schemas import (
+from localect.agents import critic, drafter, reader, rewriter
+from localect.models.base import FakeModel
+from localect.schemas import (
     Draft,
     Flag,
     FlagKind,

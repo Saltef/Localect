@@ -2,7 +2,7 @@ import csv
 import json
 from pathlib import Path
 
-from envoy.study import (
+from localect.study import (
     bootstrap_ci,
     build_items,
     cohen_kappa,

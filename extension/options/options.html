@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8" /><title>Envoy options</title><link rel="stylesheet" href="../panel/panel.css" /></head>
+<head><meta charset="utf-8" /><title>Localect options</title><link rel="stylesheet" href="../panel/panel.css" /></head>
 <body>
-  <header><div class="brand"><span class="logo">E</span><div><b>Envoy extension</b><div class="sub">talks only to your own Envoy on this machine</div></div></div></header>
+  <header><div class="brand"><span class="logo">E</span><div><b>Localect extension</b><div class="sub">talks only to your own Localect on this machine</div></div></div></header>
   <main>
-    <label for="server">Envoy server</label>
+    <label for="server">Localect server</label>
     <input id="server" type="url" placeholder="http://127.0.0.1:8765" />
-    <label for="token" style="margin-top:10px">Pairing token · from Envoy → Settings → Browser extension</label>
+    <label for="token" style="margin-top:10px">Pairing token · from Localect → Settings → Browser extension</label>
     <input id="token" type="password" placeholder="paste the token" />
     <div class="row"><button id="save" class="primary">Save and test</button><span id="msg" class="muted"></span></div>
     <h3>Remember what I send on</h3>
     <div id="sites"></div>
-    <p class="muted small">Capture happens when you press send, never while you type: the message you sent and the one it answered go to your local Envoy, which strips quoted text and reads them for facts. The pill on each site shows the state; click it to pause that site. Pause everything from Envoy's Memory page.</p>
+    <p class="muted small">Capture happens when you press send, never while you type: the message you sent and the one it answered go to your own Localect, which strips quoted text and reads them for facts. The pill on each site shows the state; click it to pause that site. Pause everything from Localect's Memory page.</p>
   </main>
   <script src="options.js"></script>
 </body>

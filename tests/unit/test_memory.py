@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from envoy import db
-from envoy.memory import import_paths
-from envoy.memory.clean import clean_body, html_to_text, strip_quotes, strip_signature
-from envoy.memory.embed import HashEmbedder
-from envoy.memory.facts import extract_pending
-from envoy.memory.parse import iter_eml, iter_mbox
-from envoy.memory.search import mail_search as hybrid
-from envoy.models.stub import StubModel
+from localect import db
+from localect.memory import import_paths
+from localect.memory.clean import clean_body, html_to_text, strip_quotes, strip_signature
+from localect.memory.embed import HashEmbedder
+from localect.memory.facts import extract_pending
+from localect.memory.parse import iter_eml, iter_mbox
+from localect.memory.search import mail_search as hybrid
+from localect.models.stub import StubModel
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
 
@@ -155,7 +155,7 @@ def test_exclusions_hide_threads_and_addresses_from_every_search():
 def test_raw_rfc822_files_without_an_extension_import_like_eml():
     """Maildir exports and the Enron corpus store one raw message per file with
     no extension; the importer must read them, and the replay must pair them."""
-    from envoy.evalx.replay import find_pairs
+    from localect.evalx.replay import find_pairs
 
     con = db.connect()
     r = import_paths(con, [FIX.parent / "enron-style"], my_addresses=["mark.taylor@enron.com"])

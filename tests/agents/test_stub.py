@@ -1,4 +1,4 @@
-from envoy.models.stub import detect_language, extract_preserve, guess_region
+from localect.models.stub import detect_language, extract_preserve, guess_region
 
 
 def test_language_detection():

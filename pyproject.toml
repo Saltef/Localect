@@ -1,5 +1,5 @@
 [project]
-name = "envoy-ai"
+name = "localect"
 version = "0.15.2"
 description = "Reply to anyone in their language, and sound like a local. Private, local, multilingual reply assistant."
 readme = "README.md"
@@ -16,10 +16,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.5", "playwright>=1.45", "pytest-playwright>=0.5"]
-pdf = ["pypdf>=4"]  # envoy import of PDF documents
+pdf = ["pypdf>=4"]  # localect import of PDF documents
 
 [project.scripts]
-envoy = "envoy.cli:main"
+localect = "localect.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -29,7 +29,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-envoy = ["prompts/*.md", "locales/*.yaml", "evalset/*.yaml", "static/**/*"]
+localect = ["prompts/*.md", "locales/*.yaml", "evalset/*.yaml", "static/**/*"]
 
 [tool.ruff]
 line-length = 100

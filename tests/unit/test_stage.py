@@ -1,8 +1,8 @@
 import pytest
 
-from envoy.agents.stage import StageError, parse_json, run_stage
-from envoy.models.base import FakeModel
-from envoy.schemas import Reading
+from localect.agents.stage import StageError, parse_json, run_stage
+from localect.models.base import FakeModel
+from localect.schemas import Reading
 
 
 def test_parse_json_tolerates_prose_and_fences():

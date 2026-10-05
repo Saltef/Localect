@@ -40,7 +40,7 @@ export default function Compose() {
     setResult(null);
     try {
       const r = await api.compose(message, locale, contact, models.length ? model : undefined);
-      window.dispatchEvent(new Event("envoy:composed"));
+      window.dispatchEvent(new Event("localect:composed"));
       setResult(r.result);
     } catch (e) {
       setError((e as Error).message);
@@ -58,7 +58,7 @@ export default function Compose() {
             className={`${inputCls} min-h-32 resize-y text-[15px] leading-relaxed`}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Any language. Envoy will tell you what it says, draft a reply in their language, make it sound local, and check nothing was lost."
+            placeholder="Any language. Localect will tell you what it says, draft a reply in their language, make it sound local, and check nothing was lost."
           />
         </Field>
         <div className={`mt-3 grid gap-3 md:items-end ${models.length ? "md:grid-cols-[1fr_1fr_1fr_1fr_auto]" : "md:grid-cols-[1fr_1fr_1fr_auto]"}`}>
@@ -107,7 +107,7 @@ export default function Compose() {
       {result && <ResultView result={result} />}
 
       {!result && !busy && (
-        <p className="flex items-center gap-2 text-sm text-zinc-500"><Send className="h-4 w-4" /> Envoy never sends anything. You copy the reply and send it yourself.</p>
+        <p className="flex items-center gap-2 text-sm text-zinc-500"><Send className="h-4 w-4" /> Localect never sends anything. You copy the reply and send it yourself.</p>
       )}
     </div>
   );

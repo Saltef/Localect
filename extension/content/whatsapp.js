@@ -1,7 +1,7 @@
 // WhatsApp Web adapter. A chat message has no address: the contact is the
 // chat title, kept as from_name / the reply's recipient string.
 (function () {
-  const E = window.Envoy;
+  const E = window.Localect;
   const box = () => document.querySelector('footer div[contenteditable="true"][role="textbox"], footer div[contenteditable="true"]');
   function isSend(ev) {
     if (ev.type === "click") return !!(ev.target.closest && ev.target.closest('footer button[aria-label="Send"], footer span[data-icon="send"]'));

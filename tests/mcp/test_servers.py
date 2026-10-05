@@ -1,8 +1,8 @@
 import tempfile
 from pathlib import Path
 
-from envoy import db
-from envoy.mcp.client import MCPTools
+from localect import db
+from localect.mcp.client import MCPTools
 
 
 async def test_all_five_servers_over_stdio():

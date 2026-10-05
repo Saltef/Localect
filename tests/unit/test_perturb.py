@@ -1,12 +1,12 @@
 import asyncio
 
-from envoy import db
-from envoy.config import Settings
-from envoy.demo import seed_demo
-from envoy.eval import run_eval, run_perturbations
-from envoy.locales import seed_locales
-from envoy.models.stub import StubModel
-from envoy.perturb import MUTATIONS, false_alarms, mutate, perturb_one, render_perturb
+from localect import db
+from localect.config import Settings
+from localect.demo import seed_demo
+from localect.eval import run_eval, run_perturbations
+from localect.locales import seed_locales
+from localect.models.stub import StubModel
+from localect.perturb import MUTATIONS, false_alarms, mutate, perturb_one, render_perturb
 
 
 def _rows(sample_set="demo"):

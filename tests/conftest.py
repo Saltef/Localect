@@ -1,9 +1,9 @@
 import pytest
 
-from envoy import db
-from envoy.config import Settings
-from envoy.demo import seed_demo
-from envoy.locales import seed_locales
+from localect import db
+from localect.config import Settings
+from localect.demo import seed_demo
+from localect.locales import seed_locales
 
 
 @pytest.fixture

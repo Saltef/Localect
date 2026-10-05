@@ -1,0 +1,245 @@
+# A fixture mailbox for `localect bench memory`: one support inbox over five months,
+# in seven languages, with five facts that change and several that do not.
+# The questions are held out in the same sense as heldout.yaml: no prompt is
+# tuned against them. Every question names the message that holds the current
+# answer, the value a correct reply uses, and the values it must not use.
+me: safea@example.com
+
+messages:
+  # ---- return window: 14 days (June) -> 30 days (September) ----------------
+  - id: m01
+    date: 2025-06-02T09:00:00Z
+    from: safea@example.com
+    to: [layla@shop.example]
+    subject: "Return window"
+    text: "Hi Layla,\n\nOur return window is 14 days from delivery, for unused items with the tags on.\n\nBest,\nSafea"
+  - id: m07
+    date: 2025-09-10T10:00:00Z
+    from: safea@example.com
+    to: [layla@shop.example]
+    subject: "Return window update"
+    text: "Hi Layla,\n\nGood news: from this month the return window is 30 days from delivery. Same rule on unused items.\n\nBest,\nSafea"
+  - id: m09
+    date: 2025-09-12T08:30:00Z
+    from: safea@example.com
+    to: [omar@example.org]
+    subject: "مدة الإرجاع"
+    text: "أهلاً عمر،\n\nمدة الإرجاع بقت ٣٠ يوم من تاريخ الاستلام، بشرط إن الشنطة متستخدمتش.\n\nتحياتي،\nصفاء"
+
+  # ---- domestic shipping: 5 business days (June) -> 2 business days (Sept) ---
+  - id: m02
+    date: 2025-06-15T14:00:00Z
+    from: safea@example.com
+    to: [rui@loja.example]
+    subject: "Prazo de envio"
+    text: "Olá Rui,\n\nO envio dentro do país leva 5 dias úteis a partir da confirmação do pedido.\n\nAbraços,\nSafea"
+  - id: m08
+    date: 2025-09-11T11:00:00Z
+    from: safea@example.com
+    to: [jo@partner.example]
+    subject: "Faster shipping"
+    text: "Hi Jo,\n\nWe moved to a new warehouse: domestic orders now ship within 2 business days.\n\nBest,\nSafea"
+
+  # ---- warranty: 12 months (July) -> 24 months (October) --------------------
+  - id: m03
+    date: 2025-07-08T09:15:00Z
+    from: safea@example.com
+    to: [uwe@firma.example]
+    subject: "Garantie"
+    text: "Hallo Uwe,\n\ndie Garantie auf den SkyPack beträgt 12 Monate ab Kaufdatum und deckt Materialfehler ab.\n\nViele Grüße\nSafea"
+  - id: m10
+    date: 2025-10-01T09:00:00Z
+    from: safea@example.com
+    to: [uwe@firma.example]
+    subject: "Warranty extended"
+    text: "Hi Uwe,\n\nAs of October the SkyPack warranty is 24 months from purchase. Everything else in the terms stays the same.\n\nBest,\nSafea"
+
+  # ---- support hours: 9-18 (June) -> 9-17 (October) --------------------------
+  - id: m04
+    date: 2025-06-20T16:00:00Z
+    from: safea@example.com
+    to: [ana@tienda.example]
+    subject: "Horario de atención"
+    text: "Hola Ana,\n\nel soporte atiende de lunes a viernes de 9:00 a 18:00, hora de Madrid.\n\nSaludos,\nSafea"
+  - id: m11
+    date: 2025-10-03T12:00:00Z
+    from: safea@example.com
+    to: [ana@tienda.example]
+    subject: "Nuevo horario"
+    text: "Hola Ana,\n\ndesde octubre el soporte atiende de lunes a viernes de 9:00 a 17:00. Los fines de semana seguimos cerrados.\n\nSaludos,\nSafea"
+
+  # ---- price of the SkyPack 30: 89 EUR (July) -> 95 EUR (October) ------------
+  - id: m05
+    date: 2025-07-21T10:30:00Z
+    from: safea@example.com
+    to: [marc@boutique.example]
+    subject: "Prix du SkyPack 30"
+    text: "Bonjour Marc,\n\nle prix du SkyPack 30 est de 89 EUR, livraison comprise en France.\n\nCordialement,\nSafea"
+  - id: m12
+    date: 2025-10-06T09:45:00Z
+    from: safea@example.com
+    to: [marc@boutique.example]
+    subject: "Nouveau prix"
+    text: "Bonjour Marc,\n\nà partir d'octobre le prix du SkyPack 30 passe à 95 EUR, livraison toujours comprise.\n\nCordialement,\nSafea"
+
+  # ---- facts that never change -----------------------------------------------
+  - id: m06
+    date: 2025-08-04T13:00:00Z
+    from: safea@example.com
+    to: [ana@tienda.example]
+    subject: "Aduana"
+    text: "Hola Ana,\n\nlos aranceles de aduana corren por cuenta del cliente; nosotros no los cobramos por adelantado.\n\nSaludos,\nSafea"
+  - id: m13
+    date: 2025-08-18T08:00:00Z
+    from: safea@example.com
+    to: [tanaka@kaisha.example]
+    subject: "納期について"
+    text: "田中様\n\nお世話になっております。日本向けの納期は発送から 10 日です。追跡番号はメールでお知らせします。\n\n何卒よろしくお願いいたします。\n佐藤"
+  - id: m14
+    date: 2025-08-25T15:20:00Z
+    from: safea@example.com
+    to: [layla@shop.example]
+    subject: "Refund timing"
+    text: "Hi Layla,\n\nrefunds reach the original card within 5 business days of the return being checked in.\n\nBest,\nSafea"
+
+  # ---- said by them, not by us -----------------------------------------------
+  - id: m15
+    date: 2025-09-13T09:00:00Z
+    from: layla@shop.example
+    to: [safea@example.com]
+    subject: "Re: Return window update"
+    text: "Thanks Safea! I received order #4521 on 12 September, so I have until October."
+  - id: m16
+    date: 2025-09-14T10:00:00Z
+    from: omar@example.org
+    to: [safea@example.com]
+    subject: "Re: مدة الإرجاع"
+    text: "تمام يا صفاء، شكراً. طلبي رقم ٧٧٨٨ وصل امبارح."
+
+  # ---- distractors -------------------------------------------------------------
+  - id: m17
+    date: 2025-07-30T11:00:00Z
+    from: safea@example.com
+    to: [jo@partner.example]
+    subject: "Catch-up"
+    text: "Hi Jo,\n\nshall we do the quarterly call on Thursday at 3? I can move it if that clashes.\n\nBest,\nSafea"
+  - id: m18
+    date: 2025-09-20T17:00:00Z
+    from: newsletter@vendor.example
+    to: [safea@example.com]
+    subject: "Autumn collection is here"
+    text: "Discover our autumn collection with free returns and 20% off everything this week only."
+  - id: m19
+    date: 2025-10-08T09:00:00Z
+    from: safea@example.com
+    to: [rui@loja.example]
+    subject: "Obrigada"
+    text: "Olá Rui,\n\nobrigada pelo pedido de ontem, foi um prazer. Qualquer coisa, é só dizer.\n\nAbraços,\nSafea"
+
+questions:
+  # cross-lingual: the current answer is in another language than the question
+  - id: mem-01
+    label: "Portuguese asks; the current return window was said in English"
+    text: "Oi, qual é o prazo de devolução de um item?"
+    locale: pt-BR
+    relevant: [m07, m09]
+    newest: "30"
+    stale: ["14"]
+  - id: mem-02
+    label: "Arabic asks about shipping; the current answer was said in English"
+    text: "الشحن الداخلي بياخد كام يوم؟"
+    locale: ar-EG
+    relevant: [m08]
+    newest: "2"
+    stale: ["5"]
+  - id: mem-03
+    label: "German asks about the warranty; the extension was said in English"
+    text: "Hallo, wie lange ist die Garantie auf den SkyPack?"
+    locale: de-DE
+    relevant: [m10]
+    newest: "24"
+    stale: ["12"]
+  - id: mem-04
+    label: "English asks about support hours; the change was said in Spanish"
+    text: "Hi, what are your support hours on weekdays?"
+    locale: en-US
+    relevant: [m11]
+    newest: "17"
+    stale: ["18"]
+  - id: mem-05
+    label: "English asks the price; both statements are in French"
+    text: "Hello, what is the price of the SkyPack 30?"
+    locale: en-US
+    relevant: [m12]
+    newest: "95"
+    stale: ["89"]
+  # same language as the current answer
+  - id: mem-06
+    label: "English asks the return window"
+    text: "Hi, how many days do I have to return a bag?"
+    locale: en-US
+    contact: layla@shop.example
+    relevant: [m07]
+    newest: "30"
+    stale: ["14"]
+  - id: mem-07
+    label: "Spanish asks the new hours"
+    text: "Hola, ¿cuál es el horario de atención ahora?"
+    locale: es-ES
+    contact: ana@tienda.example
+    relevant: [m11]
+    newest: "17"
+    stale: ["18"]
+  - id: mem-08
+    label: "French asks the price"
+    text: "Bonjour, quel est le prix du SkyPack 30 actuellement ?"
+    locale: fr-FR
+    contact: marc@boutique.example
+    relevant: [m12]
+    newest: "95"
+    stale: ["89"]
+  - id: mem-09
+    label: "Arabic asks the return window; an Arabic statement exists"
+    text: "ممكن أعرف مدة الإرجاع؟"
+    locale: ar-EG
+    contact: omar@example.org
+    relevant: [m09, m07]
+    newest: "30"
+    stale: ["14"]
+  - id: mem-10
+    label: "Japanese asks the delivery time to Japan (never changed)"
+    text: "日本への納期は何日ですか？"
+    locale: ja-JP
+    relevant: [m13]
+    newest: "10"
+    stale: []
+  # facts that never changed, and one said by them
+  - id: mem-11
+    label: "English asks about refund timing (never changed)"
+    text: "Hi, when does the refund reach my card?"
+    locale: en-US
+    relevant: [m14]
+    newest: "5"
+    stale: []
+  - id: mem-12
+    label: "Portuguese asks about customs (no number; retrieval only)"
+    text: "Olá, quem paga a alfândega numa encomenda internacional?"
+    locale: pt-BR
+    relevant: [m06]
+    newest: ""
+    stale: []
+  - id: mem-13
+    label: "English asks when Layla received her order (a fact she stated)"
+    text: "Hi, what day did Layla say her order #4521 arrived?"
+    locale: en-US
+    contact: layla@shop.example
+    relevant: [m15]
+    newest: "12"
+    stale: []
+  - id: mem-14
+    label: "German asks about domestic shipping; answer stated in Portuguese then English"
+    text: "Hallo, wie schnell wird eine Bestellung im Inland verschickt?"
+    locale: de-DE
+    relevant: [m08]
+    newest: "2"
+    stale: ["5"]

@@ -1,13 +1,13 @@
-# Evaluating Envoy
+# Evaluating Localect
 
-This page says what `envoy eval` measures, what each number means, what it
+This page says what `localect eval` measures, what each number means, what it
 does not mean, and how to reproduce every table on your own machine. Tables
 marked *pending* have not been run on a real model yet; nothing here is
 estimated.
 
 ## What is being measured
 
-Envoy makes three claims. Each needs its own evidence.
+Localect makes three claims. Each needs its own evidence.
 
 | claim | measured by | status |
 |---|---|---|
@@ -104,26 +104,26 @@ model.
 The Rewriter's job is to make the body of a reply read as if a native of the
 receiver's region wrote it. The cheapest repeatable judge of that is a
 dialect identifier trained on labelled text from those regions. When one is
-available for a sample's language, `envoy eval` classifies the **Drafter's
+available for a sample's language, `localect eval` classifies the **Drafter's
 body** and the **Rewriter's final body** with the same judge (greeting and
 sign-off are excluded, since code applies them to both) and reports, per
 locale, the share classified as the target. The gap between the two columns
 is the Rewriter's measurable work; a final column below the draft column is a
 Rewriter that makes things worse.
 
-Judges (`envoy dialect list` shows which are installed):
+Judges (`localect dialect list` shows which are installed):
 
 | language | judge | data | how |
 |---|---|---|---|
 | ar | CAMeL Tools MADAR-26 city identifier, cities grouped into ar-EG / ar-LB / ar-SA / other regions / MSA | ships with CAMeL Tools | `pip install camel-tools && camel_data -i dialectid` |
-| ar | Envoy's own n-gram model | MADAR corpus (request from the MADAR project) | `envoy dialect train --language ar --data <dir>` |
-| pt | Envoy's own n-gram model | DSL Corpus Collection, `pt-BR` / `pt-PT` | `envoy dialect train --language pt --data <DSLCC task file or dir>` |
-| es | Envoy's own n-gram model | DSL Corpus Collection, `es-ES` / `es-AR` / `es-PE` | `envoy dialect train --language es --data <...>`; Latin American labels are grouped as `es-LA`, so an es-MX target counts as a hit when the reply reads Latin American and not Castilian |
+| ar | Localect's own n-gram model | MADAR corpus (request from the MADAR project) | `localect dialect train --language ar --data <dir>` |
+| pt | Localect's own n-gram model | DSL Corpus Collection, `pt-BR` / `pt-PT` | `localect dialect train --language pt --data <DSLCC task file or dir>` |
+| es | Localect's own n-gram model | DSL Corpus Collection, `es-ES` / `es-AR` / `es-PE` | `localect dialect train --language es --data <...>`; Latin American labels are grouped as `es-LA`, so an es-MX target counts as a hit when the reply reads Latin American and not Castilian |
 
-Envoy's n-gram model is a multinomial naive Bayes over hashed character
-n-grams (1 to 4), pure Python, saved as JSON under `~/.envoy/models/`.
+Localect's n-gram model is a multinomial naive Bayes over hashed character
+n-grams (1 to 4), pure Python, saved as JSON under `~/.localect/models/`.
 Training data is read as `text<TAB>label` lines, or one file per label. The
-judge never sees a prompt, and nothing in Envoy is tuned against it.
+judge never sees a prompt, and nothing in Localect is tuned against it.
 
 What it does not measure: correctness (the checks do), register within a
 dialect (a human does), or Modern Standard Arabic written on purpose. A
@@ -133,7 +133,7 @@ wrong one for a formal Gulf letter; read the per-locale rows with that in mind.
 
 ## The Reader on MASSIVE
 
-`envoy bench massive --data <MASSIVE 1.1 dir> --n 50` runs only the Reader on
+`localect bench massive --data <MASSIVE 1.1 dir> --n 50` runs only the Reader on
 `n` test-partition utterances per language (ar-SA, pt-BR, es-ES, fr-FR,
 de-DE, en-US, ja-JP, sampled with a fixed seed) and reports per language:
 
@@ -147,7 +147,7 @@ de-DE, en-US, ja-JP, sampled with a fixed seed) and reports per language:
 
 ## The Critic on FLORES-200
 
-`envoy bench flores --data <FLORES-200 dir> --n 50` asks the Critic to
+`localect bench flores --data <FLORES-200 dir> --n 50` asks the Critic to
 back-translate `n` devtest sentences per language (arb_Arab, por_Latn,
 spa_Latn, fra_Latn, deu_Latn, jpn_Jpan) and scores each against the English
 reference with chrF (own implementation of Popović 2015, character n-grams
@@ -164,8 +164,8 @@ dialect-level reading matters.
 
 ## Memory: the right message, the newest fact
 
-`envoy bench memory` measures the memory layer (docs/MEMORY.md) on a fixture
-mailbox that ships with Envoy: 19 messages over five months in seven
+`localect bench memory` measures the memory layer (docs/MEMORY.md) on a fixture
+mailbox that ships with Localect: 19 messages over five months in seven
 languages, 16 written by the user, with five facts that change (return
 window, domestic shipping time, warranty, support hours, a price), several
 that never do, two stated by the other side, and three distractors, one of
@@ -191,33 +191,33 @@ on a mailbox of your own in the same format.
 
 ## Replay your own inbox: the test on actual data
 
-Every sample set above was written by us. `envoy replay` uses the only
+Every sample set above was written by us. `localect replay` uses the only
 actual data there is: your own history. Each stored exchange where someone
 wrote to you and you replied (same thread, or to the same address within two
 weeks) is a test case that needed no writing. The incoming message is the
-input; the reply you actually sent is the reference. Envoy composes with its
+input; the reply you actually sent is the reference. Localect composes with its
 memory cut off at the incoming message's date, so it cannot simply retrieve
 your answer, only what you knew before that moment. Per exchange:
 
-- **same language**: Envoy replied in the language you replied in;
+- **same language**: Localect replied in the language you replied in;
 - **your numbers stated**: of the numbers in your real reply (days, amounts,
-  ids), how many Envoy's reply also states; extra numbers Envoy stated that
+  ids), how many Localect's reply also states; extra numbers Localect stated that
   you did not are counted separately, since each is invented or from a
   different fact;
-- **chrF** between Envoy's reply and yours, a rough proxy for saying the same
+- **chrF** between Localect's reply and yours, a rough proxy for saying the same
   thing in your voice (100 is identical; the low 30s and above is the same
   message said differently);
 - the Arbiter's status, and whether the pipeline errored.
 
 ```bash
-envoy replay --n 30 --out replay.json          # the 30 most recent exchanges
-envoy replay --contact layla@shop.example      # one correspondent
-envoy replay --since 2026-06-01
+localect replay --n 30 --out replay.json          # the 30 most recent exchanges
+localect replay --contact layla@shop.example      # one correspondent
+localect replay --since 2026-06-01
 ```
 
 Replays are not written to history. The result is not a benchmark score:
 it is the pipeline against what you actually did, read exchange by
-exchange, and the JSON keeps all three texts (incoming, yours, Envoy's) so a
+exchange, and the JSON keeps all three texts (incoming, yours, Localect's) so a
 low chrF can be judged by eye.
 
 ### No mail of your own yet: replay the Enron corpus
@@ -226,13 +226,13 @@ The Enron email corpus is about half a million real messages from 150
 people, released in the course of a public investigation and available for
 free (the maintained copy is at
 https://www.cs.cmu.edu/~enron/, a 400 MB tar). Each person's folders hold
-raw messages, one per file with no extension, which `envoy import` reads as
-is. Pick one mailbox, tell Envoy whose it is, and replay it:
+raw messages, one per file with no extension, which `localect import` reads as
+is. Pick one mailbox, tell Localect whose it is, and replay it:
 
 ```bash
-envoy config --user-email mark.taylor@enron.com
-envoy import maildir/taylor-m/inbox maildir/taylor-m/sent maildir/taylor-m/_sent_mail --extract
-envoy replay --n 30 --out replay.json
+localect config --user-email mark.taylor@enron.com
+localect import maildir/taylor-m/inbox maildir/taylor-m/sent maildir/taylor-m/_sent_mail --extract
+localect replay --n 30 --out replay.json
 ```
 
 Mailboxes with many replied-to threads: `taylor-m` (legal), `dasovich-j`
@@ -242,13 +242,13 @@ minute, extraction one model call per message (use `--no-index` and skip
 `--extract` for a retrieval-only look). It is English-only, from 2000 to
 2002, and corporate, so it tests memory, the pairing, and the Arbiter on
 real threads, not the multilingual Rewriter. Nothing in the Enron mail is
-tuned on, and it is never shipped with Envoy.
+tuned on, and it is never shipped with Localect.
 
-## One command for everything: `envoy fullrun`
+## One command for everything: `localect fullrun`
 
 ```bash
-envoy fullrun --out envoy-results            # 60 to 90 minutes on a hosted model
-envoy fullrun --out envoy-results --quick    # a quarter of that: 2 held-out per locale,
+localect fullrun --out localect-results            # 60 to 90 minutes on a hosted model
+localect fullrun --out localect-results --quick    # a quarter of that: 2 held-out per locale,
                                              # 3 attacks per language, 10 replays
 ```
 
@@ -264,7 +264,7 @@ keeps what it measured.
 Every set above asks about one invented store. A reply assistant that only
 works for backpacks is a demo, so the domains set puts the same pipeline,
 prompts and checks on three other knowledge bases, each seeded into a fresh
-store for its samples (`envoy eval --set domains --perturb`):
+store for its samples (`localect eval --set domains --perturb`):
 
 | domain | knowledge base | what its samples test |
 |---|---|---|
@@ -309,19 +309,19 @@ False alarms on the 42 untouched runs: 0 Critic blocks, 0 Arbiter blocks,
 extracts (an amount, in bank-en-02), so `drop_preserved` has n=1 here.
 As on the shop, the stub proves the harness and the deterministic layers,
 not the language: the numbers on a hosted model are the ones that count and
-are pending the next `envoy fullrun --quick`, which now includes 21 domain
+are pending the next `localect fullrun --quick`, which now includes 21 domain
 samples.
 
 ## Public data in other languages: banking and health
 
 The sets above are authored. These two benches take real customer and
-patient messages from public datasets in the languages Envoy ships and
+patient messages from public datasets in the languages Localect ships and
 score them against the domain knowledge bases, so no question in them was
 written by the person who wrote the prompts. Each dataset is downloaded
-once into a folder; nothing is redistributed with Envoy, and the test
+once into a folder; nothing is redistributed with Localect, and the test
 suite runs on small fixtures written in each dataset's format.
 
-### Banking: `envoy bench banking --data DIR`
+### Banking: `localect bench banking --data DIR`
 
 | dataset | what | languages | licence |
 |---|---|---|---|
@@ -346,13 +346,13 @@ about them, and the reply must state no number from outside the query and
 the knowledge base. A policy invented for the occasion is the failure this
 bench counts. Per variety: the Reader's language, the language the reply
 reads as, the region guessed (Saudi should resolve to ar-SA, Palestinian to
-ar-LB, Envoy's Levantine profile; the other three have no profile and are
+ar-LB, Localect's Levantine profile; the other three have no profile and are
 reported as resolved), fact stated on covered intents, no invented number,
 escalation rate, and, where CAMeL Tools is installed, the dialect ablation
 on the Arabic replies. `--n` is per variety (default 10, seven varieties),
 `--seed` fixes the sample.
 
-### Health: `envoy bench health --data DIR`
+### Health: `localect bench health --data DIR`
 
 | dataset | what | languages | licence |
 |---|---|---|---|
@@ -390,7 +390,7 @@ English, Portuguese, Spanish and Arabic), and the status distribution. A
 or the emergency line without asserting anything.
 
 What these are not: a clinical benchmark, or a test of medical knowledge.
-Envoy is built to relay the clinic's text and refuse the rest, and that is
+Localect is built to relay the clinic's text and refuse the rest, and that is
 what is measured.
 
 ### Stub, fixtures (2026-09-27, 0.14.0)
@@ -408,9 +408,9 @@ Numbers on a hosted model are pending the first run.
 
 Banking77 (English) and ArBanking77 (five Arabic varieties), 20 queries per
 variety sampled with the fixed seed, against the Harbor Bank knowledge
-base: 120 real customer messages, none written for Envoy.
+base: 120 real customer messages, none written for Localect.
 
-The first attempt surfaced a harness bug, not a model one: `envoy bench
+The first attempt surfaced a harness bug, not a model one: `localect bench
 banking` silently returned zero rows for Saudi, Moroccan and Tunisian. The
 loader only ever read `Question_Saudi1`/`Question_Moroccan`/
 `Question_Tunisian` columns out of `Banking77_full_corpus.csv`; the real
@@ -465,7 +465,7 @@ usually right (8/8 Saudi guesses minus the one miss = 7/8; on Palestinian,
 4 of the 8 guesses were `ar-JO`, Jordanian). The dominant failure on both
 varieties is declining to guess at all (12/20, 60%, on real single-sentence
 customer messages) — the Reader's own prompt instruction is explicitly
-conservative here (`prompts/reader.md`: *"otherwise null"*), and Envoy's
+conservative here (`prompts/reader.md`: *"otherwise null"*), and Localect's
 language default then resolves every one of those to `ar-EG`, which is
 guaranteed wrong for these two target locales in this benchmark.
 
@@ -495,23 +495,23 @@ is a real, bounded gain, not the fix for the finding above: the 60%
 no-guess rate is untouched, is the larger share of both misses, and is a
 prompt-conservatism tradeoff, not a resolver bug — loosening it is a change
 to `prompts/reader.md` that needs a live rerun to judge, which is *pending*
-the next `envoy bench banking` on a configured model.
+the next `localect bench banking` on a configured model.
 
 ## The experiment: every benchmark under every ablation, then what to change
 
-`envoy fullrun` measures the pipeline as shipped. `envoy experiment` measures
+`localect fullrun` measures the pipeline as shipped. `localect experiment` measures
 what each stage and each policy earns, by running the benchmarks with parts
 switched off, and then reads the results back as findings.
 
 ```bash
-envoy experiment --out exp --data <datasets dir>            # several hours on a hosted model
-envoy experiment --out exp --data <datasets dir> --quick    # under an hour
-envoy experiment --out exp --conditions base,no_critic --sections heldout,domains
-envoy diagnose exp                                          # rebuild experiment.md and findings.md
+localect experiment --out exp --data <datasets dir>            # several hours on a hosted model
+localect experiment --out exp --data <datasets dir> --quick    # under an hour
+localect experiment --out exp --conditions base,no_critic --sections heldout,domains
+localect diagnose exp                                          # rebuild experiment.md and findings.md
 ```
 
 A *condition* is a named set of switches on the pipeline (`Settings.ablations`,
-also `ENVOY_ABLATIONS=no_critic,no_voice` for a single run):
+also `LOCALECT_ABLATIONS=no_critic,no_voice` for a single run):
 
 | condition | switch | question it answers |
 |---|---|---|
@@ -532,8 +532,8 @@ the three memory policies the memory bench and the replay. Sections that
 need a dataset folder (banking, health, MASSIVE, FLORES) run when
 `--data` has it and are skipped otherwise.
 
-Results land in `exp/<condition>/<section>.json`, the same files `envoy eval`
-and `envoy bench` write, so `envoy explain` and `envoy report` read them. A
+Results land in `exp/<condition>/<section>.json`, the same files `localect eval`
+and `localect bench` write, so `localect explain` and `localect report` read them. A
 section already on disk is skipped, so an interrupted experiment resumes;
 `--fresh` reruns. At the end:
 
@@ -553,7 +553,7 @@ section already on disk is skipped, so an interrupted experiment resumes;
   expected variety), then what each stage or policy earns (the revision
   loop, the Rewriter's dialect gain, facts-only against base, embeddings
   against the token search, voice examples on the replay). Example ids are
-  listed so `envoy explain` can print the replies behind a number.
+  listed so `localect explain` can print the replies behind a number.
 
 The rules in `evalx/diagnose.py` are deterministic and read only stored
 rows; no model is asked what went wrong. The loop this sets up: change one
@@ -580,7 +580,7 @@ tables follow when it does.
   "named inside a refusal". The Critic prompt says a sentence that declines
   or promises to check asserts nothing. Two rows remain real: "Soy un bot"
   stated in Spanish, and a Japanese gift-card reply the refusal test did
-  not read as a refusal, pending `envoy explain`.
+  not read as a refusal, pending `localect explain`.
 - **Memory policies on the fixture mailbox.** Facts only: newest value
   11/13, stale 1/13, conflicts flagged 8/10. Mail only: newest 11/13, stale
   1/13, flagged 0/10, four fewer escalations. Base (earlier run): 11/13,
@@ -600,7 +600,7 @@ literally present in a Portuguese, German or Spanish reply, so the match
 failed silently and the block never downgraded, whatever the reply said.
 Fixed in 0.15.2: `refusal_aware` now checks both the final text and the
 Critic's back-translation for the segment, matching whichever one the span
-actually came from (`src/envoy/agents/arbiter.py`, `refusal_aware`).
+actually came from (`src/localect/agents/arbiter.py`, `refusal_aware`).
 A second, separate pattern survived on both English and non-English rows
 (`inj-en-04`, `inj-fr-01`, `inj-fr-04`, `inj-fr-13`, `inj-ja-04`): the
 Critic flagging pure wording as `drifted` — a contraction ("I'm unable" →
@@ -609,7 +609,7 @@ shift ("est gratuite" → "soit gratuite") — that its own prompt already says
 is not drift. This is the model not following an instruction it was given,
 not a scoring bug, so no code can fix it outright; the prompt now spells out
 the refusal-rephrasing and synonym cases that recurred and says explicitly
-not to raise them even as a warn (`src/envoy/prompts/critic.md`). Whether
+not to raise them even as a warn (`src/localect/prompts/critic.md`). Whether
 that holds is only known from the next real-model rerun.
 
 
@@ -620,10 +620,10 @@ the right register. Native readers can, if the comparison is blind and the
 questions are fixed.
 
 ```bash
-envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out heldout.json
-envoy study export --from heldout.json --out study/
+localect eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --out heldout.json
+localect study export --from heldout.json --out study/
 # hand each rater the sheet for their locale and docs/RUBRIC.md; keep key.json
-envoy study score --sheets study/ --out study/report.json
+localect study score --sheets study/ --out study/report.json
 ```
 
 Export builds two kinds of blind pair from finished runs: **final versus
@@ -677,7 +677,7 @@ no judge calls it the target; the test suite only checks the plumbing.
 
 ### First real run (0.8.1, Command A and Aya Expanse 32B, 2026-09-24)
 
-Held-out set, `envoy eval --set heldout --perturb`, both models through
+Held-out set, `localect eval --set heldout --perturb`, both models through
 Cohere's API. These numbers are from the harness as it was *before* the
 fixes listed under it, and are kept here because they are what the first run
 showed; the corrected numbers replace them when the rerun is in.
@@ -741,14 +741,14 @@ blocked 0 and warned 3. Aya's perturbation rows (n = 2) are too few to read.
 Wall clock: 1520 s for Command A's 63 runs (24 s per reply, three of them
 over 60 s), 668 s for Aya's, most of it the failed Reader retries.
 
-### Command A (Cohere), corrected harness: `envoy fullrun --quick` on 0.11.1
+### Command A (Cohere), corrected harness: `localect fullrun --quick` on 0.11.1
 
 Second real run, 2026-09-25, Command A (`command-a-03-2025`) with Cohere's
 multilingual embeddings, the quick subset: two held-out samples per locale
 (24), three attacks per language (21), the memory bench (14). No mail was
 imported, so no replay. Numbers are as the run printed them; the scoring
 corrections found by reading the failures are listed after, and
-`envoy rescore` recomputes the stored replies under the corrected checks
+`localect rescore` recomputes the stored replies under the corrected checks
 without a model call, which is the next step.
 
 **Held-out, 15/24 passed, 406 s.** The nine failures:
@@ -822,7 +822,7 @@ larger mailbox shows a wider gap.
 
 None of these touch a prompt. Each was found by reading a failure and is
 applied to every set, including the held-out set, because it corrects the
-check, not the sample; `envoy rescore` reapplies them to stored replies.
+check, not the sample; `localect rescore` reapplies them to stored replies.
 
 1. **Numbers written as words.** `has_value` accepts the small numbers two
    to twelve written as words in the seven languages, and the Arabic dual
@@ -848,17 +848,17 @@ check, not the sample; `envoy rescore` reapplies them to stored replies.
    escalated because the Rewriter dropped the attacker's "$50" and the
    Arbiter blocked the drift. When every blocking flag is about an injected
    item, the escalation is the right outcome and the run passes; a block
-   about anything else still fails it. `envoy explain FILE` prints each
+   about anything else still fails it. `localect explain FILE` prints each
    failed run with its reasons, flags, what the Reader saw and the reply
    text, so the next reading is of the replies and not of the counts.
 
-### The same replies rescored on 0.11.5 and read with `envoy explain`
+### The same replies rescored on 0.11.5 and read with `localect explain`
 
-`envoy rescore` on the stored 0.11.1 replies, no model call: held-out
+`localect rescore` on the stored 0.11.1 replies, no model call: held-out
 15 → 16/24 (ar-EG-01, the reply that wrote "يومين", now passes under
 correction 1; the other two Arabic rows turned out to say something else,
 below), injection 6 → 7/21 (correction 6).
-Then `envoy explain` printed every failed run with its reply, and each was
+Then `localect explain` printed every failed run with its reply, and each was
 read. What the 22 failures are, counted:
 
 **Held-out, 16/24.**
@@ -881,12 +881,12 @@ read. What the 22 failures are, counted:
 
 By reading, corrections 8 and 9 should turn pt-01 and es-01 into passes on
 a rescore, and nothing else changes without a rerun: the Critic blocks are
-stored verdicts. The next `envoy fullrun --quick` on 0.12.0 measures the
+stored verdicts. The next `localect fullrun --quick` on 0.12.0 measures the
 prompt and Arbiter changes below; those numbers are not yet known.
 
 ### Corrections and fixes from the third reading
 
-Scoring, applied to every set and by `envoy rescore` to stored replies:
+Scoring, applied to every set and by `localect rescore` to stored replies:
 
 7. **Apostrophes and contractions.** Values and forbidden phrases are
    compared with straight apostrophes ("I’m" and "I'm" are one word), and
@@ -985,7 +985,7 @@ statement (12 months) instead of the newer English one (24 months), and a
 Portuguese one got the newsletter's "free returns". The Arbiter blocked the
 stale reply and flagged the newest-used ones as *check*, which is the
 behaviour the rule exists for. Command A with Cohere's multilingual
-embeddings: *pending, run on your machine* (`envoy bench memory --models
+embeddings: *pending, run on your machine* (`localect bench memory --models
 command-a-03-2025 --out memory.json`).
 
 ## Negative results
@@ -1056,7 +1056,7 @@ command-a-03-2025 --out memory.json`).
 
 None moved. On 2026-09-25 the eight failing held-out replies from the
 0.11.1 run (ar-SA-01, ar-LB-01, pt-BR-02, es-MX-02, fr-FR-02, en-GB-01,
-en-GB-02, ja-JP-01) were read in full through `envoy explain` to diagnose
+en-GB-02, ja-JP-01) were read in full through `localect explain` to diagnose
 the harness. The only prompt change that followed, the Critic's definition
 of drift, is a general rule and was written from the injection rows that
 show the same fault; but the held-out set is no longer blind for that rule,
@@ -1065,49 +1065,49 @@ that in mind. Nothing else in a prompt was changed from that reading.
 
 ## Interrupting a run
 
-`envoy eval --out FILE` rewrites the JSON after every scored sample and
+`localect eval --out FILE` rewrites the JSON after every scored sample and
 every perturbation, atomically, with `"partial": true` until the run
 completes. Ctrl+C prints the table for what finished, keeps the file, and
 exits 130, so a two-hour run that has to stop keeps what it measured.
 
 ## Gates and the report
 
-CI runs, on every push, `envoy eval --set heldout --perturb`,
-`envoy eval --set domains --perturb` and `envoy eval --set injection` on the stub and fails the build if any sample
+CI runs, on every push, `localect eval --set heldout --perturb`,
+`localect eval --set domains --perturb` and `localect eval --set injection` on the stub and fails the build if any sample
 fails; the test suite additionally pins the deterministic perturbation
 detections at 100%. The combined markdown report is uploaded as a build
 artifact.
 
-`envoy report heldout.json injection.json massive.json flores.json
+`localect report heldout.json injection.json massive.json flores.json
 study/report.json --out report.md` composes one markdown document from any
 of the JSON files the commands above write, with counts next to every
-percentage, so a table can be pasted here unchanged. `envoy eval --report
+percentage, so a table can be pasted here unchanged. `localect eval --report
 x.md` writes the same for a single run.
 
 ## Reproduce
 
 ```bash
-pipx install --force git+https://github.com/Saltef/Envoy      # or: pip install -e .
-envoy check                                                   # confirm the model answers
-envoy eval --set heldout --perturb --out heldout.json --report heldout.md
-envoy eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --perturb --out compare.json
-envoy eval --set heldout --critic-model command-a-03-2025      # judge with a model other than the drafter
+pipx install --force git+https://github.com/Saltef/Localect      # or: pip install -e .
+localect check                                                   # confirm the model answers
+localect eval --set heldout --perturb --out heldout.json --report heldout.md
+localect eval --set heldout --models command-a-03-2025,c4ai-aya-expanse-32b --perturb --out compare.json
+localect eval --set heldout --critic-model command-a-03-2025      # judge with a model other than the drafter
 
-envoy eval --set injection --models command-a-03-2025,c4ai-aya-expanse-32b --out injection.json
+localect eval --set injection --models command-a-03-2025,c4ai-aya-expanse-32b --out injection.json
 
 # Public datasets, single stages (download once; paths are the unpacked directories):
 # MASSIVE 1.1: https://github.com/alexa/massive   FLORES-200: https://github.com/facebookresearch/flores
-envoy bench massive --data path/to/amazon-massive-dataset-1.1 --n 50 --out massive.json
-envoy bench flores --data path/to/flores200_dataset --n 50 --out flores.json
+localect bench massive --data path/to/amazon-massive-dataset-1.1 --n 50 --out massive.json
+localect bench flores --data path/to/flores200_dataset --n 50 --out flores.json
 
 # Dialect judges (once), then the ablation appears in every eval table:
 pip install camel-tools && camel_data -i dialectid             # Arabic
-envoy dialect train --language pt --data path/to/DSLCC/task1-train.txt
-envoy dialect train --language es --data path/to/DSLCC/task1-train.txt
-envoy dialect list
+localect dialect train --language pt --data path/to/DSLCC/task1-train.txt
+localect dialect train --language es --data path/to/DSLCC/task1-train.txt
+localect dialect list
 
 # Everything into one markdown file to paste into this page:
-envoy report compare.json injection.json massive.json flores.json study/report.json --out report.md
+localect report compare.json injection.json massive.json flores.json study/report.json --out report.md
 ```
 
 On Windows run the same commands in PowerShell or cmd. Output is UTF-8.

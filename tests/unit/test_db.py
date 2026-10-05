@@ -1,4 +1,4 @@
-from envoy import db
+from localect import db
 
 
 def test_glossary_lookup_filters_by_language(con):
@@ -27,7 +27,7 @@ def test_history_thread_is_per_contact(con):
 def test_contacts_carry_a_gender_and_old_databases_are_migrated():
     import sqlite3
 
-    from envoy import db
+    from localect import db
 
     con = db.connect()
     cid = db.contact_add(con, "Mona", "ar-EG", gender="female")

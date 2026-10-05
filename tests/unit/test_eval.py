@@ -1,16 +1,16 @@
 import asyncio
 import json
 
-from envoy import db
-from envoy.config import Settings
-from envoy.demo import seed_demo
-from envoy.eval import CHECK_ORDER, INVARIANTS, render_table, run_eval, score, to_json
-from envoy.evalset import Sample, load
-from envoy.locales import seed_locales
-from envoy.models.stub import StubModel
-from envoy.pipeline import compose
-from envoy.schemas import ComposeRequest
-from envoy.tools import DirectTools
+from localect import db
+from localect.config import Settings
+from localect.demo import seed_demo
+from localect.eval import CHECK_ORDER, INVARIANTS, render_table, run_eval, score, to_json
+from localect.evalset import Sample, load
+from localect.locales import seed_locales
+from localect.models.stub import StubModel
+from localect.pipeline import compose
+from localect.schemas import ComposeRequest
+from localect.tools import DirectTools
 
 
 def _settings():
@@ -89,7 +89,7 @@ def test_broken_invariant_is_reported_but_does_not_fail_the_run():
 
 
 def test_failed_checks_come_with_a_reason_and_the_reader_output(settings, demo_con):
-    from envoy.eval import explain
+    from localect.eval import explain
 
     rows = asyncio.run(run_eval(settings, con=demo_con, sample_set="demo", scorers={}))
     r = rows[0]
@@ -110,9 +110,9 @@ def test_failed_checks_come_with_a_reason_and_the_reader_output(settings, demo_c
 
 
 def test_main_eval_checkpoints_after_every_sample_and_survives_interrupt(tmp_path, monkeypatch):
-    from envoy import eval as ev
+    from localect import eval as ev
 
-    monkeypatch.setenv("ENVOY_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("LOCALECT_DATA_DIR", str(tmp_path / "data"))
     settings = Settings(provider="stub", user_name="Safea")
     out = tmp_path / "demo.json"
     seen = []
@@ -145,8 +145,8 @@ def test_main_eval_checkpoints_after_every_sample_and_survives_interrupt(tmp_pat
 
 def test_refusals_that_name_the_attack_pass_and_injected_items_need_not_be_preserved(settings,
                                                                                     demo_con):
-    from envoy.eval import explain
-    from envoy.evalset import load
+    from localect.eval import explain
+    from localect.evalset import load
 
     inj = next(s for s in load("injection") if s.id == "inj-en-01")
     rows = asyncio.run(run_eval(settings, con=demo_con, sample_set="injection", indexes=[0],
@@ -173,7 +173,7 @@ def test_refusals_that_name_the_attack_pass_and_injected_items_need_not_be_prese
 
 
 def test_rescore_recomputes_checks_from_stored_replies(tmp_path, settings, demo_con):
-    from envoy.eval import rescore_file
+    from localect.eval import rescore_file
 
     rows = asyncio.run(run_eval(settings, con=demo_con, sample_set="injection", indexes=[0],
                                 scorers={}))
@@ -192,7 +192,7 @@ def test_rescore_recomputes_checks_from_stored_replies(tmp_path, settings, demo_
 
 def test_escalating_only_on_an_injected_number_is_not_a_failure_and_explain_prints_it(
         tmp_path, settings, demo_con):
-    from envoy.eval import RunScore, explain_file, rescore_file
+    from localect.eval import RunScore, explain_file, rescore_file
 
     rows = asyncio.run(run_eval(settings, con=demo_con, sample_set="injection", indexes=[0],
                                 scorers={}))
@@ -227,7 +227,7 @@ def test_escalating_only_on_an_injected_number_is_not_a_failure_and_explain_prin
 
 
 def test_a_second_block_on_the_same_segment_as_an_injected_drop_is_also_exempt():
-    from envoy.eval import RunScore
+    from localect.eval import RunScore
 
     # Real pattern from inj-ar/pt/es/fr/de-07: deleting an injected URL that was
     # wrongly put in must_preserve correctly trips a second block on the same

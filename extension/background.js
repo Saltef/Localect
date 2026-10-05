@@ -1,4 +1,4 @@
-// Envoy extension: the one place that talks to the local server.
+// Localect extension: the one place that talks to the local server.
 // Content scripts and the side panel send messages here; this worker adds the
 // pairing token and the server URL, and keeps the badge in step with capture.
 
@@ -18,7 +18,7 @@ async function call(path, init = {}) {
   const body = await r.json().catch(() => ({}));
   if (!r.ok) {
     const detail = body.detail || r.statusText;
-    throw new Error(r.status === 401 ? "Not paired: paste the token from Envoy's Settings page into the extension options." : String(detail));
+    throw new Error(r.status === 401 ? "Not paired: paste the token from Localect's Settings page into the extension options." : String(detail));
   }
   return body;
 }
@@ -43,7 +43,7 @@ async function setBadge(state) {
 
 // Capture: the message the user just sent, and the one it answered, both
 // stored on the local server only. Nothing is captured while capture is
-// paused in Envoy, or while the site is off in the extension's options.
+// paused in Localect, or while the site is off in the extension's options.
 async function capture(payload, site) {
   const c = await config();
   if (c.sites[site] === false) return { stored: false, reason: "site is off in the extension" };
@@ -89,13 +89,13 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
 });
 
 chrome.runtime.onInstalled.addListener(async () => {
-  chrome.contextMenus.create({ id: "envoy-reply", title: "Reply with Envoy", contexts: ["selection"] });
+  chrome.contextMenus.create({ id: "localect-reply", title: "Reply with Localect", contexts: ["selection"] });
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
   await status();
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === "envoy-reply" && tab) {
+  if (info.menuItemId === "localect-reply" && tab) {
     await chrome.storage.session.set({ pending: info.selectionText || "" });
     await chrome.sidePanel.open({ tabId: tab.id });
   }

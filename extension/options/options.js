@@ -16,6 +16,6 @@ async function load() {
 $("save").addEventListener("click", async () => {
   await chrome.storage.local.set({ server: $("server").value.trim() || "http://127.0.0.1:8765", token: $("token").value.trim() });
   const s = await send({ type: "status" });
-  $("msg").textContent = s && s.ok ? `Paired with Envoy ${s.version}${s.user_email ? " as " + s.user_email : ""}.` : (s && s.error) || "not connected";
+  $("msg").textContent = s && s.ok ? `Paired with Localect ${s.version}${s.user_email ? " as " + s.user_email : ""}.` : (s && s.error) || "not connected";
 });
 load();

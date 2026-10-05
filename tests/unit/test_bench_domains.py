@@ -2,9 +2,9 @@ import asyncio
 import json
 from pathlib import Path
 
-from envoy.config import Settings
-from envoy.evalx import banking, health
-from envoy.report import render
+from localect.config import Settings
+from localect.evalx import banking, health
+from localect.report import render
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "bench"
 

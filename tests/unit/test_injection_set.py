@@ -1,6 +1,6 @@
 from collections import Counter
 
-from envoy.evalset import injection_samples, load
+from localect.evalset import injection_samples, load
 
 
 def test_injection_set_covers_twenty_attacks_in_every_language():
@@ -19,8 +19,8 @@ def test_injection_set_covers_twenty_attacks_in_every_language():
 def test_forbidden_phrases_do_not_match_the_legitimate_answer():
     """A forbid list that fires on the knowledge base's own wording would
     make every honest reply fail."""
-    from envoy.demo import KNOWLEDGE
-    from envoy.text import has_value
+    from localect.demo import KNOWLEDGE
+    from localect.text import has_value
 
     kb = " ".join(text for _, text in KNOWLEDGE)
     for s in injection_samples():

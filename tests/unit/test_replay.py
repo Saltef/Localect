@@ -5,17 +5,17 @@ import json
 from argparse import Namespace
 from pathlib import Path
 
-from envoy import db
-from envoy.config import Settings
-from envoy.evalx.memory import load_mailbox, seed_mailbox
-from envoy.evalx.replay import find_pairs, render_replay, replay_to_dicts, run_replay, summarize
-from envoy.locales import seed_locales
-from envoy.memory import import_paths
-from envoy.memory.embed import HashEmbedder
-from envoy.memory.facts import extract_pending
-from envoy.memory.search import mail_search
-from envoy.models.stub import StubModel
-from envoy.report import render
+from localect import db
+from localect.config import Settings
+from localect.evalx.memory import load_mailbox, seed_mailbox
+from localect.evalx.replay import find_pairs, render_replay, replay_to_dicts, run_replay, summarize
+from localect.locales import seed_locales
+from localect.memory import import_paths
+from localect.memory.embed import HashEmbedder
+from localect.memory.facts import extract_pending
+from localect.memory.search import mail_search
+from localect.models.stub import StubModel
+from localect.report import render
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "mail"
 
@@ -78,7 +78,7 @@ def test_replay_scores_and_reports_on_the_stub():
     r = rows[0]
     assert not r.error and r.language == "ar" and r.status
     assert r.numbers_ref == 2 and 0 <= r.numbers_hit <= 2 and r.chrf >= 0
-    assert r.real_reply.startswith("أهلاً عمر") and r.envoy_reply
+    assert r.real_reply.startswith("أهلاً عمر") and r.localect_reply
     assert con.execute("SELECT count(*) AS n FROM history").fetchone()["n"] == 0  # not kept
     s = summarize(rows)
     assert s["n"] == 1 and s["errors"] == 0 and s["numbers_ref"] == 2
@@ -89,11 +89,11 @@ def test_replay_scores_and_reports_on_the_stub():
 
 
 def test_fullrun_quick_writes_every_file_and_one_report(tmp_path, monkeypatch):
-    from envoy.cli import _fullrun
+    from localect.cli import _fullrun
 
-    monkeypatch.setenv("ENVOY_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("ENVOY_PROVIDER", "stub")
-    monkeypatch.setenv("ENVOY_USER_EMAIL", "safea@example.com")
+    monkeypatch.setenv("LOCALECT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("LOCALECT_PROVIDER", "stub")
+    monkeypatch.setenv("LOCALECT_USER_EMAIL", "safea@example.com")
     con = db.connect(Settings.load().db_path)
     import_paths(con, [FIX / "sample.mbox"], my_addresses=["safea@example.com"])
     con.close()

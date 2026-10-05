@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Envoy",
-  "description": "Reply to anyone in their language, and sound like a local. Remembers what you send, with your say-so, into your own local Envoy.",
+  "name": "Localect",
+  "description": "Reply to anyone in their language, and sound like a local. Remembers what you send, with your say-so, into your own Localect.",
   "version": "0.10.0",
   "minimum_chrome_version": "116",
   "icons": {
@@ -10,7 +10,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Envoy",
+    "default_title": "Localect",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png"

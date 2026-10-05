@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from envoy.config import Settings
-from envoy.evalx import experiment
-from envoy.evalx.diagnose import diagnose, render_findings
+from localect.config import Settings
+from localect.evalx import experiment
+from localect.evalx.diagnose import diagnose, render_findings
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "bench"
 
@@ -110,6 +110,6 @@ def test_diagnosis_attributes_failures_to_stages_and_ranks_safety_first():
     critic = next(f for f in fs if f.title.startswith("What the Critic model adds"))
     assert "earns its call" in critic.evidence and "1 caught by the Critic alone" in critic.evidence
     text = render_findings(fs)
-    assert text.startswith("# Findings") and "Lever: src/envoy/prompts/drafter.md" in text
+    assert text.startswith("# Findings") and "Lever: src/localect/prompts/drafter.md" in text
     assert "en-GB-01" in text and "inj-pt-13" in text
     assert render_findings([]).count("Nothing to report") == 1

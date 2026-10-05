@@ -1,12 +1,12 @@
 import asyncio
 import json
 
-from envoy import db
-from envoy.config import Settings
-from envoy.demo import seed_demo
-from envoy.eval import run_eval, run_perturbations, to_json
-from envoy.locales import seed_locales
-from envoy.report import load_docs, render
+from localect import db
+from localect.config import Settings
+from localect.demo import seed_demo
+from localect.eval import run_eval, run_perturbations, to_json
+from localect.locales import seed_locales
+from localect.report import load_docs, render
 
 
 def _eval_doc():
@@ -36,7 +36,7 @@ def test_report_composes_every_section_that_is_present(tmp_path):
     for name, d in (("e.json", doc), ("m.json", massive), ("f.json", flores), ("s.json", study)):
         (tmp_path / name).write_text(json.dumps(d), encoding="utf-8")
     md = render(load_docs([tmp_path / n for n in ("e.json", "m.json", "f.json", "s.json")]))
-    assert md.startswith("# Envoy evaluation report\n")
+    assert md.startswith("# Localect evaluation report\n")
     for heading in ("### Checks", "### Perturbations", "### Reader on MASSIVE",
                     "### Critic back-translation", "### Human study"):
         assert heading in md, heading

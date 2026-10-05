@@ -4,6 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  build: { outDir: "../src/envoy/static", emptyOutDir: true },
+  build: { outDir: "../src/localect/static", emptyOutDir: true },
   server: { proxy: { "/api": "http://127.0.0.1:8765" } },
 });

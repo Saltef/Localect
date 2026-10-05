@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from envoy.evalx.dialect import (
+from localect.evalx.dialect import (
     MADAR_CITIES,
     NgramModel,
     NgramScorer,
@@ -39,7 +39,7 @@ def test_ngram_model_trains_predicts_and_round_trips(tmp_path):
     assert NgramModel().predict("anything") == (None, 0.0)
 
 
-def test_labels_normalize_to_envoy_locales_and_groups():
+def test_labels_normalize_to_localect_locales_and_groups():
     assert normalize_label("CAI") == "ar-EG" and normalize_label("BEI") == "ar-LB"
     assert normalize_label("RIY") == "ar-SA" and normalize_label("MSA") == "ar-MSA"
     assert normalize_label("es-ar") == "es-LA" and normalize_label("pt-br") == "pt-BR"
@@ -63,7 +63,7 @@ def test_discover_loads_trained_models_from_the_data_dir(tmp_path):
 
 def test_camel_backend_maps_cities_to_locales():
     pytest.importorskip("camel_tools")
-    from envoy.evalx.dialect import CamelScorer
+    from localect.evalx.dialect import CamelScorer
 
     try:
         sc = CamelScorer()

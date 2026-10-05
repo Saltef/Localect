@@ -1,36 +1,36 @@
 # Memory: drafting from your own past writing
 
-Envoy's knowledge base holds the facts you wrote down for it. Your mail holds
+Localect's knowledge base holds the facts you wrote down for it. Your mail holds
 the facts you actually told people, in the words you use with them. Memory
-is the part of Envoy that reads the second kind: your past messages, imported
+is the part of Localect that reads the second kind: your past messages, imported
 from an export or captured as you send, searched when a reply is drafted,
 and cited like any other source.
 
 The design is borrowed from meeting recorders. They ask once to join, show
 that they are recording, and hand you notes afterwards that you can correct.
-Envoy's memory asks once per site, shows that it is remembering, and hands
+Localect's memory asks once per site, shows that it is remembering, and hands
 you dated facts with the message each came from.
 
 ## The goal, in milestones
 
 | | Milestone | What it delivers | Status |
 |---|---|---|---|
-| M1 | **Import past mail and documents** | `envoy import` for mbox, `.eml`, Markdown, text and PDF; quoted replies and signatures stripped; a `messages` table; a `mail` MCP tool that ranks the newest statement and the contact being answered first; the Drafter cites mail with who said it and when | done (0.9.0) |
-| M2 | **Retrieval across languages** | Embeddings through the configured provider (Cohere's multilingual embed model on the API path, any OpenAI-compatible server's `/embeddings` locally, an offline hashed embedder otherwise), fused with the token search by reciprocal rank; the contact and recency priors applied after fusion; `envoy index`; the knowledge base searched the same way | done (0.9.1) |
+| M1 | **Import past mail and documents** | `localect import` for mbox, `.eml`, Markdown, text and PDF; quoted replies and signatures stripped; a `messages` table; a `mail` MCP tool that ranks the newest statement and the contact being answered first; the Drafter cites mail with who said it and when | done (0.9.0) |
+| M2 | **Retrieval across languages** | Embeddings through the configured provider (Cohere's multilingual embed model on the API path, any OpenAI-compatible server's `/embeddings` locally, an offline hashed embedder otherwise), fused with the token search by reciprocal rank; the contact and recency priors applied after fusion; `localect index`; the knowledge base searched the same way | done (0.9.1) |
 | M3 | **Extract the correct fact** | An Extractor agent turns each message into dated facts (topic, statement, value) on a reviewable Memory page; facts are sources with `fc:` ids; the Arbiter flags a reply that cites the newest of two disagreeing facts (warn) or an older one (block); your own sent mail as voice examples for the Rewriter | done (0.9.2) |
-| M4 | **Measure it** | A fixture mailbox with superseded facts in seven languages; `envoy bench memory`: recall at k for the token search and the hybrid search, overall and cross-lingual; newest-fact and stale-fact rates; conflict flagging; a Memory section in the report; the stub baseline pinned in the tests | done (0.9.3) |
+| M4 | **Measure it** | A fixture mailbox with superseded facts in seven languages; `localect bench memory`: recall at k for the token search and the hybrid search, overall and cross-lingual; newest-fact and stale-fact rates; conflict flagging; a Memory section in the report; the stub baseline pinned in the tests | done (0.9.3) |
 | M5 | **Sources, exclusions, pause** | Every reply's source panel labels each citation by kind and, for memory, by who said it and when; the Memory page opens any message with its facts, excludes a thread or an address (never searched, read for facts, or used as a voice example, new arrivals included), lists the exclusions, and pauses capture with one click | done (0.9.4) |
-| M6 | **Remember as you send** | The browser extension (Chrome, Edge): Compose in a side panel, a recording-style pill on Gmail, Outlook web and WhatsApp Web, capture on send of the message and the one it answered, per-site pause, paired to your Envoy with a token; the server refuses any other browser origin. See [EXTENSION.md](EXTENSION.md) | done (0.10.0) |
-| M2b | A reranker, if the numbers ask for it | Decided by the Command A run of `envoy bench memory` (EVAL.md): hybrid recall 12/14 at rank 1 and 14/14 at rank 3, a gap of two questions. Not worth a call per reply on this evidence; revisit only if a larger mailbox shows a wider gap | not now |
+| M6 | **Remember as you send** | The browser extension (Chrome, Edge): Compose in a side panel, a recording-style pill on Gmail, Outlook web and WhatsApp Web, capture on send of the message and the one it answered, per-site pause, paired to your Localect with a token; the server refuses any other browser origin. See [EXTENSION.md](EXTENSION.md) | done (0.10.0) |
+| M2b | A reranker, if the numbers ask for it | Decided by the Command A run of `localect bench memory` (EVAL.md): hybrid recall 12/14 at rank 1 and 14/14 at rank 3, a gap of two questions. Not worth a call per reply on this evidence; revisit only if a larger mailbox shows a wider gap | not now |
 | M7 | **Host it** | An owner password (PBKDF2) with a signed session cookie and a sign-in screen; the extension token counts as the owner; a public demo mode with its own in-memory demo store, per-address hourly and global daily caps, on the stub or your model; proxy-aware origin guard, client address and Secure cookie; Docker Compose with Caddy for automatic HTTPS and a persistent volume. See [HOSTING.md](HOSTING.md) | done (0.11.0) |
 
 ## Import
 
 ```bash
-envoy config --user-email you@example.com          # so Envoy knows which mail you wrote
-envoy import ~/Takeout/Mail/All\ mail.mbox         # Gmail Takeout, Apple Mail, Thunderbird
-envoy import ~/Desktop/exported-messages/           # a folder of .eml files, searched recursively
-envoy import policies.md handbook.pdf               # documents go to the knowledge base
+localect config --user-email you@example.com          # so Localect knows which mail you wrote
+localect import ~/Takeout/Mail/All\ mail.mbox         # Gmail Takeout, Apple Mail, Thunderbird
+localect import ~/Desktop/exported-messages/           # a folder of .eml files, searched recursively
+localect import policies.md handbook.pdf               # documents go to the knowledge base
 ```
 
 Each run prints how many messages were stored, how many you wrote, how many
@@ -43,7 +43,7 @@ quoted reply, with the signature removed), the sender, the recipients, the
 date in UTC, the subject, the thread, and a guessed language. Attachments are
 not stored. HTML-only mail is rendered to text with quoted blocks dropped.
 
-PDF import needs `pip install pypdf` (or `pipx inject envoy-ai pypdf`); the
+PDF import needs `pip install pypdf` (or `pipx inject localect pypdf`); the
 other formats need nothing. Folders of raw messages with no extension, as
 maildir exports and the Enron corpus store them, are read like `.eml`.
 
@@ -61,15 +61,15 @@ Which embedder, by provider:
 | provider | embedder | how to set |
 |---|---|---|
 | cohere | `embed-multilingual-v3.0` through `/v2/embed` (query and document input types, batches of 96) | on by default with your key; `--embed-model` to change |
-| openai (Ollama, LM Studio, vLLM) | the model you name, through `/v1/embeddings` | `envoy config --embed-model bge-m3` after `ollama pull bge-m3` |
-| stub, or nothing configured | `hash-v1`: hashed words and character trigrams with Envoy's cross-lingual alias table folded in, offline and deterministic | nothing to set |
+| openai (Ollama, LM Studio, vLLM) | the model you name, through `/v1/embeddings` | `localect config --embed-model bge-m3` after `ollama pull bge-m3` |
+| stub, or nothing configured | `hash-v1`: hashed words and character trigrams with Localect's cross-lingual alias table folded in, offline and deterministic | nothing to set |
 
 ```bash
-envoy index          # embed whatever is not embedded yet; safe to rerun
-envoy check          # shows which embedder is in use
+localect index          # embed whatever is not embedded yet; safe to rerun
+localect check          # shows which embedder is in use
 ```
 
-`envoy import` indexes when it finishes (skip with `--no-index`), the API
+`localect import` indexes when it finishes (skip with `--no-index`), the API
 indexes after an import and after each captured message, and the offline
 embedder indexes at search time because it costs nothing. A remote embedder
 is never called during a search except for the query itself. Vectors live in
@@ -94,8 +94,8 @@ them, searchable, with confirm and reject for each, and shows at the top
 every topic on which two facts disagree, newest first.
 
 ```bash
-envoy import mail.mbox --extract   # read the mail for facts right after importing it
-envoy extract                      # read whatever has not been read yet
+localect import mail.mbox --extract   # read the mail for facts right after importing it
+localect extract                      # read whatever has not been read yet
 ```
 
 A captured message is read on arrival. `POST /api/extract` runs it from the
@@ -157,9 +157,9 @@ what is stored, `DELETE /api/messages/{id}` forgets one.
 ## Measuring it
 
 ```bash
-envoy bench memory                     # the built-in fixture mailbox, configured model
-envoy bench memory --models command-a-03-2025 --out memory.json
-envoy bench memory --data my-mailbox.yaml   # your own, same YAML shape
+localect bench memory                     # the built-in fixture mailbox, configured model
+localect bench memory --models command-a-03-2025 --out memory.json
+localect bench memory --data my-mailbox.yaml   # your own, same YAML shape
 ```
 
 The fixture is `evalset/mailbox.yaml`: messages with `id`, `date`, `from`,
@@ -205,14 +205,14 @@ PUT    /api/settings          {"memory_capture": false}   pause; true resumes
 
 ## Privacy
 
-- Nothing is fetched. You hand Envoy a file, or the extension hands it a
+- Nothing is fetched. You hand Localect a file, or the extension hands it a
   message you chose to send with memory on.
 - Messages never leave the machine. Only the paragraphs retrieved for one
   reply are sent to the model endpoint you configured, inside the Drafter's
   prompt, the same as knowledge-base snippets today.
 - Every stored message can be listed and deleted.
 
-## What the research says, and what Envoy took from it
+## What the research says, and what Localect took from it
 
 Four pieces were read against this design in September 2026. Full texts of
 the arXiv papers were not reachable from the build container; the notes rest
@@ -226,14 +226,14 @@ maintained incrementally, and atomic claims each carrying its verbatim source
 span, author and location, validated mechanically at compile time. On 500
 interview transcripts, compiled claims as the retrieval payload gave 85.2%
 correct answers from about 2.2k reader tokens against 72.5% from 16.3k for
-the best chunking. This is the shape Envoy's memory already has: facts are
+the best chunking. This is the shape Localect's memory already has: facts are
 compiled at import with who, when and the source message, and vectors are
 maintained per paragraph as messages arrive. Two things were missing and one
 was taken: facts are now **validated against their source** at extraction
 (a statement whose wording is not in the message is dropped and counted,
 which removes a model's paraphrases and inventions before they can be
 cited); and the paper's stronger claim, that claims alone beat claims plus
-chunks, is a measurable ablation for `envoy bench memory`, listed below.
+chunks, is a measurable ablation for `localect bench memory`, listed below.
 
 **The LLM wiki** (Karpathy's gist, and the Medium piece "RAG is dead"). Raw
 sources, LLM-written markdown pages, a schema; ingest rewrites the pages a
@@ -243,7 +243,7 @@ at moderate scale (~100 sources, ~hundreds of pages)" and the gist is
 "intentionally abstract". For a mailbox of thousands of messages in seven
 languages with facts that change, LLM-maintained prose pages as the source
 of truth would cost a rewrite of many pages per message and lose provenance
-silently, which the thread's own contributors warn about. What Envoy keeps
+silently, which the thread's own contributors warn about. What Localect keeps
 from it is the reviewable, compounding artifact: the facts table is the
 wiki, kept by code rather than prose, with the conflict check as the lint
 and the Memory page as the index. A deterministic per-topic timeline
@@ -261,13 +261,13 @@ two-tier context, a skeleton of facts and structure with no prose, then
 verbatim passages only when the model asks for them. Reported: a 2B model
 at parity with a 35B on factual integrity, structured retrieval +11.4 points
 over flat RAG at 2B, prompts 26% smaller. This is the most relevant of the
-four for Envoy's local path (an 8B model through Ollama). Envoy already
+four for Localect's local path (an 8B model through Ollama). Localect already
 renders facts verbatim with dates and judges deterministically after
 generation (the Arbiter); the idea to test is **facts first, paragraphs only
 when no fact covers an ask**, which shrinks the Drafter's prompt and gives a
 small model fewer places to confabulate. It is an ablation for the bench,
 not a rewrite. The specific mechanisms are the subject of a patent
-application; Envoy uses the general principle, which is also the ISC
+application; Localect uses the general principle, which is also the ISC
 paper's.
 
 **AlgoRAG** (Adhikari, [arXiv:2609.14572](https://arxiv.org/abs/2609.14572)).
@@ -284,10 +284,10 @@ conditional on the same run.
 
 ## Testing it on your own mail
 
-`envoy replay` replays your inbox: for each real exchange, Envoy answers the
+`localect replay` replays your inbox: for each real exchange, Localect answers the
 incoming message with memory cut off at that date and is scored against the
 reply you actually sent (see [EVAL.md](EVAL.md#replay-your-own-inbox-the-test-on-actual-data)).
-`envoy fullrun` runs it together with every other suite into one report.
+`localect fullrun` runs it together with every other suite into one report.
 Without mail of your own, the Enron corpus is real mail from real people;
 EVAL.md has the three commands.
 

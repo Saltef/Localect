@@ -1,6 +1,6 @@
 // Outlook on the web adapter (outlook.live.com, outlook.office.com).
 (function () {
-  const E = window.Envoy;
+  const E = window.Localect;
   function isSend(ev) {
     if (ev.type === "click") {
       const b = ev.target.closest && ev.target.closest('button[aria-label="Send"], button[name="Send"], button[title="Send"]');

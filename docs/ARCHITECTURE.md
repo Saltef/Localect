@@ -1,6 +1,6 @@
 # Architecture
 
-Envoy turns a message in someone else's language into a reply that reads as
+Localect turns a message in someone else's language into a reply that reads as
 if a native of their region wrote it, and proves to the sender that nothing
 was lost on the way. This document explains how the pieces fit, why they are
 split the way they are, and how the system is measured. Product intent and
@@ -16,12 +16,12 @@ flowchart LR
         EXT["Extension<br/>side-panel Compose · capture on send<br/>(Gmail, Outlook, WhatsApp Web)"]
     end
 
-    subgraph "envoy (one Python process)"
+    subgraph "localect (one Python process)"
         API["FastAPI<br/>/api/compose, /api/settings, …"]
         PIPE["Pipeline<br/>Reader → Drafter → Rewriter → Critic → Arbiter"]
         CONV["Conventions<br/>greeting / sign-off enforcement"]
         MCPC["MCP client"]
-        DB[("SQLite<br/>~/.envoy/envoy.db")]
+        DB[("SQLite<br/>~/.localect/localect.db")]
         subgraph "MCP servers (stdio, started automatically)"
             G[glossary]
             K[knowledge]
@@ -49,18 +49,18 @@ flowchart LR
 
 Everything runs in one process on the user's machine. The only network call
 is to the model endpoint they configured, and by default that is on
-`localhost`. There is no account, no telemetry, and Envoy never sends a
+`localhost`. There is no account, no telemetry, and Localect never sends a
 message: the user copies the reply.
 
 **Why one process, one SQLite file.** The product promise is a three-step
-install and a private tool. A single `pipx install envoy-ai` ships the API,
+install and a private tool. A single `pipx install localect` ships the API,
 the UI (pre-built into the package), the MCP servers, and the sample data.
 Nothing to provision.
 
 **Why MCP for the user's data.** The Drafter reaches the glossary, the
 knowledge base, the user's past mail, past replies, and the current thread
 through five [Model Context Protocol](https://modelcontextprotocol.io)
-servers that Envoy starts over stdio. They are the extension point: an email, chat, or shop
+servers that Localect starts over stdio. They are the extension point: an email, chat, or shop
 connector is another MCP server, and the core never changes. In tests the
 same interface (`Tools` in `tools.py`) is served in-process by
 `DirectTools`, so the pipeline is tested without subprocesses.
@@ -223,7 +223,7 @@ Every composed `Result` is stored whole, so History can replay the
 side-by-side view, and the eval harness can hand any past result to the
 perturbation step without recomposing it.
 
-## 4. How Envoy is measured
+## 4. How Localect is measured
 
 The evaluation is built so a pass or a fail needs no human, no prompt was
 tuned on the samples that count, and every number in `docs/EVAL.md` comes
@@ -237,7 +237,7 @@ flowchart LR
         INJ["injection · 140<br/>20 attacks × 7 languages"]
     end
 
-    DEMO & HELD & INJ --> RUN["envoy eval<br/>compose() on the chosen model"]
+    DEMO & HELD & INJ --> RUN["localect eval<br/>compose() on the chosen model"]
     RUN --> SCORE["score()<br/>locale · preserved · fact · no_wrong ·<br/>terms · no_leaks · no_forbidden · verified"]
     RUN --> INV["invariants<br/>greeting · sign-off (code-enforced, not counted)"]
     RUN --> ABL["dialect ablation<br/>Drafter body vs Rewriter body,<br/>judged by a dialect identifier"]
@@ -246,17 +246,17 @@ flowchart LR
     VER --> ATTR["attribution: caught by Critic,<br/>Arbiter, or neutralized by code ·<br/>false alarms on untouched runs"]
 
     subgraph "Components alone"
-        MASSIVE["envoy bench massive<br/>Reader: language accuracy, slot recall<br/>(MASSIVE 1.1)"]
-        FLORES["envoy bench flores<br/>Critic: chrF of its back-translation<br/>(FLORES-200)"]
+        MASSIVE["localect bench massive<br/>Reader: language accuracy, slot recall<br/>(MASSIVE 1.1)"]
+        FLORES["localect bench flores<br/>Critic: chrF of its back-translation<br/>(FLORES-200)"]
     end
 
     subgraph "Humans"
-        STUDY["envoy study export / score<br/>blind pairwise sheets per locale,<br/>vote share with bootstrap CI,<br/>Krippendorff's α, Cohen's κ"]
+        STUDY["localect study export / score<br/>blind pairwise sheets per locale,<br/>vote share with bootstrap CI,<br/>Krippendorff's α, Cohen's κ"]
     end
 
     SCORE & INV & ABL & ATTR --> JSON[("eval JSON<br/>written after every sample")]
     MASSIVE & FLORES & STUDY --> JSON
-    JSON --> REPORT["envoy report → markdown<br/>counts next to every percentage"]
+    JSON --> REPORT["localect report → markdown<br/>counts next to every percentage"]
     JSON --> CI["CI gate on the stub:<br/>held-out + perturb + injection must pass"]
 ```
 
@@ -297,7 +297,7 @@ Negative results stay in the document.
 ## 5. Code map
 
 ```
-src/envoy/
+src/localect/
   pipeline.py       compose(): the flow above, locale resolution, one revision loop
   agents/           reader, drafter, rewriter, critic, extractor (model-driven); arbiter (code);
                     stage.py runs one prompt → schema round trip with retry
@@ -315,13 +315,13 @@ src/envoy/
   db.py             SQLite schema and migrations
   app.py            FastAPI routes; serves the built UI from static/
   cli.py            serve · check · config · demo · eval · bench · dialect · study · report
-  eval.py           envoy eval: sets, checks, invariants, ablation, perturbations, JSON
+  eval.py           localect eval: sets, checks, invariants, ablation, perturbations, JSON
   perturb.py        the six faults and their attribution
   evalset/          demo.yaml, heldout.yaml, injection.yaml and the Sample model
   evalx/            dialect judges, MASSIVE and FLORES loaders and scorers
   study.py          human study export and scoring
   report.py         markdown report from any of the JSON files
-ui/                 React + Vite + Tailwind, built into src/envoy/static
+ui/                 React + Vite + Tailwind, built into src/localect/static
 tests/              unit · agents · mcp (over stdio) · pipeline · api · e2e (Playwright)
 ```
 
@@ -358,7 +358,7 @@ notice themselves:
 - **The Rewriter–Critic loop is a cousin of an existing idea, not a new
   one.** Andrew Ng's [Translation
   Agent](https://github.com/andrewyng/translation-agent) (2024) popularized
-  a "draft, reflect, refine" loop for machine translation. Envoy's version
+  a "draft, reflect, refine" loop for machine translation. Localect's version
   differs in what it is built for: a reply, not a standalone translation,
   so the Drafter grounds every claim to the user's own sources through
   MCP, the Rewriter is driven by an editable locale profile rather than
@@ -381,7 +381,7 @@ notice themselves:
 - **A single Critic is one step behind current MT-evaluation research.**
   Work such as M-MAD (ACL 2025) and HiMATE builds multi-agent *debate*
   among several judges specifically to reduce single-judge bias in
-  LLM-as-a-judge translation evaluation. Envoy's Critic is one model per
+  LLM-as-a-judge translation evaluation. Localect's Critic is one model per
   run. A debate-style Critic is a reasonable next step if the perturbation
   false-alarm rate does not fall with a better prompt alone; nothing in
   this design assumes a single judge is sufficient, only that it is what

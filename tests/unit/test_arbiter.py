@@ -1,5 +1,5 @@
-from envoy.agents import arbiter
-from envoy.schemas import (
+from localect.agents import arbiter
+from localect.schemas import (
     BackSegment,
     Claim,
     Critique,
@@ -75,7 +75,7 @@ def test_warn_only_gives_check_and_dedupes_with_critic():
 
 
 def test_numbers_dropped_or_invented_by_the_rewrite_are_warned_about():
-    from envoy.agents.arbiter import number_flags
+    from localect.agents.arbiter import number_flags
 
     flags = number_flags("s2", "Returns within 30 days; refund in 5 business days. Order #4521.",
                          "Returns within 45 days; refund in ٥ business days. Order #4521.",
@@ -154,7 +154,7 @@ def test_a_url_in_the_message_echoed_in_the_reply_is_blocked_without_quotes():
 
 
 def test_a_url_echoed_into_history_cannot_ground_itself_on_a_later_run():
-    # Real bug: once a reply with the attacker's link is sent, Envoy's own
+    # Real bug: once a reply with the attacker's link is sent, Localect's own
     # history tool saves it, and history_search then hands that old reply
     # back as a "source" on the next run of the same attack - which the
     # knowledge/glossary exemption must not honour, or the attack launders

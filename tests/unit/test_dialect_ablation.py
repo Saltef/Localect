@@ -1,14 +1,14 @@
 import asyncio
 
-from envoy import db
-from envoy.config import Settings
-from envoy.demo import seed_demo
-from envoy.eval import dialect_ablation, render_table, run_eval, to_json
-from envoy.locales import seed_locales
+from localect import db
+from localect.config import Settings
+from localect.demo import seed_demo
+from localect.eval import dialect_ablation, render_table, run_eval, to_json
+from localect.locales import seed_locales
 
 
 class MarkerScorer:
-    """Labels Portuguese by the one marker Envoy's stub reliably shows: the
+    """Labels Portuguese by the one marker Localect's stub reliably shows: the
     Brazilian greeting 'Olá' never reaches the body, so the body scorer must
     rely on the text itself."""
 
