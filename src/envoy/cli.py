@@ -327,9 +327,10 @@ def _bench_domain(args: argparse.Namespace, settings: Settings, models, banking,
             print(f"  [{r.model}] {r.id} [{r.intent}] -> {r.locale} {r.status}: {state} "
                   f"({r.seconds}s)", flush=True)
 
+        varieties = args.varieties.split(",") if args.varieties else None
         print(f"Envoy bench banking  data={data}  n={args.n}/variety  provider={settings.provider}")
         rows = asyncio.run(banking.run_banking(settings, data, args.n, models, on_row=live,
-                                               seed=args.seed))
+                                               seed=args.seed, varieties=varieties))
         if not rows:
             print("no queries found; expected banking77/test.csv, arbanking77/"
                   "Banking77_full_corpus.csv or wolbanking77/*.csv under --data")
@@ -670,6 +671,8 @@ def main() -> None:
     b.add_argument("--data", help="unpacked dataset directory (massive, flores, banking, "
                                   "health) or a mailbox YAML (memory; default: the built-in one)")
     b.add_argument("--seed", type=int, default=7, help="sampling seed (banking, health)")
+    b.add_argument("--varieties", help="banking: comma-separated subset (en, fr, ar-MSA, ar-PAL, "
+                                       "ar-Saudi, ar-Moroccan, ar-Tunisian); default: all")
     b.add_argument("--direction", default="es", choices=["es", "en"],
                    help="health: the language of the MedlinePlus questions (sources are in the "
                         "other one)")
