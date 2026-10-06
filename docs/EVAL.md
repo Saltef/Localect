@@ -312,6 +312,99 @@ not the language: the numbers on a hosted model are the ones that count and
 are pending the next `localect fullrun --quick`, which now includes 21 domain
 samples.
 
+### Command A (Cohere), first real-model run (2026-10-06, 0.15.2)
+
+All 42 domains samples, `localect eval --set domains --perturb` on
+`command-a-03-2025`. **22/42 passed** (23 `ready`, 8 `check`, 11
+`escalate`). Locale resolution held at 42/42 — every sample, including the
+9 where the Reader gave no region guess, resolved to the sample's expected
+locale; nothing here reproduces the banking bench's region-guess problem.
+
+| domain | passed |
+|---|---|
+| clinic | 8/14 |
+| bank | 6/14 |
+| university | 8/14 |
+
+| language | passed |
+|---|---|
+| ar | 4/6 |
+| de | 1/6 |
+| en | 1/6 |
+| es | 3/6 |
+| fr | 5/6 |
+| ja | 5/6 |
+| pt | 3/6 |
+
+English and German are the weakest languages here, which lines up with the
+banking bench's finding above that English was the worst of six varieties
+at stating a fact it already had: two data points now, not one, that the
+dominant-language replies are not the safe default they would be assumed to
+be. The checks that failed were overwhelmingly `fact` (15 of 16 check
+failures): a number, date or identifier the sample requires is simply not
+in the final text, read from `details.fact` per sample rather than
+guessed, e.g. clinic-de-01 missing "8; 17" (the weekday hours), bank-en-01
+missing the card hotline number. One `no_wrong` failure, bank-en-01, is the
+already-documented "24/7" false positive from *Negative results* below,
+recurring here on a real domain sample rather than only the banking bench.
+Five of the 20 failures (clinic-ar-02, clinic-pt-01, university-en-01,
+university-en-02, university-de-01) pass every check and fail only because
+the run escalated on a blocking Critic flag, the same pattern the held-out
+set's second real run documented.
+
+Perturbations, 252 planted faults on the 42 replies (`drop_preserved` and
+`change_number` are only applicable where a sample has a must-preserve item
+or a number in the reply, hence n below 42):
+
+| fault | n | caught | critic | arbiter | neutralized |
+|---|---|---|---|---|---|
+| drop_preserved | 4 | 100% (4/4) | 75% (3/4) | 75% (3/4) | 0% (0/4) |
+| change_number | 31 | 100% (31/31) | 100% (31/31) | 100% (31/31) | 0% (0/31) |
+| wrong_greeting | 42 | 95% (40/42) | 38% (16/42) | 0% (0/42) | 93% (39/42) |
+| add_promise | 42 | 100% (42/42) | 100% (42/42) | 100% (42/42) | 0% (0/42) |
+| leak_citation | 42 | 100% (42/42) | 29% (12/42) | 0% (0/42) | 100% (42/42) |
+| slang | 42 | 100% (42/42) | 100% (42/42) | 0% (0/42) | 0% (0/42) |
+
+False alarms on 27 untouched passing runs: Critic blocked 7 (26%), Arbiter
+blocked 0, Arbiter warned 4. The Critic's false-block rate here is the
+highest recorded in this document for a real model; worth reading the 7
+blocked replies in full before trusting this harness's Critic numbers on
+the domains set the way the held-out set's are trusted.
+
+**A real finding, not yet fixed: the greeting invariant failed on three
+Japanese samples** (clinic-ja-01, bank-ja-01, bank-ja-02) in the
+unperturbed base run — `invariants.greeting` is `false`, something
+`docs/ARCHITECTURE.md` says code enforcement should make impossible. Reading
+the actual text, the reply is not missing a greeting: all three open with a
+normal two-line Japanese business greeting ("お客様\nお世話になっております。",
+"dear customer / thank you for your continued support"), so this is the
+code's greeting-recognition failing to match a two-segment opening, not an
+absent one. The same two of three samples (clinic-ja-01, bank-ja-01) are
+also the only two misses out of 42 in the `wrong_greeting` perturbation
+row above — the perturbation harness's greeting-segment detector has the
+same blind spot as the enforcement step, which is consistent with one
+underlying cause rather than two. This reads like the same class of bug as
+the first real run's Japanese sign-off fix (`docs/EVAL.md`, the 0.8.2
+harness faults): a greeting/sign-off rule that does not generalize to every
+way a script can open a message. Not fixed here; the next step is reading
+`conventions.py`'s greeting-segment matching against these three drafts,
+not guessing at the cause from the final text alone.
+
+**A second anomaly, read but not yet explained: the sign-off invariant
+failed on 11 of 42 samples** (clinic-es-02, clinic-fr-01, clinic-fr-02,
+bank-pt-02, bank-es-02, bank-fr-01, bank-fr-02, bank-ja-02,
+university-en-01, university-en-02, university-es-02). Unlike the greeting
+case, these are not obviously missing anything either: they end in what
+reads as a complete, well-formed sign-off plus a domain-specific
+attribution line ("Un saludo,\n\nEl equipo de atención al cliente", "Bien
+cordialement,\n\nLe Service Client", "Best,\n\nThe Admissions Team"). Each
+domain's own knowledge base evidently supplies a signing name the Drafter
+is using; whether the invariant is right to fail on that (an attribution
+line after the user's configured sign-off is still the user's sign-off, or
+isn't) is a product question, not resolved by this run. Recorded here
+rather than silently passed over, per this document's own rule on negative
+results.
+
 ## Public data in other languages: banking and health
 
 The sets above are authored. These two benches take real customer and

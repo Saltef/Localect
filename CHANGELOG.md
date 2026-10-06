@@ -21,3 +21,9 @@ retroactively reconstructed.
 - `docs/EVAL.md`: split the banking bench's region-resolution misses into
   "no guess" versus "guessed wrong," since the two have different fixes.
 - Added `SECURITY.md`, `CONTRIBUTING.md`, issue and pull request templates.
+- `docs/EVAL.md`: first real-model (Command A) run of the domains set,
+  22/42 passed. Surfaced two unfixed findings: a greeting-invariant miss on
+  three Japanese samples (code enforcement not recognizing a two-line
+  greeting) and a sign-off-invariant question on 11 samples with a
+  domain-supplied attribution line after the configured sign-off. Neither
+  is fixed yet; both need a code-level look, not a prompt change.
