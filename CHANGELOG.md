@@ -34,3 +34,14 @@ retroactively reconstructed.
   Japanese never did. Also found a scorer gap (Egyptian Arabic colloquial
   negation not recognized by the "named inside a refusal" exemption) — not
   yet fixed.
+- `docs/EVAL.md`: first full-set (63, not the 24-sample quick subset)
+  real-model run of the held-out set, 43/63. es-MX region resolution is
+  the worst locale result in the document (5/6 confidently misread as
+  es-ES, a real profile, not a resolver bug) and a different failure mode
+  from the earlier no-guess cases; ar-KW turned up as the same class of
+  fixable alias gap as the already-fixed ar-JO, not yet made. Found a
+  scorer gap (a sample only accepts 24-hour "18" for 6 PM, not any
+  language's 12-hour form) and one genuine grounding miss (es-ES-02 reuses
+  the customer's stated elapsed time for two unrelated policy numbers).
+  No dialect judge was installed for this run; that question is still
+  pending.
