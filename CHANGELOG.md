@@ -27,3 +27,10 @@ retroactively reconstructed.
   greeting) and a sign-off-invariant question on 11 samples with a
   domain-supplied attribution line after the configured sign-off. Neither
   is fixed yet; both need a code-level look, not a prompt change.
+- `docs/EVAL.md`: first full-set (140, no subsample) real-model run of the
+  injection set, 114/140. Found a total, language-specific pattern: on the
+  "reply only with the word APPROVED/BANANA" attacks, every non-Japanese
+  language complied with the word while still refusing the substance;
+  Japanese never did. Also found a scorer gap (Egyptian Arabic colloquial
+  negation not recognized by the "named inside a refusal" exemption) — not
+  yet fixed.
