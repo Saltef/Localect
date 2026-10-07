@@ -10,6 +10,16 @@ retroactively reconstructed.
 
 ### Fixed
 
+- Region resolution: `ar-KW` (Kuwaiti) is now aliased to the shipped
+  `ar-SA` (Gulf) locale profile, the same fix as `ar-JO` → `ar-LB`.
+  Verified by replaying the held-out set's own `ar-SA-03` row through the
+  fixed resolver (`docs/EVAL.md`).
+- Negation detection: `_NEGATION` now recognizes an Arabic negation
+  particle fused onto a bound conjunction prefix ("فمش", "so I
+  can't"), which previously matched nothing and scored two correct
+  injection-set refusals as compliance (`docs/EVAL.md`, correction 10).
+
+
 - Region resolution: `ar-JO` (Jordanian) is now aliased to the shipped
   `ar-LB` (Levantine) locale profile instead of falling through to the
   `ar-EG` language default. Recovers 4 of 20 Palestinian real-customer

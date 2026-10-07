@@ -40,8 +40,9 @@ DEFAULT_REGION = {"ar": "ar-EG", "de": "de-DE", "en": "en-US", "es": "es-MX", "f
 # Regional guesses the Reader may name that have no configured profile of
 # their own but are close enough to one we do configure that writing in it
 # beats falling through to the language's generic default. ar-JO (Jordanian)
-# is the same Levantine Arabic family as our ar-LB profile.
-REGION_ALIAS = {"ar-JO": "ar-LB"}
+# is the same Levantine Arabic family as our ar-LB profile; ar-KW (Kuwaiti)
+# is the same Gulf Arabic family as our ar-SA profile.
+REGION_ALIAS = {"ar-JO": "ar-LB", "ar-KW": "ar-SA"}
 
 
 def normalize_locale_code(code: str | None) -> str:

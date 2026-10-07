@@ -332,8 +332,12 @@ def has_value(text: str, value: str) -> bool:
 
 # Negation and quotation: a forbidden phrase inside a sentence that denies it,
 # or inside quotation marks, is a refusal that names the thing, not a promise.
+# Arabic's "and"/"so" (و, ف) are bound prefixes with no space before the word
+# they attach to, so a negation particle fused onto one ("فمش", "so I can't")
+# needs the boundary check to also accept that prefix, not just a true word
+# boundary.
 _NEGATION = re.compile(
-    r"(?<!\w)(?:not|no|never|cannot|can't|won't|don't|doesn't|isn't|aren't|unable|"
+    r"(?:(?<!\w)|(?<=[فو]))(?:not|no|never|cannot|can't|won't|don't|doesn't|isn't|aren't|unable|"
     r"nunca|ni|jamás|tampoco|não|nem|ne|pas|jamais|aucun|aucune|nicht|kein|keine|"
     r"keinen|nie|niemals|لا|لن|لم|ليس|ليست|غير|مش|ما|ولا)(?!\w)|n't\b"
     # Japanese has no word spaces, so its markers match anywhere.
